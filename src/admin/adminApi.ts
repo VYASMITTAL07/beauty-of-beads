@@ -5,7 +5,8 @@
 function readViteEnv(key: "VITE_API_BASE"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
-const API_BASE = readViteEnv("VITE_API_BASE") || "http://localhost:8787";
+//const API_BASE = readViteEnv("VITE_API_BASE") || "http://localhost:8787";
+const API_BASE = readViteEnv("VITE_API_BASE") || "https://beauty-of-beads-api.vyasmittal1206.workers.dev";
 
 export class AdminApiError extends Error {
   status: number;
