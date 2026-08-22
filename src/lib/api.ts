@@ -28,7 +28,7 @@ const API_BASE = readViteEnv("VITE_API_BASE") || "http://localhost:4000";
 // approach that reliably survives the Parcel artifact build (see note above). Empty
 // until it's set — the UI shows a friendly "being set up" message instead of a broken
 // button when this is blank.
-const GOOGLE_CLIENT_ID_HARDCODED = ""; // <-- paste the Client ID from Google Cloud Console here
+const GOOGLE_CLIENT_ID_HARDCODED = "958754486244-3ji2ug716o2vgpl3g27v6v5ipk07trbe.apps.googleusercontent.com"; // <-- paste the Client ID from Google Cloud Console here
 const GOOGLE_CLIENT_ID = readViteEnv("VITE_GOOGLE_CLIENT_ID") || GOOGLE_CLIENT_ID_HARDCODED;
 export { GOOGLE_CLIENT_ID };
 
