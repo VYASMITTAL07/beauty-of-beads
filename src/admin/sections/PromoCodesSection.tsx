@@ -33,6 +33,14 @@ export default function PromoCodesSection({ onError, onSuccess }: { onError: (m:
       onError("Code and value are required.");
       return;
     }
+    if (!form.maxDiscountAmount) {
+      onError("Max discount is required.");
+      return;
+    }
+    if (!form.expiresAt) {
+      onError("Expiry date is required.");
+      return;
+    }
     setSaving(true);
     try {
       await adminApi.promoCodes.create({
@@ -103,16 +111,17 @@ export default function PromoCodesSection({ onError, onSuccess }: { onError: (m:
           <Input type="number" placeholder="0" value={form.minOrderAmount} onChange={(e) => setForm({ ...form, minOrderAmount: e.target.value })} />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Max discount ₹ (optional)</Label>
-          <Input type="number" value={form.maxDiscountAmount} onChange={(e) => setForm({ ...form, maxDiscountAmount: e.target.value })} />
+          <Label className="text-xs">Max discount ₹</Label>
+          <Input type="number" required value={form.maxDiscountAmount} onChange={(e) => setForm({ ...form, maxDiscountAmount: e.target.value })} />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Usage limit (optional)</Label>
+          <Label className="text-xs">Usage limit (unique customers, optional)</Label>
           <Input type="number" value={form.usageLimit} onChange={(e) => setForm({ ...form, usageLimit: e.target.value })} />
+          <p className="text-[11px] text-foreground/50">Each customer can use a code once — this caps how many different customers total.</p>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Expires (optional)</Label>
-          <Input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
+          <Label className="text-xs">Expires</Label>
+          <Input type="date" required value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={saving} className="w-full bg-olive-600 hover:bg-black">

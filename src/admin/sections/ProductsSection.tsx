@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { adminApi, AdminApiError, type AdminProduct } from "../adminApi";
+import { adminApi, AdminApiError, type AdminCategory, type AdminProduct } from "../adminApi";
 
 type FormState = {
   name: string;
@@ -14,10 +14,9 @@ type FormState = {
   rating: string;
   stock: string;
   description: string;
-  materialsCare: string;
-  shippingReturns: string;
   images: string[];
   videos: string[];
+  colors: string[];
   isBestseller: boolean;
   isNewArrival: boolean;
   isFeatured: boolean;
@@ -32,10 +31,9 @@ const emptyForm: FormState = {
   rating: "4.5",
   stock: "100",
   description: "",
-  materialsCare: "",
-  shippingReturns: "",
   images: [],
   videos: [],
+  colors: [],
   isBestseller: false,
   isNewArrival: false,
   isFeatured: false,
@@ -51,10 +49,9 @@ function productToForm(p: AdminProduct): FormState {
     rating: String(p.rating),
     stock: String(p.stock),
     description: p.description,
-    materialsCare: p.materialsCare,
-    shippingReturns: p.shippingReturns,
     images: p.images,
     videos: p.videos,
+    colors: p.colors || [],
     isBestseller: p.isBestseller,
     isNewArrival: p.isNewArrival,
     isFeatured: p.isFeatured,
@@ -203,8 +200,18 @@ function ProductFormModal({
   const [form, setForm] = useState<FormState>(product ? productToForm(product) : emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<AdminCategory[] | null>(null);
+  const [hasColors, setHasColors] = useState((product?.colors.length ?? 0) > 0);
+  const [newColor, setNewColor] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    adminApi.categories
+      .list()
+      .then((r) => setCategories(r.categories))
+      .catch(() => setCategories([])); // fall back to free-text entry below if this fails
+  }, []);
 
   const uploadFile = async (file: File, kind: "images" | "videos") => {
     setUploading(true);
@@ -225,6 +232,8 @@ function ProductFormModal({
       return;
     }
     setSaving(true);
+    // materialsCare/shippingReturns are intentionally omitted — that copy is
+    // now managed once for the whole site in Website Editor, not per-product.
     const payload = {
       name: form.name.trim(),
       category: form.category.trim(),
@@ -233,10 +242,9 @@ function ProductFormModal({
       rating: Number(form.rating) || 4.5,
       stock: Number(form.stock) || 0,
       description: form.description,
-      materialsCare: form.materialsCare,
-      shippingReturns: form.shippingReturns,
       images: form.images,
       videos: form.videos,
+      colors: form.colors,
       isBestseller: form.isBestseller,
       isNewArrival: form.isNewArrival,
       isFeatured: form.isFeatured,
@@ -273,7 +281,30 @@ function ProductFormModal({
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </Field>
           <Field label="Category">
-            <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
+            {categories && categories.length > 0 ? (
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                required
+                className="h-9 w-full rounded-sm border border-border bg-background px-2 text-sm"
+              >
+                <option value="" disabled>
+                  Select a category…
+                </option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="No categories yet — add one in Website Editor"
+                required
+              />
+            )}
           </Field>
           <Field label="Price ₹">
             <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
@@ -293,12 +324,9 @@ function ProductFormModal({
           <Field label="Description">
             <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </Field>
-          <Field label="Materials & care">
-            <Textarea rows={2} value={form.materialsCare} onChange={(e) => setForm({ ...form, materialsCare: e.target.value })} />
-          </Field>
-          <Field label="Shipping & returns">
-            <Textarea rows={2} value={form.shippingReturns} onChange={(e) => setForm({ ...form, shippingReturns: e.target.value })} />
-          </Field>
+          <p className="text-xs text-foreground/50">
+            Materials & care and shipping & returns info is now managed once for the whole site — see Website Editor.
+          </p>
         </div>
 
         <div className="mt-4">
@@ -373,6 +401,59 @@ function ProductFormModal({
               }}
             />
           </div>
+        </div>
+
+        <div className="mt-4">
+          <ToggleField
+            label="This product has color options"
+            checked={hasColors}
+            onChange={(v) => {
+              setHasColors(v);
+              if (!v) setForm((f) => ({ ...f, colors: [] }));
+            }}
+          />
+          {hasColors && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {form.colors.map((color, i) => (
+                <div key={i} className="flex items-center gap-1 rounded-sm border border-border bg-olive-50 py-1 pl-2 pr-1 text-xs">
+                  {color}
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, colors: f.colors.filter((_, idx) => idx !== i) }))}
+                    className="flex h-4 w-4 items-center justify-center text-foreground/50 hover:text-clay-500"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-1">
+                <input
+                  value={newColor}
+                  onChange={(e) => setNewColor(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newColor.trim()) {
+                      e.preventDefault();
+                      setForm((f) => ({ ...f, colors: [...f.colors, newColor.trim()] }));
+                      setNewColor("");
+                    }
+                  }}
+                  placeholder="e.g. Rose Gold"
+                  className="h-8 w-32 rounded-sm border border-border bg-background px-2 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!newColor.trim()) return;
+                    setForm((f) => ({ ...f, colors: [...f.colors, newColor.trim()] }));
+                    setNewColor("");
+                  }}
+                  className="rounded-sm border border-dashed border-border px-2 py-1.5 text-xs text-foreground/50 hover:bg-olive-50"
+                >
+                  + Add color
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex flex-wrap gap-6">

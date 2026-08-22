@@ -20,7 +20,6 @@ function readViteEnv(key: "VITE_API_BASE" | "VITE_GOOGLE_CLIENT_ID"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
 
-//const API_BASE = readViteEnv("VITE_API_BASE") || "http://localhost:4000";
 const API_BASE = readViteEnv("VITE_API_BASE") || "https://beauty-of-beads-api.vyasmittal1206.workers.dev";
 
 // Google Cloud OAuth Client ID (Web application) for "Sign in with Google". Client IDs
@@ -29,7 +28,7 @@ const API_BASE = readViteEnv("VITE_API_BASE") || "https://beauty-of-beads-api.vy
 // approach that reliably survives the Parcel artifact build (see note above). Empty
 // until it's set — the UI shows a friendly "being set up" message instead of a broken
 // button when this is blank.
-const GOOGLE_CLIENT_ID_HARDCODED = "958754486244-3ji2ug716o2vgpl3g27v6v5ipk07trbe.apps.googleusercontent.com"; // <-- paste the Client ID from Google Cloud Console here
+const GOOGLE_CLIENT_ID_HARDCODED = "958754486244-3ji2ug716o2vgpl3g27v6v5ipk07trbe.apps.googleusercontent.com";
 const GOOGLE_CLIENT_ID = readViteEnv("VITE_GOOGLE_CLIENT_ID") || GOOGLE_CLIENT_ID_HARDCODED;
 export { GOOGLE_CLIENT_ID };
 
@@ -105,8 +104,35 @@ export const api = {
     place: (data: {
       items: { productName: string; productPrice: number; quantity: number }[];
       currencyCode?: string;
-      shipping: { name: string; line1: string; line2?: string; city: string; state?: string; postalCode?: string; country: string };
-    }) => request<{ orderNumber: string; orderId: number; totalAmount: number }>("/api/orders", { method: "POST", body: JSON.stringify(data) }),
+      promoCode?: string;
+      shipping: ShippingInput;
+    }) =>
+      request<{ orderNumber: string; orderId: number; totalAmount: number; discountAmount: number }>("/api/orders", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    previewPromo: (code: string, subtotal: number) =>
+      request<{ valid: boolean; discountAmount?: number; error?: string }>("/api/orders/preview-promo", {
+        method: "POST",
+        body: JSON.stringify({ code, subtotal }),
+      }),
+    // Confirms a custom order an admin built for this customer (status
+    // 'awaiting_payment') — the customer supplies/confirms shipping details
+    // here and it becomes a normal order, same as a self-service checkout.
+    confirm: (orderNumber: string, shipping: ShippingInput) =>
+      request<{ ok: true; orderNumber: string }>(`/api/orders/${encodeURIComponent(orderNumber)}/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ shipping }),
+      }),
+  },
+  categories: {
+    list: () => request<{ categories: CategoryDto[] }>("/api/categories"),
+  },
+  siteSettings: {
+    get: () => request<{ settings: Record<string, string> }>("/api/site-settings"),
+  },
+  featuredReviews: {
+    list: () => request<{ reviews: FeaturedReviewDto[] }>("/api/featured-reviews"),
   },
   newsletter: {
     subscribe: (email: string) =>
@@ -149,7 +175,10 @@ export type WishlistItemDto = { id: number; product_name: string; product_price:
 export type OrderSummaryDto = { id: number; order_number: string; status: string; total_amount: number; currency_code: string; created_at: string };
 export type OrderDto = OrderSummaryDto & {
   user_id: number;
+  created_by_admin?: boolean | number;
+  custom_note?: string | null;
   shipping_name: string;
+  shipping_phone?: string | null;
   shipping_line1: string;
   shipping_line2: string | null;
   shipping_city: string;
@@ -189,3 +218,15 @@ export type ReviewableItemDto = {
   product_name: string;
   product_price: number;
 };
+export type ShippingInput = {
+  name: string;
+  phone: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  postalCode?: string;
+  country: string;
+};
+export type CategoryDto = { id: number; name: string; slug: string; imageUrl: string };
+export type FeaturedReviewDto = { id: number; reviewer_name: string; rating: number; comment: string; product_name: string | null };

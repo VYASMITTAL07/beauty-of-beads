@@ -5,7 +5,6 @@
 function readViteEnv(key: "VITE_API_BASE"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
-//const API_BASE = readViteEnv("VITE_API_BASE") || "http://localhost:8787";
 const API_BASE = readViteEnv("VITE_API_BASE") || "https://beauty-of-beads-api.vyasmittal1206.workers.dev";
 
 export class AdminApiError extends Error {
@@ -74,6 +73,7 @@ export type AdminOrder = {
   discount_amount: number;
   customer_name: string;
   customer_email: string;
+  created_by_admin?: number | boolean;
   created_at: string;
   updated_at: string;
 };
@@ -81,12 +81,14 @@ export type AdminOrder = {
 export type AdminOrderDetail = {
   order: AdminOrder & {
     shipping_name: string;
+    shipping_phone: string | null;
     shipping_line1: string;
     shipping_line2: string | null;
     shipping_city: string;
     shipping_state: string | null;
     shipping_postal_code: string | null;
     shipping_country: string;
+    custom_note: string | null;
   };
   items: { product_name: string; product_price: number; quantity: number }[];
   history: { status: string; note: string | null; created_at: string }[];
@@ -142,6 +144,17 @@ export type PromoCodeInput = {
   expiresAt?: string | null;
 };
 
+export type AdminCategory = { id: number; name: string; slug: string; imageUrl: string; sortOrder: number };
+export type AdminFeaturedReview = {
+  id: number;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  product_name: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
 export type AdminAnalytics = {
   orderCount: number;
   revenue: number;
@@ -176,10 +189,37 @@ export const adminApi = {
     get: (id: number) => request<AdminOrderDetail>(`/api/admin/orders/${id}`),
     setStatus: (id: number, status: string, note?: string) =>
       request<{ ok: true; status: string }>(`/api/admin/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) }),
+    resendDeliveryEmail: (id: number) => request<{ ok: true }>(`/api/admin/orders/${id}/resend-delivery-email`, { method: "POST" }),
   },
   customers: {
     list: () => request<{ customers: AdminCustomer[] }>("/api/admin/customers"),
     orders: (id: number) => request<{ orders: AdminOrder[] }>(`/api/admin/customers/${id}/orders`),
+    createCustomOrder: (id: number, data: { items: { productName: string; productPrice: number; quantity?: number }[]; note?: string }) =>
+      request<{ orderNumber: string; orderId: number; totalAmount: number }>(`/api/admin/customers/${id}/custom-order`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+  categories: {
+    list: () => request<{ categories: AdminCategory[] }>("/api/admin/categories"),
+    create: (data: { name: string; imageUrl?: string; sortOrder?: number }) =>
+      request<{ category: AdminCategory }>("/api/admin/categories", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{ name: string; imageUrl: string; sortOrder: number }>) =>
+      request<{ category: AdminCategory }>(`/api/admin/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    remove: (id: number) => request<{ ok: true }>(`/api/admin/categories/${id}`, { method: "DELETE" }),
+  },
+  siteSettings: {
+    get: () => request<{ settings: Record<string, string> }>("/api/admin/site-settings"),
+    update: (data: Record<string, string>) =>
+      request<{ settings: Record<string, string> }>("/api/admin/site-settings", { method: "PUT", body: JSON.stringify(data) }),
+  },
+  featuredReviews: {
+    list: () => request<{ reviews: AdminFeaturedReview[] }>("/api/admin/featured-reviews"),
+    create: (data: { reviewerName: string; rating: number; comment: string; productName?: string; sortOrder?: number }) =>
+      request<{ review: AdminFeaturedReview }>("/api/admin/featured-reviews", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{ reviewerName: string; rating: number; comment: string; productName: string; sortOrder: number }>) =>
+      request<{ review: AdminFeaturedReview }>(`/api/admin/featured-reviews/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    remove: (id: number) => request<{ ok: true }>(`/api/admin/featured-reviews/${id}`, { method: "DELETE" }),
   },
   reviews: {
     list: (product?: string) => request<{ reviews: AdminReview[] }>(`/api/admin/reviews${product ? `?product=${encodeURIComponent(product)}` : ""}`),
