@@ -37,8 +37,8 @@ export default function ComplaintsSection({ onError, onSuccess }: { onError: (m:
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-serif text-2xl text-olive-600">Complaints</h1>
-        <div className="flex rounded-sm border border-border bg-background p-0.5 text-sm">
+        <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Complaints</h1>
+        <div className="flex flex-wrap rounded-sm border border-border bg-background p-0.5 text-xs sm:text-sm">
           {(["all", "open", "in_progress", "resolved", "rejected"] as View[]).map((v) => (
             <button
               key={v}
@@ -54,7 +54,42 @@ export default function ComplaintsSection({ onError, onSuccess }: { onError: (m:
         </div>
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-border bg-background">
+      {/* Mobile: card list — an eight-column table cannot work on a phone. */}
+      <div className="mt-5 flex flex-col gap-2 lg:hidden">
+        {complaints?.map((c) => (
+          <div key={c.id} className="rounded-md border border-border bg-background p-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-mono text-xs text-foreground/70">{c.order_number}</span>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
+            </div>
+            <p className="mt-1.5 truncate text-sm font-medium">{c.customer_name}</p>
+            <p className="truncate text-xs text-foreground/50">{c.product_name || "General"}</p>
+            <p className="mt-1.5 line-clamp-2 text-xs text-foreground/70">{c.description}</p>
+            {c.images.length > 0 && (
+              <p className="mt-1 text-[11px] text-foreground/40">
+                {c.images.length} photo{c.images.length === 1 ? "" : "s"}
+              </p>
+            )}
+            <div className="mt-2.5 flex items-center justify-between gap-3">
+              <a href={`tel:${c.phone}`} className="text-xs text-olive-600 hover:underline">
+                {c.phone}
+              </a>
+              <button
+                type="button"
+                onClick={() => setOpenComplaintId(c.id)}
+                className="rounded-sm border border-olive-400 px-3 py-1.5 text-xs font-medium text-olive-600 transition-colors hover:bg-olive-50"
+              >
+                View
+              </button>
+            </div>
+          </div>
+        ))}
+        {complaints && complaints.length === 0 && (
+          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">No complaints found.</p>
+        )}
+      </div>
+
+      <div className="mt-5 hidden overflow-x-auto rounded-md border border-border bg-background lg:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
@@ -167,8 +202,8 @@ function ComplaintDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-md bg-background p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 py-6 sm:p-4 sm:py-8" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-md bg-background p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
         {!current ? (
           <p className="text-sm text-foreground/50">Loading…</p>
         ) : (

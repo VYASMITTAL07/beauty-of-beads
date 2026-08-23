@@ -149,6 +149,22 @@ export const api = {
         body: JSON.stringify({ shipping }),
       }),
   },
+  // Saved shipping addresses. Backs the Profile page's address form and
+  // gives checkout something to prefill from.
+  addresses: {
+    list: () => request<{ addresses: AddressDto[] }>("/api/addresses"),
+    create: (data: AddressInput) => request<{ addresses: AddressDto[] }>("/api/addresses", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<AddressInput>) =>
+      request<{ addresses: AddressDto[] }>(`/api/addresses/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    remove: (id: number) => request<{ addresses: AddressDto[] }>(`/api/addresses/${id}`, { method: "DELETE" }),
+    setDefault: (id: number) => request<{ addresses: AddressDto[] }>(`/api/addresses/${id}/default`, { method: "POST" }),
+  },
+  // One call for the whole homepage. Replaces four separate requests, and
+  // queries each carousel directly so a section is never truncated by the
+  // products endpoint's page limit.
+  homepage: {
+    get: () => request<HomepagePayload>("/api/homepage"),
+  },
   categories: {
     list: () => request<{ categories: CategoryDto[] }>("/api/categories"),
   },
@@ -221,6 +237,8 @@ export type OrderDto = OrderSummaryDto & {
   shipping_state: string | null;
   shipping_postal_code: string | null;
   shipping_country: string;
+  promo_code?: string | null;
+  discount_amount?: number | null;
   updated_at: string;
 };
 export type OrderItemDto = { product_name: string; product_price: number; quantity: number; product_image?: string | null };
@@ -266,6 +284,43 @@ export type ShippingInput = {
   country: string;
 };
 export type CategoryDto = { id: number; name: string; slug: string; imageUrl: string };
+export type AddressDto = {
+  id: number;
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string | null;
+  postalCode: string | null;
+  country: string;
+  isDefault: boolean;
+  createdAt: string;
+};
+export type AddressInput = {
+  label?: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country?: string;
+  isDefault?: boolean;
+};
+// Trimmed product shape used by homepage carousels — the detail view fetches
+// the full product when a card is opened.
+export type ProductCardDto = Pick<
+  ProductDto,
+  "id" | "slug" | "name" | "category" | "price" | "mrp" | "rating" | "images" | "colors" | "bg" | "isBestseller" | "isNewArrival" | "isFeatured" | "isSpotlight" | "stock"
+>;
+export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight";
+export type HomepageImageSlot = "hero" | "heritageBanner" | "storeVisitBanner";
+export type HomepagePayload = {
+  images: Record<HomepageImageSlot, string[]>;
+  categories: CategoryDto[];
+  sections: Record<HomepageSectionKey, ProductCardDto[]>;
+  featuredReviews: FeaturedReviewDto[];
+  settings: { materials_care: string; shipping_returns: string };
+};
 export type FeaturedReviewDto = { id: number; reviewer_name: string; rating: number; comment: string; product_name: string | null };
 export type ComplaintDto = {
   id: number;

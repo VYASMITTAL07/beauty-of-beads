@@ -40,7 +40,7 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-serif text-2xl text-olive-600">Orders</h1>
+        <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Orders</h1>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-sm border border-border bg-background p-0.5 text-sm">
             {(["all", "pending", "completed"] as View[]).map((v) => (
@@ -71,7 +71,35 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
         </div>
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-border bg-background">
+      {/* Mobile: card list */}
+      <div className="mt-5 flex flex-col gap-2 md:hidden">
+        {visible?.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => setOpenOrderId(o.id)}
+            className="w-full rounded-md border border-border bg-background p-3 text-left transition-colors hover:border-olive-400"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-mono text-xs text-foreground/70">{o.order_number}</span>
+              <span className="shrink-0 rounded-full bg-olive-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-olive-600">
+                {STATUS_LABEL[o.status] || o.status}
+              </span>
+            </div>
+            <p className="mt-1.5 truncate text-sm font-medium">{o.customer_name}</p>
+            <p className="truncate text-xs text-foreground/50">{o.customer_email}</p>
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className="text-foreground/50">{new Date(o.created_at).toLocaleDateString("en-IN")}</span>
+              <span className="font-serif text-sm">₹{o.total_amount.toLocaleString("en-IN")}</span>
+            </div>
+          </button>
+        ))}
+        {visible && visible.length === 0 && (
+          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">No orders found.</p>
+        )}
+      </div>
+
+      <div className="mt-5 hidden overflow-x-auto rounded-md border border-border bg-background md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
@@ -201,8 +229,8 @@ function OrderDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md bg-background p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md bg-background p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
         {!detail ? (
           <p className="text-sm text-foreground/50">Loading…</p>
         ) : (
