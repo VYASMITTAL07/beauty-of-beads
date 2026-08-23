@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { adminApi, AdminApiError, type AdminComplaint } from "../adminApi";
+import { adminApi, AdminApiError, mediaUrl, type AdminComplaint } from "../adminApi";
 
 type View = "all" | "open" | "in_progress" | "resolved" | "rejected";
 
@@ -242,7 +242,7 @@ function ComplaintDetailModal({
                       onClick={() => setLightboxSrc(src)}
                       className="h-20 w-20 overflow-hidden rounded-sm border border-border"
                     >
-                      <img src={src} alt={`Complaint photo ${i + 1}`} className="h-full w-full object-cover" />
+                      <img src={mediaUrl(src)} alt={`Complaint photo ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -284,7 +284,7 @@ function ComplaintDetailModal({
             setLightboxSrc(null);
           }}
         >
-          <img src={lightboxSrc} alt="" className="max-h-full max-w-full rounded-sm object-contain" />
+          <img src={mediaUrl(lightboxSrc)} alt="" className="max-h-full max-w-full rounded-sm object-contain" />
           <button
             type="button"
             onClick={() => setLightboxSrc(null)}
