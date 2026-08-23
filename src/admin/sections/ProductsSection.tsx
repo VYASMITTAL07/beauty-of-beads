@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { adminApi, AdminApiError, type AdminCategory, type AdminProduct } from "../adminApi";
+import { adminApi, AdminApiError, mediaUrl, type AdminCategory, type AdminProduct } from "../adminApi";
 
 type FormState = {
   name: string;
@@ -113,7 +113,7 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
           <div key={p.id} className="flex gap-3 rounded-md border border-border bg-background p-3">
             <div
               className="h-14 w-14 shrink-0 rounded-sm bg-cover bg-center"
-              style={p.images[0] ? { backgroundImage: `url(${p.images[0]})` } : { background: p.bg || "#E4E6D9" }}
+              style={p.images[0] ? { backgroundImage: `url(${mediaUrl(p.images[0])})` } : { background: p.bg || "#E4E6D9" }}
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
@@ -166,7 +166,7 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
                   <div className="flex items-center gap-3">
                     <div
                       className="h-10 w-10 flex-shrink-0 rounded-sm bg-cover bg-center"
-                      style={p.images[0] ? { backgroundImage: `url(${p.images[0]})` } : { background: p.bg || "#E4E6D9" }}
+                      style={p.images[0] ? { backgroundImage: `url(${mediaUrl(p.images[0])})` } : { background: p.bg || "#E4E6D9" }}
                     />
                     <div>
                       <p className="font-medium">{p.name}</p>

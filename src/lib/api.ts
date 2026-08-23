@@ -32,6 +32,18 @@ const GOOGLE_CLIENT_ID_HARDCODED = "958754486244-3ji2ug716o2vgpl3g27v6v5ipk07trb
 const GOOGLE_CLIENT_ID = readViteEnv("VITE_GOOGLE_CLIENT_ID") || GOOGLE_CLIENT_ID_HARDCODED;
 export { GOOGLE_CLIENT_ID };
 
+// Resolves a media URL that may have been stored as a root-relative path.
+//
+// Uploads used to return "/media/<key>" whenever MEDIA_PUBLIC_BASE_URL was
+// unset. Those paths resolve against the STOREFRONT's origin, but the files
+// are served by the API worker, so every such image 404s. The API now returns
+// absolute URLs, and this repairs the values already saved in the database.
+export function mediaUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("/media/")) return `${API_BASE}${url}`;
+  return url;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {

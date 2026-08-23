@@ -13,6 +13,7 @@ import logoMarkWebp from "@/assets/logo-mark-2x.webp";
 import { AuthModal } from "@/components/store/AuthModal";
 import {
   api,
+  mediaUrl,
   type CartItemDto,
   type WishlistItemDto,
   type OrderSummaryDto,
@@ -557,7 +558,7 @@ function CartPanel({
                       className="h-16 w-16 shrink-0 overflow-hidden rounded-sm bg-olive-50"
                     >
                       {item.product_image && (
-                        <img src={item.product_image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
+                        <img src={mediaUrl(item.product_image)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
                       )}
                     </button>
                     <div className="flex flex-1 flex-col gap-1">
@@ -1603,8 +1604,16 @@ function ReviewComposer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Radix runs a close transition and only then tears the dialog down. If the
+  // component returns null the moment `target` clears, that teardown never
+  // happens and Radix leaves pointer-events:none on <body>, freezing the whole
+  // page. Holding on to the last target keeps the dialog mounted until Radix
+  // is finished with it.
+  const [retained, setRetained] = useState(target);
+
   useEffect(() => {
     if (target) {
+      setRetained(target);
       setRating(5);
       setHoverRating(0);
       setComment("");
@@ -1612,7 +1621,8 @@ function ReviewComposer({
     }
   }, [target]);
 
-  if (!target) return null;
+  // Retained so the dialog stays mounted while it closes — see note above.
+  if (!retained) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1623,8 +1633,8 @@ function ReviewComposer({
     }
     setLoading(true);
     try {
-      await api.reviews.create({ orderId: target.orderId, productName: target.productName, rating, comment: comment.trim() });
-      onSubmitted(target.productName);
+      await api.reviews.create({ orderId: retained.orderId, productName: retained.productName, rating, comment: comment.trim() });
+      onSubmitted(retained.productName);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't submit your review. Please try again.");
     } finally {
@@ -1637,7 +1647,7 @@ function ReviewComposer({
       <DialogContent className="font-sans sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">Write a Review</DialogTitle>
-          <DialogDescription>{target.productName}</DialogDescription>
+          <DialogDescription>{retained.productName}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex items-center justify-center gap-1.5">
@@ -1708,9 +1718,13 @@ function ComplaintComposer({
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // See ReviewComposer: keeps the dialog mounted through Radix's close so it
+  // can clear the pointer-events lock it puts on <body>.
+  const [retained, setRetained] = useState(target);
 
   useEffect(() => {
     if (target) {
+      setRetained(target);
       setProductName("");
       setDescription("");
       setPhone(user?.phone || "");
@@ -1721,9 +1735,10 @@ function ComplaintComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
-  if (!target) return null;
+  // Retained so the dialog stays mounted while it closes — see note above.
+  if (!retained) return null;
 
-  const uniqueProductNames = Array.from(new Set(target.items.map((i) => i.product_name)));
+  const uniqueProductNames = Array.from(new Set(retained.items.map((i) => i.product_name)));
   const uploading = attachments.some((a) => a.status === "uploading");
 
   const handleFilesSelected = (files: FileList | null) => {
@@ -1777,7 +1792,7 @@ function ComplaintComposer({
     setLoading(true);
     try {
       const images = attachments.filter((a) => a.status === "done" && a.url).map((a) => a.url as string);
-      await api.complaints.create(target.orderNumber, {
+      await api.complaints.create(retained.orderNumber, {
         productName: productName || undefined,
         description: description.trim(),
         images,
@@ -1797,7 +1812,7 @@ function ComplaintComposer({
       <DialogContent className="max-h-[85vh] overflow-y-auto font-sans sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">Raise a Complaint</DialogTitle>
-          <DialogDescription>Order {target.orderNumber}</DialogDescription>
+          <DialogDescription>Order {retained.orderNumber}</DialogDescription>
         </DialogHeader>
 
         {submitted ? (
@@ -1868,7 +1883,7 @@ function ComplaintComposer({
                         Uploading…
                       </div>
                     )}
-                    {a.status === "done" && a.url && <img src={a.url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />}
+                    {a.status === "done" && a.url && <img src={mediaUrl(a.url)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />}
                     {a.status === "error" && (
                       <div className="flex h-full w-full items-center justify-center p-1 text-center text-[9px] text-destructive">
                         Failed
@@ -2452,7 +2467,7 @@ function OrdersView({
                       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-sm bg-olive-50 md:h-20 md:w-20">
                         {it.product_image ? (
                           <img
-                            src={it.product_image}
+                            src={mediaUrl(it.product_image)}
                             alt={it.product_name}
                             loading="lazy"
                             className="h-full w-full object-cover"
@@ -2617,7 +2632,7 @@ function ImageSlideshow({
       {images.map((src, i) => (
         <img
           key={src}
-          src={src}
+          src={mediaUrl(src)}
           alt={i === 0 ? alt : ""}
           loading={i === 0 ? "eager" : "lazy"}
           decoding="async"
@@ -2696,7 +2711,7 @@ function ProductCard({
         {hasRealImage ? (
           <>
             <img
-              src={p.images![0]}
+              src={mediaUrl(p.images![0])}
               alt={p.name}
               loading="lazy"
               decoding="async"
@@ -2706,7 +2721,7 @@ function ProductCard({
             />
             {p.images![1] && (
               <img
-                src={p.images![1]}
+                src={mediaUrl(p.images![1])}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -2794,7 +2809,7 @@ function SpotlightCard({
         {hasRealImage ? (
           <>
             <img
-              src={p.images![0]}
+              src={mediaUrl(p.images![0])}
               alt={p.name}
               loading="lazy"
               decoding="async"
@@ -2804,7 +2819,7 @@ function SpotlightCard({
             />
             {p.images![1] && (
               <img
-                src={p.images![1]}
+                src={mediaUrl(p.images![1])}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -3105,7 +3120,7 @@ function ProductDetailView({
               >
                 {hasRealImages ? (
                   <img
-                    src={gallery[activeImage] as string}
+                    src={mediaUrl(gallery[activeImage] as string)}
                     alt={product.name}
                     className="h-full w-full object-cover"
                     draggable={false}
@@ -3160,7 +3175,7 @@ function ProductDetailView({
                   }`}
                 >
                   {hasRealImages ? (
-                    <img src={deg as string} alt="" className="h-full w-full object-cover" draggable={false} />
+                    <img src={mediaUrl(deg as string)} alt="" className="h-full w-full object-cover" draggable={false} />
                   ) : (
                     <BeadStrand colors={product.colors} bg={product.bg} size={20} rotateDeg={deg as number} />
                   )}
@@ -4165,7 +4180,7 @@ export default function App() {
                   className="h-[18px] w-[18px] animate-pulse rounded-full bg-foreground/10 sm:h-5 sm:w-5"
                 />
               ) : user ? (
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
@@ -4373,7 +4388,7 @@ export default function App() {
                 >
                   <div className="aspect-square w-full max-w-[7.5rem] overflow-hidden rounded-full ring-1 ring-border transition-transform duration-300 group-hover:scale-105">
                     {c.imageUrl ? (
-                      <img src={c.imageUrl} alt={c.name} loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
+                      <img src={mediaUrl(c.imageUrl)} alt={c.name} loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
                     ) : (
                       <BeadStrand colors={TILE_PALETTE[i % TILE_PALETTE.length].colors} bg={TILE_PALETTE[i % TILE_PALETTE.length].bg} size={8} />
                     )}
