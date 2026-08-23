@@ -7,6 +7,7 @@ import { ChevronUp, ChevronDown, Trash2, Plus, Upload, Search, X, GripVertical }
 import {
   adminApi,
   AdminApiError,
+  mediaUrl,
   type AdminCategory,
   type AdminHomepage,
   type AdminPickerProduct,
@@ -270,7 +271,7 @@ function ImageSlotEditor({
             <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[11px] text-foreground/40">
               <GripVertical className="h-3.5 w-3.5" />
             </span>
-            <img src={url} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-sm object-cover sm:h-16 sm:w-28" />
+            <img src={mediaUrl(url)} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-sm object-cover sm:h-16 sm:w-28" />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-foreground">
                 {i === 0 ? "Shown first" : `Slide ${i + 1}`}
@@ -419,7 +420,7 @@ function CategoriesEditor({
           <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border/70 p-2">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-olive-50 ring-1 ring-border">
               {c.imageUrl ? (
-                <img src={c.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+                <img src={mediaUrl(c.imageUrl)} alt="" loading="lazy" className="h-full w-full object-cover" />
               ) : (
                 <span className="flex h-full w-full items-center justify-center text-[10px] text-foreground/35">No pic</span>
               )}
@@ -544,7 +545,7 @@ function ProductSectionEditor({
           <li key={p.id} className="flex items-center gap-3 rounded-sm border border-border/70 p-2">
             <span className="w-5 shrink-0 text-center text-[11px] font-semibold text-foreground/35">{i + 1}</span>
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-sm bg-olive-50">
-              {p.image && <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+              {p.image && <img src={mediaUrl(p.image)} alt="" loading="lazy" className="h-full w-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
@@ -612,7 +613,7 @@ function ProductSectionEditor({
                     className="flex w-full items-center gap-3 rounded-sm px-1 py-2 text-left transition-colors hover:bg-olive-50 disabled:opacity-50"
                   >
                     <div className="h-9 w-9 shrink-0 overflow-hidden rounded-sm bg-olive-50">
-                      {p.image && <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                      {p.image && <img src={mediaUrl(p.image)} alt="" loading="lazy" className="h-full w-full object-cover" />}
                     </div>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{p.name}</span>
