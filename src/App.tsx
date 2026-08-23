@@ -24,6 +24,7 @@ import {
   type ProductDto,
   type ShippingInput,
   type AddressDto,
+  type ComplaintDto,
   type ProductCardDto,
   type HomepagePayload,
   type HomepageSectionKey,
@@ -67,6 +68,7 @@ import {
   Mail,
   Check,
   AlertCircle,
+  Clock,
   CalendarDays,
   CircleCheck,
 } from "lucide-react";
@@ -2117,6 +2119,26 @@ function CustomOrderConfirmCard({
 // what the UI offers.
 const COMPLAINT_WINDOW_DAYS = 7;
 
+// Mirrors the four statuses the admin can set on a complaint.
+const COMPLAINT_STATUS_LABEL: Record<ComplaintDto["status"], string> = {
+  open: "Open",
+  in_progress: "In progress",
+  resolved: "Resolved",
+  rejected: "Not accepted",
+};
+const COMPLAINT_STATUS_CLASS: Record<ComplaintDto["status"], string> = {
+  open: "bg-olive-50 text-olive-600 border border-olive-200",
+  in_progress: "bg-gold-400/20 text-olive-600 border border-gold-400/40",
+  resolved: "bg-olive-600 text-olive-50",
+  rejected: "bg-destructive/10 text-destructive",
+};
+const COMPLAINT_STATUS_HELP: Record<ComplaintDto["status"], string> = {
+  open: "We've received this and will look into it shortly.",
+  in_progress: "We're looking into this right now.",
+  resolved: "This has been resolved. Get in touch if anything is still wrong.",
+  rejected: "We couldn't accept this complaint. Please contact us if you'd like to discuss it.",
+};
+
 // Status pill colours. Cancelled reads as an error, awaiting_payment as
 // something needing the customer's attention, delivered as complete, and
 // everything mid-flight shares the neutral olive treatment.
@@ -2242,6 +2264,17 @@ function OrdersView({
   const [reviewableNames, setReviewableNames] = useState<Set<string> | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ orderId: number; productName: string } | null>(null);
   const [complaintTarget, setComplaintTarget] = useState<{ orderNumber: string; items: OrderItemDto[] } | null>(null);
+  // The customer's own complaints, so they can see the status the admin sets
+  // (open -> in progress -> resolved/rejected) instead of the complaint
+  // vanishing the moment they submit it.
+  const [complaints, setComplaints] = useState<ComplaintDto[] | null>(null);
+
+  const loadComplaints = () => {
+    api.complaints
+      .list()
+      .then((r) => setComplaints(r.complaints))
+      .catch(() => setComplaints([]));
+  };
 
   const loadOrder = (orderNumber: string) => {
     setError(null);
@@ -2258,6 +2291,7 @@ function OrdersView({
     setLoading(true);
     setError(null);
     setSelected(null);
+    loadComplaints();
     api.orders
       .list()
       .then((r) => {
@@ -2531,6 +2565,61 @@ function OrdersView({
                 </div>
               </div>
 
+              {/* Complaints already raised on this order, with the status the
+                  admin has set — this is where "resolved" reaches the customer. */}
+              {(() => {
+                const mine = (complaints || []).filter((cp) => cp.order_number === selected.order.order_number);
+                if (mine.length === 0) return null;
+                return (
+                  <div className="overflow-hidden rounded-sm border border-olive-200/70 bg-card">
+                    <p className="border-b border-olive-200/60 px-5 py-3.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/50 md:px-6">
+                      Your complaints
+                    </p>
+                    <div className="divide-y divide-olive-200/60">
+                      {mine.map((cp) => (
+                        <div key={cp.id} className="px-5 py-4 md:px-6">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground">{cp.product_name || "General"}</p>
+                              <p className="mt-0.5 text-[11px] text-foreground/45">Raised {formatShortDateTime(cp.created_at)}</p>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ${COMPLAINT_STATUS_CLASS[cp.status]}`}>
+                              {COMPLAINT_STATUS_LABEL[cp.status]}
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-sm leading-relaxed text-foreground/70">{cp.description}</p>
+
+                          {cp.images.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {cp.images.map((src, i) => (
+                                <a
+                                  key={i}
+                                  href={mediaUrl(src)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="h-14 w-14 overflow-hidden rounded-sm border border-border bg-olive-50"
+                                >
+                                  <img src={mediaUrl(src)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="mt-3 flex items-start gap-1.5 text-xs text-foreground/55">
+                            <Clock className="mt-0.5 h-3 w-3 shrink-0" />
+                            {COMPLAINT_STATUS_HELP[cp.status]}
+                            {cp.updated_at !== cp.created_at && (
+                              <span className="text-foreground/35"> · updated {formatShortDateTime(cp.updated_at)}</span>
+                            )}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Complaint window */}
               {selected.order.status === "delivered" && (
                 <div className="flex flex-col gap-3 rounded-sm border border-olive-200/70 bg-card p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
@@ -2585,7 +2674,14 @@ function OrdersView({
           setReviewTarget(null);
         }}
       />
-      <ComplaintComposer target={complaintTarget} onClose={() => setComplaintTarget(null)} onSubmitted={() => setComplaintTarget(null)} />
+      <ComplaintComposer
+        target={complaintTarget}
+        onClose={() => setComplaintTarget(null)}
+        onSubmitted={() => {
+          setComplaintTarget(null);
+          loadComplaints();
+        }}
+      />
     </div>
   );
 }

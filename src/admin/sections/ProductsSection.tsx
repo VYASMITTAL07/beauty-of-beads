@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { adminApi, AdminApiError, mediaUrl, type AdminCategory, type AdminProduct } from "../adminApi";
+import { adminApi, AdminApiError, mediaUrl, type AdminCategory, type AdminProduct, type ImportProductInput } from "../adminApi";
 
 type FormState = {
   name: string;
@@ -66,6 +66,41 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   const [products, setProducts] = useState<AdminProduct[] | null>(null);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<AdminProduct | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  // One-time catalogue migration. The real products scraped from the old
+  // WooCommerce site ship as a hardcoded array in the storefront bundle, which
+  // is why they render on the site while the database stays empty and nothing
+  // in the admin — Website Editor sections, search, analytics — can see them.
+  // This pushes them into the database once. The data file is ~170KB, so it is
+  // pulled in only when the button is actually used.
+  const importCatalogue = async () => {
+    if (!confirm("Import the products from your old site into this catalogue? Products that already exist are skipped, so this is safe to run more than once.")) return;
+    setImporting(true);
+    try {
+      const { SCRAPED_PRODUCTS } = await import("@/data/scrapedProducts");
+      const payload = (SCRAPED_PRODUCTS as ImportProductInput[]).map((p) => ({
+        name: p.name,
+        category: p.category,
+        price: p.price,
+        mrp: p.mrp,
+        rating: p.rating,
+        description: p.description,
+        images: p.images,
+        colors: p.colors,
+        bg: p.bg,
+        slug: p.slug,
+      }));
+      const r = await adminApi.products.importCatalogue(payload);
+      onSuccess(`Imported ${r.imported} product${r.imported === 1 ? "" : "s"}${r.skipped ? `, skipped ${r.skipped} already present` : ""}. Catalogue now has ${r.total}.`);
+      if (r.failed) onError(`${r.failed} product${r.failed === 1 ? "" : "s"} couldn't be imported.`);
+      load();
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't import the catalogue");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const load = () => {
     adminApi.products
@@ -106,6 +141,19 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
           </Button>
         </div>
       </div>
+
+      {products && products.length === 0 && (
+        <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
+          <p className="font-serif text-base text-olive-600">Your catalogue is empty</p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground/65">
+            The storefront is currently showing built-in sample products. Import the real products from your old site to
+            manage them here — and to make them selectable in the Website Editor.
+          </p>
+          <Button onClick={importCatalogue} disabled={importing} className="mt-3 bg-olive-600 hover:bg-black">
+            {importing ? "Importing…" : "Import products from old site"}
+          </Button>
+        </div>
+      )}
 
       {/* Mobile: card list */}
       <div className="mt-5 flex flex-col gap-2 md:hidden">

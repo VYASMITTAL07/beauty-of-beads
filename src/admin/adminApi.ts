@@ -160,6 +160,18 @@ export type PromoCodeInput = {
 export type AdminCategory = { id: number; name: string; slug: string; imageUrl: string; sortOrder: number };
 export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight";
 export type HomepageImageSlot = "hero" | "heritageBanner" | "storeVisitBanner";
+export type ImportProductInput = {
+  name: string;
+  category: string;
+  price: number;
+  mrp: number;
+  rating?: number;
+  description?: string;
+  images?: string[];
+  colors?: string[];
+  bg?: string;
+  slug?: string;
+};
 export type AdminPickerProduct = { id: number; name: string; category: string; price: number; image: string; active: boolean };
 // One entry per homepage section, in the exact order the storefront renders
 // them — the editor builds its cards straight from this so the two can't drift.
@@ -221,6 +233,13 @@ export const adminApi = {
       request<{ admin: AdminUser }>("/api/admin/auth/setup", { method: "POST", body: JSON.stringify(data) }),
   },
   products: {
+    // One-time catalogue migration: sends the whole scraped array in a single
+    // request. Idempotent by slug on the server, so re-running is safe.
+    importCatalogue: (products: ImportProductInput[]) =>
+      request<{ imported: number; skipped: number; failed: number; total: number }>("/api/admin/products/import", {
+        method: "POST",
+        body: JSON.stringify({ products }),
+      }),
     list: () => request<{ products: AdminProduct[] }>("/api/admin/products"),
     get: (id: number) => request<{ product: AdminProduct }>(`/api/admin/products/${id}`),
     create: (data: Partial<AdminProduct>) => request<{ product: AdminProduct }>("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
