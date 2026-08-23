@@ -27,3 +27,6 @@ logged-in-preview.html
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code worktrees / local launch config
+.claude/

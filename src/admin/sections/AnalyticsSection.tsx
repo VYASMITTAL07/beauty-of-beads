@@ -9,6 +9,7 @@ const STATUS_LABEL: Record<string, string> = {
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  awaiting_payment: "Awaiting payment",
 };
 
 export default function AnalyticsSection({ onError }: { onError: (m: string) => void }) {
@@ -26,23 +27,23 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-olive-600">Overview</h1>
+      <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Overview</h1>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard label="Total revenue" value={`₹${data.revenue.toLocaleString("en-IN")}`} />
         <StatCard label="Orders" value={String(data.orderCount)} />
         <StatCard label="Customers" value={String(data.customerCount)} />
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-2">
         <div className="rounded-md border border-border bg-background p-5">
           <h2 className="font-serif text-lg text-olive-600">Orders by status</h2>
           <div className="mt-3 space-y-2">
             {data.byStatus.length === 0 && <p className="text-sm text-foreground/50">No orders yet.</p>}
             {data.byStatus.map((s) => (
-              <div key={s.status} className="flex items-center justify-between text-sm">
-                <span className="text-foreground/70">{STATUS_LABEL[s.status] || s.status}</span>
-                <span className="font-medium">{s.count}</span>
+              <div key={s.status} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-foreground/70">{STATUS_LABEL[s.status] || s.status}</span>
+                <span className="shrink-0 font-medium">{s.count}</span>
               </div>
             ))}
           </div>
@@ -53,8 +54,8 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
           <div className="mt-3 space-y-2">
             {data.topProducts.length === 0 && <p className="text-sm text-foreground/50">No sales yet.</p>}
             {data.topProducts.map((p) => (
-              <div key={p.productName} className="flex items-center justify-between text-sm">
-                <span className="truncate text-foreground/70">{p.productName}</span>
+              <div key={p.productName} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-foreground/70">{p.productName}</span>
                 <span className="flex-shrink-0 font-medium">{p.unitsSold} sold</span>
               </div>
             ))}
@@ -62,7 +63,7 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
         </div>
       </div>
 
-      <div className="mt-8 rounded-md border border-border bg-background p-5">
+      <div className="mt-6 rounded-md border border-border bg-background p-4 sm:mt-8 sm:p-5">
         <h2 className="font-serif text-lg text-olive-600">Recent orders</h2>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
@@ -100,9 +101,9 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border bg-background p-5">
-      <p className="text-xs uppercase tracking-wide text-foreground/50">{label}</p>
-      <p className="mt-1 font-serif text-2xl text-olive-600">{value}</p>
+    <div className="rounded-md border border-border bg-background p-4 sm:p-5">
+      <p className="text-[11px] uppercase leading-tight tracking-wide text-foreground/50">{label}</p>
+      <p className="mt-1 break-words font-serif text-xl text-olive-600 sm:text-2xl">{value}</p>
     </div>
   );
 }

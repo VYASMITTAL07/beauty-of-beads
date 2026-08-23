@@ -93,13 +93,13 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-serif text-2xl text-olive-600">Products</h1>
-        <div className="flex gap-2">
+        <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Products</h1>
+        <div className="flex w-full gap-2 sm:w-auto">
           <input
             placeholder="Search products…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm sm:flex-none"
           />
           <Button onClick={() => setEditing("new")} className="bg-olive-600 hover:bg-black">
             + Add product
@@ -107,7 +107,47 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
         </div>
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-border bg-background">
+      {/* Mobile: card list */}
+      <div className="mt-5 flex flex-col gap-2 md:hidden">
+        {filtered?.map((p) => (
+          <div key={p.id} className="flex gap-3 rounded-md border border-border bg-background p-3">
+            <div
+              className="h-14 w-14 shrink-0 rounded-sm bg-cover bg-center"
+              style={p.images[0] ? { backgroundImage: `url(${p.images[0]})` } : { background: p.bg || "#E4E6D9" }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate text-sm font-medium">{p.name}</p>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                    p.active ? "bg-olive-100 text-olive-600" : "bg-foreground/10 text-foreground/50"
+                  }`}
+                >
+                  {p.active ? "Live" : "Hidden"}
+                </span>
+              </div>
+              <p className="truncate text-xs text-foreground/50">{p.category}</p>
+              <p className="mt-1 text-xs">
+                ₹{p.price} <span className="text-foreground/40 line-through">₹{p.mrp}</span>
+                <span className="ml-2 text-foreground/50">Stock {p.stock}</span>
+              </p>
+              <div className="mt-2 flex gap-3">
+                <button type="button" onClick={() => setEditing(p)} className="text-xs font-medium text-olive-600 hover:underline">
+                  Edit
+                </button>
+                <button type="button" onClick={() => remove(p)} className="text-xs font-medium text-clay-500 hover:underline">
+                  {p.active ? "Hide" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filtered && filtered.length === 0 && (
+          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">No products found.</p>
+        )}
+      </div>
+
+      <div className="mt-5 hidden overflow-x-auto rounded-md border border-border bg-background md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
@@ -272,8 +312,8 @@ function ProductFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8" onClick={onClose}>
-      <form onSubmit={save} className="w-full max-w-2xl rounded-md bg-background p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 py-6 sm:p-4 sm:py-8" onClick={onClose}>
+      <form onSubmit={save} className="w-full max-w-2xl rounded-md bg-background p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-xl text-olive-600">{product ? "Edit product" : "Add product"}</h2>
           <button type="button" onClick={onClose} className="text-sm text-foreground/50 hover:text-foreground">

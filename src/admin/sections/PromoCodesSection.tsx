@@ -84,7 +84,7 @@ export default function PromoCodesSection({ onError, onSuccess }: { onError: (m:
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-olive-600">Promo Codes</h1>
+      <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Promo Codes</h1>
 
       <form onSubmit={create} className="mt-5 grid grid-cols-2 gap-3 rounded-md border border-border bg-background p-4 sm:grid-cols-4">
         <div className="space-y-1">
@@ -130,7 +130,41 @@ export default function PromoCodesSection({ onError, onSuccess }: { onError: (m:
         </div>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-border bg-background">
+      {/* Mobile: card list */}
+      <div className="mt-5 flex flex-col gap-2 md:hidden">
+        {codes?.map((c) => (
+          <div key={c.id} className="rounded-md border border-border bg-background p-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-mono text-sm">{c.code}</span>
+              <button
+                type="button"
+                onClick={() => toggleActive(c)}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                  c.active ? "bg-olive-100 text-olive-600" : "bg-foreground/10 text-foreground/50"
+                }`}
+              >
+                {c.active ? "Active" : "Paused"}
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/60">
+              <span className="font-medium text-foreground">{c.type === "percent" ? `${c.value}%` : `₹${c.value}`} off</span>
+              <span>Min ₹{c.min_order_amount}</span>
+              <span>
+                Used {c.used_count}
+                {c.usage_limit ? ` / ${c.usage_limit}` : ""}
+              </span>
+            </div>
+            <button type="button" onClick={() => remove(c.id)} className="mt-2 text-xs font-medium text-clay-500 hover:underline">
+              Delete
+            </button>
+          </div>
+        ))}
+        {codes && codes.length === 0 && (
+          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">No promo codes yet.</p>
+        )}
+      </div>
+
+      <div className="mt-5 hidden overflow-x-auto rounded-md border border-border bg-background md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">

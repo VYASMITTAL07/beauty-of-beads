@@ -17,7 +17,7 @@ const emptyFeaturedForm: FeaturedForm = { reviewerName: "", rating: "5", comment
 export default function ReviewsSection({ onError, onSuccess }: { onError: (m: string) => void; onSuccess: (m: string) => void }) {
   return (
     <div>
-      <h1 className="font-serif text-2xl text-olive-600">Reviews</h1>
+      <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Reviews</h1>
 
       <FeaturedReviewsCard onError={onError} onSuccess={onSuccess} />
       <ProductReviewsCard onError={onError} onSuccess={onSuccess} />

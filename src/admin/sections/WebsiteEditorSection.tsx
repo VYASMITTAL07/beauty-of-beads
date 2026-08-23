@@ -1,443 +1,713 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { adminApi, AdminApiError, type AdminCategory, type AdminProduct } from "../adminApi";
+import { ChevronUp, ChevronDown, Trash2, Plus, Upload, Search, X, GripVertical } from "lucide-react";
+import {
+  adminApi,
+  AdminApiError,
+  type AdminCategory,
+  type AdminHomepage,
+  type AdminPickerProduct,
+  type HomepageImageSlot,
+  type HomepageSectionKey,
+} from "../adminApi";
 
-type SiteContentForm = {
-  hero_image: string;
-  materials_care: string;
-  shipping_returns: string;
-  homepage_banner_image: string;
-  store_visit_banner_image: string;
-};
+type Notify = { onError: (m: string) => void; onSuccess: (m: string) => void };
 
-const emptySiteContent: SiteContentForm = {
-  hero_image: "",
-  materials_care: "",
-  shipping_returns: "",
-  homepage_banner_image: "",
-  store_visit_banner_image: "",
-};
+// The Website Editor mirrors the storefront homepage from top to bottom. The
+// order and titles come from the server (lib/homepage.js HOMEPAGE_LAYOUT), so
+// adding a section there shows up here without touching this file.
+export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
+  const [data, setData] = useState<AdminHomepage | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-function looksLikeUrl(v: string) {
-  return /^https?:\/\//i.test(v.trim());
-}
+  useEffect(() => {
+    adminApi.homepage
+      .get()
+      .then(setData)
+      .catch((e) => {
+        onError(e instanceof AdminApiError ? e.message : "Couldn't load the homepage layout");
+        setLoadFailed(true);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-export default function WebsiteEditorSection({ onError, onSuccess }: { onError: (m: string) => void; onSuccess: (m: string) => void }) {
   return (
-    <div>
-      <h1 className="font-serif text-2xl text-olive-600">Website Editor</h1>
-      <p className="mt-1 text-sm text-foreground/60">Manage the copy, images and categories shown across the storefront.</p>
+    <div className="min-w-0">
+      <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Website Editor</h1>
+      <p className="mt-1 text-sm text-foreground/60">
+        Every section of the storefront homepage, in the order it appears. Changes here go live immediately.
+      </p>
 
-      <SiteContentCard onError={onError} onSuccess={onSuccess} />
-      <CategoriesCard onError={onError} onSuccess={onSuccess} />
-      <HomepageSectionsCard onError={onError} onSuccess={onSuccess} />
+      {!data && !loadFailed && <p className="mt-6 text-sm text-foreground/50">Loading the homepage…</p>}
+      {loadFailed && <p className="mt-6 text-sm text-red-600">Couldn't load the homepage layout. Please refresh.</p>}
+
+      {data && (
+        <div className="mt-5 flex flex-col gap-4">
+          {data.layout.map((entry, i) => (
+            <SectionCard key={entry.key} index={i + 1} title={entry.title} help={entry.help}>
+              {entry.kind === "images" && (
+                <ImageSlotEditor
+                  slot={entry.key as HomepageImageSlot}
+                  images={data.images[entry.key as HomepageImageSlot] || []}
+                  max={data.maxImagesPerSlot}
+                  onChange={(images) =>
+                    setData((d) => (d ? { ...d, images: { ...d.images, [entry.key as HomepageImageSlot]: images } } : d))
+                  }
+                  onError={onError}
+                  onSuccess={onSuccess}
+                />
+              )}
+              {entry.kind === "categories" && (
+                <CategoriesEditor
+                  categories={data.categories}
+                  onChange={(categories) => setData((d) => (d ? { ...d, categories } : d))}
+                  onError={onError}
+                  onSuccess={onSuccess}
+                />
+              )}
+              {entry.kind === "products" && (
+                <ProductSectionEditor
+                  sectionKey={entry.key as HomepageSectionKey}
+                  title={entry.title}
+                  products={data.sections[entry.key as HomepageSectionKey] || []}
+                  allProducts={data.allProducts}
+                  onChange={(products) =>
+                    setData((d) => (d ? { ...d, sections: { ...d.sections, [entry.key as HomepageSectionKey]: products } } : d))
+                  }
+                  onError={onError}
+                  onSuccess={onSuccess}
+                />
+              )}
+            </SectionCard>
+          ))}
+
+          <SiteCopyCard onError={onError} onSuccess={onSuccess} />
+        </div>
+      )}
     </div>
   );
 }
 
-function SiteContentCard({ onError, onSuccess }: { onError: (m: string) => void; onSuccess: (m: string) => void }) {
-  const [form, setForm] = useState<SiteContentForm | null>(null);
+function SectionCard({
+  index,
+  title,
+  help,
+  children,
+}: {
+  index: number;
+  title: string;
+  help: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section className="overflow-hidden rounded-md border border-border bg-background">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-olive-50/50 sm:px-5"
+      >
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-olive-100 text-[11px] font-semibold text-olive-600">
+          {index}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-serif text-base text-olive-600">{title}</span>
+          <span className="mt-0.5 block text-xs leading-relaxed text-foreground/50">{help}</span>
+        </span>
+        {open ? (
+          <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-foreground/40" />
+        ) : (
+          <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-foreground/40" />
+        )}
+      </button>
+      {open && <div className="border-t border-border px-4 py-4 sm:px-5">{children}</div>}
+    </section>
+  );
+}
+
+// Small reusable move-up / move-down / delete control strip. Drag-and-drop
+// would need a dependency and is fiddly on touch; explicit buttons work the
+// same on a phone and a laptop.
+function OrderControls({
+  index,
+  total,
+  onMove,
+  onRemove,
+  busy,
+  removeLabel,
+}: {
+  index: number;
+  total: number;
+  onMove: (from: number, to: number) => void;
+  onRemove: () => void;
+  busy: boolean;
+  removeLabel: string;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        disabled={index === 0 || busy}
+        onClick={() => onMove(index, index - 1)}
+        aria-label="Move up"
+        className="flex h-7 w-7 items-center justify-center rounded-sm border border-border text-foreground/60 transition-colors hover:bg-olive-50 disabled:opacity-30"
+      >
+        <ChevronUp className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        disabled={index === total - 1 || busy}
+        onClick={() => onMove(index, index + 1)}
+        aria-label="Move down"
+        className="flex h-7 w-7 items-center justify-center rounded-sm border border-border text-foreground/60 transition-colors hover:bg-olive-50 disabled:opacity-30"
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onRemove}
+        aria-label={removeLabel}
+        className="flex h-7 w-7 items-center justify-center rounded-sm border border-border text-clay-500 transition-colors hover:bg-clay-50 disabled:opacity-30"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function move<T>(list: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= list.length) return list;
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+// A slot that holds a LIST of images (the hero and the two full-bleed
+// banners). Each used to be a single image with one upload button.
+function ImageSlotEditor({
+  slot,
+  images,
+  max,
+  onChange,
+  onError,
+  onSuccess,
+}: Notify & {
+  slot: HomepageImageSlot;
+  images: string[];
+  max: number;
+  onChange: (images: string[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const persist = async (next: string[], message: string) => {
+    setBusy(true);
+    try {
+      const r = await adminApi.homepage.setImages(slot, next);
+      onChange(r.images);
+      onSuccess(message);
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't save these images");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadFiles = async (files: FileList) => {
+    const room = max - images.length;
+    if (room <= 0) {
+      onError(`This section can hold at most ${max} images.`);
+      return;
+    }
+    const chosen = Array.from(files).slice(0, room);
+    if (chosen.length < files.length) onError(`Only ${room} more image${room === 1 ? "" : "s"} could be added.`);
+
+    setBusy(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of chosen) {
+        const { url } = await adminApi.products.upload(file);
+        uploaded.push(url);
+      }
+      const next = [...images, ...uploaded];
+      const r = await adminApi.homepage.setImages(slot, next);
+      onChange(r.images);
+      onSuccess(uploaded.length === 1 ? "Image added and published" : `${uploaded.length} images added and published`);
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const replaceAt = async (index: number, file: File) => {
+    setBusy(true);
+    try {
+      const { url } = await adminApi.products.upload(file);
+      const next = [...images];
+      next[index] = url;
+      const r = await adminApi.homepage.setImages(slot, next);
+      onChange(r.images);
+      onSuccess("Image replaced");
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      {images.length === 0 && <p className="mb-3 text-sm text-foreground/50">No images yet — the storefront shows its built-in artwork.</p>}
+
+      <ul className="flex flex-col gap-2">
+        {images.map((url, i) => (
+          <li key={`${url}-${i}`} className="flex items-center gap-3 rounded-sm border border-border/70 p-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[11px] text-foreground/40">
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+            <img src={url} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-sm object-cover sm:h-16 sm:w-28" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-foreground">
+                {i === 0 ? "Shown first" : `Slide ${i + 1}`}
+              </p>
+              <label className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-olive-600 hover:underline">
+                <Upload className="h-3 w-3" />
+                Replace
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void replaceAt(i, f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <OrderControls
+              index={i}
+              total={images.length}
+              busy={busy}
+              removeLabel="Remove image"
+              onMove={(from, to) => void persist(move(images, from, to), "Image order updated")}
+              onRemove={() => void persist(images.filter((_, idx) => idx !== i), "Image removed")}
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <label
+          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-olive-400 px-3 py-2 text-xs font-medium text-olive-600 transition-colors hover:bg-olive-50 ${
+            busy || images.length >= max ? "pointer-events-none opacity-40" : ""
+          }`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {busy ? "Working…" : "Add image"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            disabled={busy || images.length >= max}
+            onChange={(e) => {
+              if (e.target.files?.length) void uploadFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <span className="text-xs text-foreground/45">
+          {images.length} of {max} used{images.length > 1 ? " · they cross-fade automatically on the site" : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CategoriesEditor({
+  categories,
+  onChange,
+  onError,
+  onSuccess,
+}: Notify & { categories: AdminCategory[]; onChange: (c: AdminCategory[]) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const saveOrder = async (next: AdminCategory[]) => {
+    onChange(next); // optimistic — the list re-renders instantly
+    setBusy(true);
+    try {
+      const r = await adminApi.homepage.setCategoryOrder(next.map((c) => c.id));
+      onChange(r.categories);
+      onSuccess("Category order updated");
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't save the category order");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateField = async (c: AdminCategory, patch: Partial<{ name: string; imageUrl: string }>) => {
+    setBusy(true);
+    try {
+      const r = await adminApi.categories.update(c.id, patch);
+      onChange(categories.map((x) => (x.id === c.id ? r.category : x)));
+      onSuccess("Category updated");
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't update the category");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadCover = async (c: AdminCategory, file: File) => {
+    setBusy(true);
+    try {
+      const { url } = await adminApi.products.upload(file);
+      const r = await adminApi.categories.update(c.id, { imageUrl: url });
+      onChange(categories.map((x) => (x.id === c.id ? r.category : x)));
+      onSuccess("Cover image updated");
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addCategory = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      const r = await adminApi.categories.create({ name, sortOrder: categories.length });
+      onChange([...categories, r.category]);
+      setNewName("");
+      onSuccess("Category added");
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't add the category");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeCategory = async (c: AdminCategory) => {
+    setBusy(true);
+    try {
+      await adminApi.categories.remove(c.id);
+      onChange(categories.filter((x) => x.id !== c.id));
+      onSuccess("Category removed");
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't remove the category");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      {categories.length === 0 && <p className="mb-3 text-sm text-foreground/50">No categories yet.</p>}
+
+      <ul className="flex flex-col gap-2">
+        {categories.map((c, i) => (
+          <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border/70 p-2">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-olive-50 ring-1 ring-border">
+              {c.imageUrl ? (
+                <img src={c.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-[10px] text-foreground/35">No pic</span>
+              )}
+            </div>
+
+            <div className="min-w-[9rem] flex-1">
+              <Input
+                defaultValue={c.name}
+                disabled={busy}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v && v !== c.name) void updateField(c, { name: v });
+                }}
+                className="h-8 text-sm"
+              />
+              <label className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-olive-600 hover:underline">
+                <Upload className="h-3 w-3" />
+                {c.imageUrl ? "Replace cover" : "Upload cover"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadCover(c, f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+
+            <OrderControls
+              index={i}
+              total={categories.length}
+              busy={busy}
+              removeLabel="Delete category"
+              onMove={(from, to) => void saveOrder(move(categories, from, to))}
+              onRemove={() => void removeCategory(c)}
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div className="min-w-[10rem] flex-1">
+          <Label htmlFor="new-category" className="text-xs">
+            New category
+          </Label>
+          <Input
+            id="new-category"
+            value={newName}
+            disabled={busy}
+            placeholder="e.g. Hair Chains"
+            onChange={(e) => setNewName(e.target.value)}
+            className="mt-1 h-9"
+          />
+        </div>
+        <Button type="button" disabled={busy || !newName.trim()} onClick={() => void addCategory()} className="h-9 bg-olive-600 hover:bg-black">
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// One flag-driven carousel: which products are in it, and in what order.
+// Membership and order save together in a single request so a section is
+// never left half-applied.
+function ProductSectionEditor({
+  sectionKey,
+  title,
+  products,
+  allProducts,
+  onChange,
+  onError,
+  onSuccess,
+}: Notify & {
+  sectionKey: HomepageSectionKey;
+  title: string;
+  products: AdminPickerProduct[];
+  allProducts: AdminPickerProduct[];
+  onChange: (p: AdminPickerProduct[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const chosenIds = useMemo(() => new Set(products.map((p) => p.id)), [products]);
+  const candidates = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return allProducts
+      .filter((p) => !chosenIds.has(p.id))
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q))
+      .slice(0, 40);
+  }, [allProducts, chosenIds, query]);
+
+  const persist = async (next: AdminPickerProduct[], message: string) => {
+    onChange(next); // optimistic
+    setBusy(true);
+    try {
+      const r = await adminApi.homepage.setSection(sectionKey, next.map((p) => p.id));
+      onChange(r.products);
+      onSuccess(message);
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : `Couldn't save ${title}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      {products.length === 0 && (
+        <p className="mb-3 text-sm text-foreground/50">
+          No products in this section yet — the storefront shows placeholder items until you add some.
+        </p>
+      )}
+
+      <ul className="flex flex-col gap-2">
+        {products.map((p, i) => (
+          <li key={p.id} className="flex items-center gap-3 rounded-sm border border-border/70 p-2">
+            <span className="w-5 shrink-0 text-center text-[11px] font-semibold text-foreground/35">{i + 1}</span>
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-sm bg-olive-50">
+              {p.image && <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+              <p className="truncate text-xs text-foreground/45">
+                {p.category} · ₹{p.price}
+                {!p.active && <span className="ml-1 text-clay-500">· inactive</span>}
+              </p>
+            </div>
+            <OrderControls
+              index={i}
+              total={products.length}
+              busy={busy}
+              removeLabel="Remove from this section"
+              onMove={(from, to) => void persist(move(products, from, to), `${title} order updated`)}
+              onRemove={() => void persist(products.filter((x) => x.id !== p.id), `Removed from ${title}`)}
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-3">
+        {!pickerOpen ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setPickerOpen(true)}
+            className="h-9 border-olive-400 text-olive-600 hover:bg-olive-50"
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add product
+          </Button>
+        ) : (
+          <div className="rounded-sm border border-border/70 p-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 shrink-0 text-foreground/40" />
+              <Input
+                autoFocus
+                value={query}
+                placeholder="Search your catalogue…"
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-8 flex-1 text-sm"
+              />
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => {
+                  setPickerOpen(false);
+                  setQuery("");
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-foreground/50 hover:bg-olive-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <ul className="mt-2 max-h-64 overflow-y-auto">
+              {candidates.length === 0 && <li className="px-1 py-3 text-sm text-foreground/45">No matching products.</li>}
+              {candidates.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void persist([...products, p], `Added to ${title}`)}
+                    className="flex w-full items-center gap-3 rounded-sm px-1 py-2 text-left transition-colors hover:bg-olive-50 disabled:opacity-50"
+                  >
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-sm bg-olive-50">
+                      {p.image && <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{p.name}</span>
+                      <span className="block truncate text-xs text-foreground/45">
+                        {p.category} · ₹{p.price}
+                      </span>
+                    </span>
+                    <Plus className="h-4 w-4 shrink-0 text-olive-600" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Site-wide copy that isn't tied to a homepage section — shown on every
+// product page.
+function SiteCopyCard({ onError, onSuccess }: Notify) {
+  const [materialsCare, setMaterialsCare] = useState("");
+  const [shippingReturns, setShippingReturns] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingField, setUploadingField] = useState<keyof SiteContentForm | null>(null);
 
   useEffect(() => {
     adminApi.siteSettings
       .get()
-      .then((r) =>
-        setForm({
-          hero_image: r.settings.hero_image || "",
-          materials_care: r.settings.materials_care || "",
-          shipping_returns: r.settings.shipping_returns || "",
-          homepage_banner_image: r.settings.homepage_banner_image || "",
-          store_visit_banner_image: r.settings.store_visit_banner_image || "",
-        })
-      )
-      .catch((e) => {
-        onError(e instanceof AdminApiError ? e.message : "Couldn't load site settings");
-        setForm(emptySiteContent);
-      });
+      .then((r) => {
+        setMaterialsCare(r.settings.materials_care || "");
+        setShippingReturns(r.settings.shipping_returns || "");
+      })
+      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load site copy"))
+      .finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form) return;
     setSaving(true);
     try {
-      await adminApi.siteSettings.update({ ...form });
-      onSuccess("Site content updated");
+      await adminApi.siteSettings.update({ materials_care: materialsCare, shipping_returns: shippingReturns });
+      onSuccess("Product page copy updated");
     } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't save site content");
+      onError(e instanceof AdminApiError ? e.message : "Couldn't save the copy");
     } finally {
       setSaving(false);
     }
   };
 
-  const uploadImage = async (field: keyof SiteContentForm, file: File) => {
-    setUploadingField(field);
-    try {
-      const { url } = await adminApi.products.upload(file);
-      setForm((f) => (f ? { ...f, [field]: url } : f));
-      onSuccess("Image uploaded — click Save changes to publish it");
-    } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Upload failed");
-    } finally {
-      setUploadingField(null);
-    }
-  };
-
   return (
-    <div className="mt-5 rounded-md border border-border bg-background p-5">
-      <h2 className="font-serif text-lg text-olive-600">Site content</h2>
-      <p className="mt-1 text-xs text-foreground/50">
-        Materials & care and shipping & returns text shown once here now applies to every product page.
-      </p>
-
-      {!form ? (
-        <p className="mt-4 text-sm text-foreground/50">Loading…</p>
-      ) : (
-        <form onSubmit={save} className="mt-4 space-y-4">
-          <ImageUploadField
-            label="Hero image"
-            help="Shown at the top of the homepage."
-            value={form.hero_image}
-            uploading={uploadingField === "hero_image"}
-            onUpload={(file) => uploadImage("hero_image", file)}
-            onClear={() => setForm({ ...form, hero_image: "" })}
-          />
-
-          <ImageUploadField
-            label="Heritage banner image"
-            help="Full-bleed banner shown right after Top Picks on the homepage."
-            value={form.homepage_banner_image}
-            uploading={uploadingField === "homepage_banner_image"}
-            onUpload={(file) => uploadImage("homepage_banner_image", file)}
-            onClear={() => setForm({ ...form, homepage_banner_image: "" })}
-          />
-
-          <ImageUploadField
-            label="Store visit banner image"
-            help='Full-bleed banner behind the "Visit Our Store" section.'
-            value={form.store_visit_banner_image}
-            uploading={uploadingField === "store_visit_banner_image"}
-            onUpload={(file) => uploadImage("store_visit_banner_image", file)}
-            onClear={() => setForm({ ...form, store_visit_banner_image: "" })}
-          />
-
-          <Field label="Materials & care (shown on every product)">
-            <Textarea rows={3} value={form.materials_care} onChange={(e) => setForm({ ...form, materials_care: e.target.value })} />
-          </Field>
-
-          <Field label="Shipping & returns (shown on every product)">
-            <Textarea rows={3} value={form.shipping_returns} onChange={(e) => setForm({ ...form, shipping_returns: e.target.value })} />
-          </Field>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={saving} className="bg-olive-600 hover:bg-black">
+    <section className="rounded-md border border-border bg-background">
+      <div className="px-4 py-4 sm:px-5">
+        <h2 className="font-serif text-base text-olive-600">Product page copy</h2>
+        <p className="mt-0.5 text-xs text-foreground/50">
+          Shown on every product page, unless a product overrides it with its own text.
+        </p>
+      </div>
+      <form onSubmit={save} className="border-t border-border px-4 py-4 sm:px-5">
+        {!loaded ? (
+          <p className="text-sm text-foreground/50">Loading…</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div>
+              <Label htmlFor="materials-care" className="text-xs">
+                Materials &amp; care
+              </Label>
+              <Textarea
+                id="materials-care"
+                value={materialsCare}
+                onChange={(e) => setMaterialsCare(e.target.value)}
+                rows={4}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="shipping-returns" className="text-xs">
+                Shipping &amp; returns
+              </Label>
+              <Textarea
+                id="shipping-returns"
+                value={shippingReturns}
+                onChange={(e) => setShippingReturns(e.target.value)}
+                rows={4}
+                className="mt-1"
+              />
+            </div>
+            <Button type="submit" disabled={saving} className="self-start bg-olive-600 hover:bg-black">
               {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>
-        </form>
-      )}
-    </div>
-  );
-}
-
-function ImageUploadField({
-  label,
-  help,
-  value,
-  uploading,
-  onUpload,
-  onClear,
-}: {
-  label: string;
-  help?: string;
-  value: string;
-  uploading: boolean;
-  onUpload: (file: File) => void;
-  onClear: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      {help && <p className="text-[11px] text-foreground/50">{help}</p>}
-      <div className="mt-1 flex items-center gap-3">
-        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => inputRef.current?.click()}>
-          {uploading ? "Uploading…" : value ? "Replace image" : "Upload image"}
-        </Button>
-        {value && (
-          <button type="button" onClick={onClear} className="text-xs font-medium text-clay-500 hover:underline">
-            Remove
-          </button>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUpload(file);
-            e.target.value = "";
-          }}
-        />
-      </div>
-      {looksLikeUrl(value) && <img src={value} alt="" className="mt-2 h-24 w-full rounded-sm border border-border object-cover" />}
-    </div>
-  );
-}
-
-function CategoriesCard({ onError, onSuccess }: { onError: (m: string) => void; onSuccess: (m: string) => void }) {
-  const [categories, setCategories] = useState<AdminCategory[] | null>(null);
-  const [name, setName] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = () => {
-    adminApi.categories
-      .list()
-      .then((r) => setCategories(r.categories))
-      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load categories"));
-  };
-  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      onError("Category name is required.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await adminApi.categories.create({ name: name.trim(), imageUrl: imageUrl.trim() || undefined });
-      onSuccess("Category added");
-      setName("");
-      setImageUrl("");
-      load();
-    } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't add category");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateField = async (c: AdminCategory, data: Partial<{ name: string; imageUrl: string; sortOrder: number }>) => {
-    try {
-      await adminApi.categories.update(c.id, data);
-      load();
-    } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't update category");
-    }
-  };
-
-  const remove = async (c: AdminCategory) => {
-    if (!confirm(`Delete category "${c.name}"?`)) return;
-    try {
-      await adminApi.categories.remove(c.id);
-      onSuccess("Category deleted");
-      load();
-    } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't delete category");
-    }
-  };
-
-  return (
-    <div className="mt-6 rounded-md border border-border bg-background p-5">
-      <h2 className="font-serif text-lg text-olive-600">Categories</h2>
-      <p className="mt-1 text-xs text-foreground/50">
-        These are the same categories customers see in "Shop by category", and what you'll choose from when adding a product.
-      </p>
-
-      <div className="mt-4 space-y-2">
-        {categories?.map((c) => (
-          <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border/60 p-2">
-            <div
-              className="h-10 w-10 flex-shrink-0 rounded-sm bg-cover bg-center bg-olive-100"
-              style={c.imageUrl ? { backgroundImage: `url(${c.imageUrl})` } : undefined}
-            />
-            <input
-              defaultValue={c.name}
-              onBlur={(e) => e.target.value.trim() && e.target.value !== c.name && updateField(c, { name: e.target.value.trim() })}
-              className="min-w-[8rem] flex-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-            />
-            <input
-              defaultValue={c.imageUrl}
-              onBlur={(e) => e.target.value.trim() !== c.imageUrl && updateField(c, { imageUrl: e.target.value.trim() })}
-              placeholder="Image URL"
-              className="min-w-[10rem] flex-[2] rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-            />
-            <input
-              type="number"
-              defaultValue={c.sortOrder}
-              onBlur={(e) => Number(e.target.value) !== c.sortOrder && updateField(c, { sortOrder: Number(e.target.value) || 0 })}
-              title="Sort order"
-              className="w-16 flex-shrink-0 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-            />
-            <button type="button" onClick={() => remove(c)} className="flex-shrink-0 text-xs font-medium text-clay-500 hover:underline">
-              Delete
-            </button>
-          </div>
-        ))}
-        {categories && categories.length === 0 && <p className="text-sm text-foreground/50">No categories yet.</p>}
-      </div>
-
-      <form onSubmit={create} className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
-        <div className="min-w-[10rem] flex-1 space-y-1">
-          <Label className="text-xs">Name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Necklaces" />
-        </div>
-        <div className="min-w-[10rem] flex-[2] space-y-1">
-          <Label className="text-xs">Image URL</Label>
-          <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" />
-        </div>
-        <Button type="submit" disabled={saving} className="bg-olive-600 hover:bg-black">
-          + Add category
-        </Button>
       </form>
-    </div>
-  );
-}
-
-type HomepageFlag = "isBestseller" | "isFeatured" | "isNewArrival" | "isSpotlight";
-
-const HOMEPAGE_SECTIONS: { flag: HomepageFlag; title: string; help: string }[] = [
-  { flag: "isBestseller", title: "Top Picks", help: "Products flagged as Bestseller — shown in the Top Picks row." },
-  { flag: "isFeatured", title: "Shop by Trend", help: "Products flagged as Featured — shown in Shop by Trend." },
-  { flag: "isNewArrival", title: "New Arrivals", help: "Products flagged as New Arrival." },
-  { flag: "isSpotlight", title: "Spotlight", help: "Products flagged as Spotlight — shown in the Spotlight carousel." },
-];
-
-function HomepageSectionsCard({ onError, onSuccess }: { onError: (m: string) => void; onSuccess: (m: string) => void }) {
-  const [products, setProducts] = useState<AdminProduct[] | null>(null);
-  const [openSection, setOpenSection] = useState<HomepageFlag | null>("isBestseller");
-
-  const load = () => {
-    adminApi.products
-      .list()
-      .then((r) => setProducts(r.products))
-      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load products"));
-  };
-  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggleFlag = async (product: AdminProduct, flag: HomepageFlag, value: boolean) => {
-    // Optimistic update so the checkbox responds immediately.
-    setProducts((prev) => (prev ? prev.map((p) => (p.id === product.id ? { ...p, [flag]: value } : p)) : prev));
-    try {
-      await adminApi.products.update(product.id, { [flag]: value });
-      onSuccess(`${product.name} ${value ? "added to" : "removed from"} ${HOMEPAGE_SECTIONS.find((s) => s.flag === flag)?.title}`);
-    } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't update product");
-      // Roll back on failure.
-      setProducts((prev) => (prev ? prev.map((p) => (p.id === product.id ? { ...p, [flag]: !value } : p)) : prev));
-    }
-  };
-
-  return (
-    <div className="mt-6 rounded-md border border-border bg-background p-5">
-      <h2 className="font-serif text-lg text-olive-600">Homepage sections</h2>
-      <p className="mt-1 text-xs text-foreground/50">
-        The storefront homepage shows these sections, in this order: Hero → Shop by Category → Top Picks → Heritage banner → Shop by
-        Trend → New Arrivals → Spotlight → Store visit banner → FAQs. Toggle which products appear in each product-based section below.
-      </p>
-
-      {!products ? (
-        <p className="mt-4 text-sm text-foreground/50">Loading…</p>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {HOMEPAGE_SECTIONS.map((section) => {
-            const included = products.filter((p) => p[section.flag]);
-            const isOpen = openSection === section.flag;
-            return (
-              <div key={section.flag} className="rounded-sm border border-border/60">
-                <button
-                  type="button"
-                  onClick={() => setOpenSection(isOpen ? null : section.flag)}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-olive-50/50"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{section.title}</p>
-                    <p className="text-xs text-foreground/50">{section.help}</p>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-2">
-                    <span className="rounded-full bg-olive-100 px-2 py-0.5 text-xs text-olive-600">{included.length} product{included.length === 1 ? "" : "s"}</span>
-                    <span className="text-foreground/40">{isOpen ? "▲" : "▼"}</span>
-                  </div>
-                </button>
-                {isOpen && (
-                  <div className="border-t border-border/60 p-3">
-                    <ProductChecklist products={products} flag={section.flag} onToggle={toggleFlag} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProductChecklist({
-  products,
-  flag,
-  onToggle,
-}: {
-  products: AdminProduct[];
-  flag: HomepageFlag;
-  onToggle: (product: AdminProduct, flag: HomepageFlag, value: boolean) => void;
-}) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(
-    () =>
-      products
-        .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.category.toLowerCase().includes(search.toLowerCase()))
-        .sort((a, b) => Number(b[flag]) - Number(a[flag]) || a.name.localeCompare(b.name)),
-    [products, search, flag]
-  );
-
-  return (
-    <div>
-      <input
-        placeholder="Search products…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-2 w-full max-w-xs rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-      />
-      <div className="max-h-72 overflow-y-auto rounded-sm border border-border/60">
-        {filtered.map((p) => (
-          <label
-            key={p.id}
-            className="flex cursor-pointer items-center gap-3 border-b border-border/40 px-3 py-2 text-sm last:border-none hover:bg-olive-50/50"
-          >
-            <input type="checkbox" checked={p[flag]} onChange={(e) => onToggle(p, flag, e.target.checked)} className="h-4 w-4 accent-olive-600" />
-            <div
-              className="h-8 w-8 flex-shrink-0 rounded-sm bg-cover bg-center"
-              style={p.images[0] ? { backgroundImage: `url(${p.images[0]})` } : { background: p.bg || "#E4E6D9" }}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{p.name}</p>
-              <p className="truncate text-xs text-foreground/50">{p.category}</p>
-            </div>
-            {!p.active && <span className="flex-shrink-0 rounded-full bg-foreground/10 px-2 py-0.5 text-[10px] text-foreground/50">Hidden</span>}
-          </label>
-        ))}
-        {filtered.length === 0 && <p className="p-3 text-center text-sm text-foreground/50">No products found.</p>}
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
+    </section>
   );
 }

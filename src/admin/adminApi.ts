@@ -146,6 +146,25 @@ export type PromoCodeInput = {
 };
 
 export type AdminCategory = { id: number; name: string; slug: string; imageUrl: string; sortOrder: number };
+export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight";
+export type HomepageImageSlot = "hero" | "heritageBanner" | "storeVisitBanner";
+export type AdminPickerProduct = { id: number; name: string; category: string; price: number; image: string; active: boolean };
+// One entry per homepage section, in the exact order the storefront renders
+// them — the editor builds its cards straight from this so the two can't drift.
+export type HomepageLayoutEntry = {
+  key: string;
+  kind: "images" | "categories" | "products";
+  title: string;
+  help: string;
+};
+export type AdminHomepage = {
+  layout: HomepageLayoutEntry[];
+  images: Record<HomepageImageSlot, string[]>;
+  categories: AdminCategory[];
+  sections: Record<HomepageSectionKey, AdminPickerProduct[]>;
+  allProducts: AdminPickerProduct[];
+  maxImagesPerSlot: number;
+};
 export type AdminFeaturedReview = {
   id: number;
   reviewer_name: string;
@@ -183,9 +202,9 @@ export type AdminAnalytics = {
 
 export const adminApi = {
   auth: {
-    login: (email: string, password: string) => request<{ admin: AdminUser }>("/api/admin/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+    login: (email: string, password: string) => request<{ admin: AdminUser; idleTimeoutMs?: number }>("/api/admin/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
     logout: () => request<{ ok: true }>("/api/admin/auth/logout", { method: "POST" }),
-    me: () => request<{ admin: AdminUser }>("/api/admin/auth/me"),
+    me: () => request<{ admin: AdminUser; idleTimeoutMs?: number }>("/api/admin/auth/me"),
     setup: (data: { setupKey: string; name: string; email: string; password: string }) =>
       request<{ admin: AdminUser }>("/api/admin/auth/setup", { method: "POST", body: JSON.stringify(data) }),
   },
@@ -224,6 +243,25 @@ export const adminApi = {
     update: (id: number, data: Partial<{ name: string; imageUrl: string; sortOrder: number }>) =>
       request<{ category: AdminCategory }>(`/api/admin/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: number) => request<{ ok: true }>(`/api/admin/categories/${id}`, { method: "DELETE" }),
+  },
+  // Backs the Website Editor's homepage view: the whole homepage in one GET,
+  // then one PUT per section.
+  homepage: {
+    get: () => request<AdminHomepage>("/api/admin/homepage"),
+    setImages: (slot: HomepageImageSlot, images: string[]) =>
+      request<{ images: string[] }>(`/api/admin/homepage/images/${slot}`, { method: "PUT", body: JSON.stringify({ images }) }),
+    // Sets membership and order together — saving them separately could
+    // leave a section half-applied if the second call failed.
+    setSection: (key: HomepageSectionKey, productIds: number[]) =>
+      request<{ products: AdminPickerProduct[] }>(`/api/admin/homepage/sections/${key}`, {
+        method: "PUT",
+        body: JSON.stringify({ productIds }),
+      }),
+    setCategoryOrder: (categoryIds: number[]) =>
+      request<{ categories: AdminCategory[] }>("/api/admin/homepage/categories/order", {
+        method: "PUT",
+        body: JSON.stringify({ categoryIds }),
+      }),
   },
   siteSettings: {
     get: () => request<{ settings: Record<string, string> }>("/api/admin/site-settings"),

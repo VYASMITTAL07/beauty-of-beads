@@ -25,16 +25,41 @@ export default function CustomersSection({ onError, onSuccess }: { onError: (m: 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-serif text-2xl text-olive-600">Customers</h1>
+        <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Customers</h1>
         <input
           placeholder="Search name or email…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm sm:w-auto"
         />
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-border bg-background">
+      {/* Mobile: card list */}
+      <div className="mt-5 flex flex-col gap-2 md:hidden">
+        {filtered?.map((c) => (
+          <div key={c.id} className="rounded-md border border-border bg-background p-3">
+            <p className="truncate text-sm font-medium">{c.name}</p>
+            <p className="truncate text-xs text-foreground/60">{c.email}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/60">
+              <span>{c.order_count} orders</span>
+              <span className="font-serif text-sm text-foreground">₹{c.lifetime_value.toLocaleString("en-IN")}</span>
+              <span className="text-foreground/45">Joined {new Date(c.created_at).toLocaleDateString("en-IN")}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrderingFor(c)}
+              className="mt-2.5 rounded-sm border border-olive-400 px-3 py-1.5 text-xs font-medium text-olive-600 transition-colors hover:bg-olive-50"
+            >
+              Create custom order
+            </button>
+          </div>
+        ))}
+        {filtered && filtered.length === 0 && (
+          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">No customers found.</p>
+        )}
+      </div>
+
+      <div className="mt-5 hidden overflow-x-auto rounded-md border border-border bg-background md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
@@ -126,8 +151,8 @@ function CustomOrderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8" onClick={onClose}>
-      <form onSubmit={send} className="w-full max-w-lg rounded-md bg-background p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 py-6 sm:p-4 sm:py-8" onClick={onClose}>
+      <form onSubmit={send} className="w-full max-w-lg rounded-md bg-background p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-serif text-xl text-olive-600">Create custom order</h2>
