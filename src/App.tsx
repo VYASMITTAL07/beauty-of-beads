@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAuth, ApiError } from "@/context/AuthContext";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { CountryStateFields } from "@/components/store/CountryStateFields";
+import { DEFAULT_COUNTRY, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
 // Imported as files rather than an inline data: URI — as base64 this single
 // logo was ~426KB of the JavaScript bundle, parsed on every page load.
 // logo-mark.png is the full-size master and is deliberately NOT imported:
@@ -837,20 +839,6 @@ function AllCollectionsView({
 // menu. Name and phone are editable and saved via PATCH /api/auth/me; email
 // stays read-only since it's the Google account identity, not something we
 // let a customer change here.
-// Indian states/UTs, offered as a dropdown so the state on an address always
-// matches what the admin sees on the order (free text produced "UP", "U.P."
-// and "Uttar Pradesh" for the same place).
-const INDIAN_STATES = [
-  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh",
-  "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", "Gujarat", "Haryana",
-  "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep",
-  "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry",
-  "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand",
-  "West Bengal",
-];
-
-const PIN_REGEX = /^[1-9][0-9]{5}$/;
-
 function formatMemberSince(value?: string | null) {
   if (!value) return null;
   const d = new Date(String(value).replace(" ", "T"));
@@ -889,6 +877,7 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
   const [postalCode, setPostalCode] = useState("");
+  const [countryName, setCountryName] = useState(DEFAULT_COUNTRY);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressMsg, setAddressMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
@@ -915,6 +904,7 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
         setCity(preferred?.city || "");
         setStateName(preferred?.state || "");
         setPostalCode(preferred?.postalCode || "");
+        setCountryName(preferred?.country || DEFAULT_COUNTRY);
       })
       .catch(() => {
         if (!cancelled) setAddresses([]);
@@ -944,15 +934,17 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
     city: city.trim(),
     state: stateName.trim(),
     postalCode: postalCode.trim(),
+    country: countryName.trim(),
   };
-  const pinInvalid = addr.postalCode.length > 0 && !PIN_REGEX.test(addr.postalCode);
+  const pinInvalid = addr.postalCode.length > 0 && !isValidPostalCode(addr.postalCode, addr.country);
   const addressDirty =
     addr.line1 !== (defaultAddress?.line1 || "") ||
     addr.line2 !== (defaultAddress?.line2 || "") ||
     addr.city !== (defaultAddress?.city || "") ||
     addr.state !== (defaultAddress?.state || "") ||
-    addr.postalCode !== (defaultAddress?.postalCode || "");
-  const addressComplete = !!(addr.line1 && addr.city && addr.state && addr.postalCode);
+    addr.postalCode !== (defaultAddress?.postalCode || "") ||
+    addr.country !== (defaultAddress?.country || DEFAULT_COUNTRY);
+  const addressComplete = !!(addr.line1 && addr.city && addr.state && addr.postalCode && addr.country);
   const canSaveAddress = addressDirty && addressComplete && !pinInvalid && !savingAddress;
 
   // Cancelled and not-yet-confirmed orders were never paid for, so counting
@@ -990,6 +982,7 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
         city: addr.city,
         state: addr.state,
         postalCode: addr.postalCode,
+        country: addr.country,
         isDefault: true,
       };
       const res = defaultAddress ? await api.addresses.update(defaultAddress.id, payload) : await api.addresses.create(payload);
@@ -1139,36 +1132,41 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
                 <input id="addr-line2" value={line2} onChange={(e) => setLine2(e.target.value)} placeholder="Locality, landmark" className={fieldClass} />
               </div>
 
+              <CountryStateFields
+                country={countryName}
+                onCountryChange={setCountryName}
+                state={stateName}
+                onStateChange={setStateName}
+                fieldClass={fieldClass}
+                labelClass={labelClass}
+                idPrefix="addr"
+                stateRequired
+              />
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="addr-city" className={labelClass}>City</label>
                   <input id="addr-city" value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="addr-pin" className={labelClass}>PIN code</label>
+                  <label htmlFor="addr-pin" className={labelClass}>{postalLabel(countryName)}</label>
                   <input
                     id="addr-pin"
-                    inputMode="numeric"
-                    maxLength={6}
+                    // Indian PINs are always six digits, so strip anything else
+                    // there; other countries use letters and spaces.
+                    inputMode={countryName === "India" ? "numeric" : "text"}
+                    maxLength={countryName === "India" ? 6 : 12}
                     value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ""))}
-                    placeholder="251001"
+                    onChange={(e) => setPostalCode(countryName === "India" ? e.target.value.replace(/\D/g, "") : e.target.value)}
+                    placeholder={postalPlaceholder(countryName)}
                     className={`${fieldClass} ${pinInvalid ? "border-destructive focus:ring-destructive/60" : ""}`}
                   />
-                  {pinInvalid && <p className="text-[11px] text-destructive">Enter a valid 6-digit PIN code.</p>}
+                  {pinInvalid && (
+                    <p className="text-[11px] text-destructive">
+                      {countryName === "India" ? "Enter a valid 6-digit PIN code." : "Enter a valid postal / ZIP code."}
+                    </p>
+                  )}
                 </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="addr-state" className={labelClass}>State</label>
-                <select id="addr-state" value={stateName} onChange={(e) => setStateName(e.target.value)} className={fieldClass}>
-                  <option value="">Select a state</option>
-                  {INDIAN_STATES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {addressMsg && (
@@ -1426,7 +1424,7 @@ function CheckoutModal({
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
-  const [country, setCountry] = useState("India");
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1534,6 +1532,15 @@ function CheckoutModal({
               className={fieldClass}
             />
           </div>
+          <CountryStateFields
+            country={country}
+            onCountryChange={setCountry}
+            state={state}
+            onStateChange={setState}
+            fieldClass={fieldClass}
+            labelClass={labelClass}
+            idPrefix="ship"
+          />
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="ship-city" className={labelClass}>
@@ -1542,24 +1549,16 @@ function CheckoutModal({
               <input id="ship-city" required value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="ship-state" className={labelClass}>
-                State (optional)
-              </label>
-              <input id="ship-state" value={state} onChange={(e) => setState(e.target.value)} className={fieldClass} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
               <label htmlFor="ship-postal" className={labelClass}>
-                Postal code (optional)
+                {postalLabel(country)}
               </label>
-              <input id="ship-postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className={fieldClass} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ship-country" className={labelClass}>
-                Country
-              </label>
-              <input id="ship-country" required value={country} onChange={(e) => setCountry(e.target.value)} className={fieldClass} />
+              <input
+                id="ship-postal"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                placeholder={postalPlaceholder(country)}
+                className={fieldClass}
+              />
             </div>
           </div>
 
@@ -1945,7 +1944,7 @@ function CustomOrderConfirmCard({
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
-  const [country, setCountry] = useState("India");
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2045,6 +2044,15 @@ function CustomOrderConfirmCard({
               className={fieldClass}
             />
           </div>
+          <CountryStateFields
+            country={country}
+            onCountryChange={setCountry}
+            state={state}
+            onStateChange={setState}
+            fieldClass={fieldClass}
+            labelClass={labelClass}
+            idPrefix="confirm"
+          />
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="confirm-city" className={labelClass}>
@@ -2053,24 +2061,16 @@ function CustomOrderConfirmCard({
               <input id="confirm-city" required value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="confirm-state" className={labelClass}>
-                State (optional)
-              </label>
-              <input id="confirm-state" value={state} onChange={(e) => setState(e.target.value)} className={fieldClass} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
               <label htmlFor="confirm-postal" className={labelClass}>
-                Postal code (optional)
+                {postalLabel(country)}
               </label>
-              <input id="confirm-postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className={fieldClass} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="confirm-country" className={labelClass}>
-                Country
-              </label>
-              <input id="confirm-country" required value={country} onChange={(e) => setCountry(e.target.value)} className={fieldClass} />
+              <input
+                id="confirm-postal"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                placeholder={postalPlaceholder(country)}
+                className={fieldClass}
+              />
             </div>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}

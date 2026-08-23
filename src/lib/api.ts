@@ -301,9 +301,11 @@ export type AddressInput = {
   line1: string;
   line2?: string;
   city: string;
-  state: string;
-  postalCode: string;
-  country?: string;
+  // Optional because the store ships worldwide and not every country has a
+  // meaningful subdivision or a postal code — the API applies the same rule.
+  state?: string;
+  postalCode?: string;
+  country: string;
   isDefault?: boolean;
 };
 // Trimmed product shape used by homepage carousels — the detail view fetches
