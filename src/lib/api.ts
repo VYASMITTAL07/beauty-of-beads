@@ -70,6 +70,28 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export type ApiUser = { id: number; name: string; email: string; phone?: string | null; created_at?: string };
 
+// Uploads bypass `request()` because a multipart body must NOT have an
+// explicit Content-Type set (the browser needs to add its own boundary=...).
+async function uploadFile(path: string, file: File): Promise<{ url: string; key: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE}${path}`, { method: "POST", credentials: "include", body: form });
+  let body: unknown = null;
+  const text = await res.text();
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+  }
+  if (!res.ok) {
+    const message = (body as { error?: string } | null)?.error || `Upload failed (${res.status})`;
+    throw new ApiError(message, res.status);
+  }
+  return body as { url: string; key: string };
+}
+
 export const api = {
   auth: {
     signup: (data: { name: string; email: string; password: string; phone?: string }) =>
@@ -79,6 +101,8 @@ export const api = {
     logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST" }),
     google: (credential: string) => request<{ user: ApiUser }>("/api/auth/google", { method: "POST", body: JSON.stringify({ credential }) }),
     me: () => request<{ user: ApiUser }>("/api/auth/me"),
+    updateProfile: (data: { name?: string; phone?: string }) =>
+      request<{ user: ApiUser }>("/api/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
   },
   cart: {
     list: () => request<{ items: CartItemDto[] }>("/api/cart"),
@@ -168,6 +192,18 @@ export const api = {
     create: (data: { orderId: number; productName: string; rating: number; comment: string }) =>
       request<{ review: ReviewDto }>("/api/reviews", { method: "POST", body: JSON.stringify(data) }),
   },
+  uploads: {
+    // Customer-scoped image upload — used by the "raise a complaint" form.
+    image: (file: File) => uploadFile("/api/uploads", file),
+  },
+  complaints: {
+    list: () => request<{ complaints: ComplaintDto[] }>("/api/complaints"),
+    create: (orderNumber: string, data: { productName?: string; description: string; images?: string[]; phone: string }) =>
+      request<{ complaint: ComplaintDto }>(`/api/complaints/${encodeURIComponent(orderNumber)}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
 };
 
 export type CartItemDto = { id: number; product_name: string; product_price: number; product_image: string | null; quantity: number };
@@ -187,7 +223,7 @@ export type OrderDto = OrderSummaryDto & {
   shipping_country: string;
   updated_at: string;
 };
-export type OrderItemDto = { product_name: string; product_price: number; quantity: number };
+export type OrderItemDto = { product_name: string; product_price: number; quantity: number; product_image?: string | null };
 export type OrderHistoryDto = { status: string; note: string | null; created_at: string };
 export type ReviewDto = { id: number; rating: number; comment: string; reviewer_name: string; created_at: string };
 export type ProductDto = {
@@ -208,6 +244,7 @@ export type ProductDto = {
   isBestseller: boolean;
   isNewArrival: boolean;
   isFeatured: boolean;
+  isSpotlight: boolean;
   stock: number;
   active: boolean;
 };
@@ -230,3 +267,16 @@ export type ShippingInput = {
 };
 export type CategoryDto = { id: number; name: string; slug: string; imageUrl: string };
 export type FeaturedReviewDto = { id: number; reviewer_name: string; rating: number; comment: string; product_name: string | null };
+export type ComplaintDto = {
+  id: number;
+  order_id: number;
+  order_number: string;
+  user_id: number;
+  product_name: string | null;
+  description: string;
+  images: string[];
+  phone: string;
+  status: "open" | "in_progress" | "resolved" | "rejected";
+  created_at: string;
+  updated_at: string;
+};

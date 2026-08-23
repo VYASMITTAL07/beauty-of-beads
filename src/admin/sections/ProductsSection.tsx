@@ -20,6 +20,7 @@ type FormState = {
   isBestseller: boolean;
   isNewArrival: boolean;
   isFeatured: boolean;
+  isSpotlight: boolean;
   active: boolean;
 };
 
@@ -37,6 +38,7 @@ const emptyForm: FormState = {
   isBestseller: false,
   isNewArrival: false,
   isFeatured: false,
+  isSpotlight: false,
   active: true,
 };
 
@@ -55,6 +57,7 @@ function productToForm(p: AdminProduct): FormState {
     isBestseller: p.isBestseller,
     isNewArrival: p.isNewArrival,
     isFeatured: p.isFeatured,
+    isSpotlight: p.isSpotlight,
     active: p.active,
   };
 }
@@ -130,7 +133,8 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
                       <p className="text-xs text-foreground/50">
                         {p.isBestseller ? "Bestseller " : ""}
                         {p.isNewArrival ? "New Arrival " : ""}
-                        {p.isFeatured ? "Featured" : ""}
+                        {p.isFeatured ? "Featured " : ""}
+                        {p.isSpotlight ? "Spotlight" : ""}
                       </p>
                     </div>
                   </div>
@@ -248,6 +252,7 @@ function ProductFormModal({
       isBestseller: form.isBestseller,
       isNewArrival: form.isNewArrival,
       isFeatured: form.isFeatured,
+      isSpotlight: form.isSpotlight,
       active: form.active,
     };
     try {
@@ -460,6 +465,7 @@ function ProductFormModal({
           <ToggleField label="Bestseller" checked={form.isBestseller} onChange={(v) => setForm({ ...form, isBestseller: v })} />
           <ToggleField label="New Arrival" checked={form.isNewArrival} onChange={(v) => setForm({ ...form, isNewArrival: v })} />
           <ToggleField label="Featured" checked={form.isFeatured} onChange={(v) => setForm({ ...form, isFeatured: v })} />
+          <ToggleField label="Spotlight" checked={form.isSpotlight} onChange={(v) => setForm({ ...form, isSpotlight: v })} />
           <ToggleField label="Live on storefront" checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
         </div>
 

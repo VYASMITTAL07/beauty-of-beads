@@ -12,6 +12,7 @@ import CustomersSection from "./sections/CustomersSection";
 import ReviewsSection from "./sections/ReviewsSection";
 import PromoCodesSection from "./sections/PromoCodesSection";
 import AnalyticsSection from "./sections/AnalyticsSection";
+import ComplaintsSection from "./sections/ComplaintsSection";
 
 const SECTIONS = [
   { key: "analytics", label: "Overview" },
@@ -21,6 +22,7 @@ const SECTIONS = [
   { key: "customers", label: "Customers" },
   { key: "reviews", label: "Reviews" },
   { key: "promo", label: "Promo Codes" },
+  { key: "complaints", label: "Complaints" },
 ] as const;
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
@@ -92,6 +94,7 @@ export default function AdminApp() {
         {section === "customers" && <CustomersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "reviews" && <ReviewsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "promo" && <PromoCodesSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
+        {section === "complaints" && <ComplaintsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
       </main>
     </div>
   );

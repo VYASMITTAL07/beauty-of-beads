@@ -57,6 +57,7 @@ export type AdminProduct = {
   isBestseller: boolean;
   isNewArrival: boolean;
   isFeatured: boolean;
+  isSpotlight: boolean;
   stock: number;
   active: boolean;
   createdAt: string;
@@ -90,7 +91,7 @@ export type AdminOrderDetail = {
     shipping_country: string;
     custom_note: string | null;
   };
-  items: { product_name: string; product_price: number; quantity: number }[];
+  items: { product_name: string; product_price: number; quantity: number; product_image?: string | null }[];
   history: { status: string; note: string | null; created_at: string }[];
   stages: string[];
 };
@@ -153,6 +154,22 @@ export type AdminFeaturedReview = {
   product_name: string | null;
   sort_order: number;
   created_at: string;
+};
+
+export type AdminComplaint = {
+  id: number;
+  order_id: number;
+  order_number: string;
+  user_id: number;
+  customer_name: string;
+  customer_email: string;
+  product_name: string | null;
+  description: string;
+  images: string[];
+  phone: string;
+  status: "open" | "in_progress" | "resolved" | "rejected";
+  created_at: string;
+  updated_at: string;
 };
 
 export type AdminAnalytics = {
@@ -233,5 +250,10 @@ export const adminApi = {
   },
   analytics: {
     get: () => request<AdminAnalytics>("/api/admin/analytics"),
+  },
+  complaints: {
+    list: (status?: string) => request<{ complaints: AdminComplaint[] }>(`/api/admin/complaints${status ? `?status=${status}` : ""}`),
+    setStatus: (id: number, status: AdminComplaint["status"]) =>
+      request<{ complaint: AdminComplaint }>(`/api/admin/complaints/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   },
 };

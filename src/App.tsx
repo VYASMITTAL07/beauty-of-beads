@@ -173,6 +173,7 @@ type Product = {
   isBestseller?: boolean;
   isNewArrival?: boolean;
   isFeatured?: boolean;
+  isSpotlight?: boolean;
   // Real, admin-entered colour-variant labels (e.g. "Rose Gold", "Black") for the
   // product detail page's colour selector — only set when the admin actually added
   // some. Deliberately separate from `colors` above, which is always non-empty
@@ -203,6 +204,7 @@ function dtoToProduct(d: ProductDto): Product {
     isBestseller: d.isBestseller,
     isNewArrival: d.isNewArrival,
     isFeatured: d.isFeatured,
+    isSpotlight: d.isSpotlight,
     colorOptions: d.colors.length ? d.colors : undefined,
   };
 }
@@ -802,11 +804,17 @@ function AllCollectionsView({
   );
 }
 
-// Minimal read-only account view, reachable from the header's profile menu —
-// no edit form exists yet, so this simply surfaces what AuthContext already
-// has about the signed-in user.
+// Full editable account settings page, reachable from the header's profile
+// menu. Name and phone are editable and saved via PATCH /api/auth/me; email
+// stays read-only since it's the Google account identity, not something we
+// let a customer change here.
 function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -817,7 +825,45 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
     };
   }, [open]);
 
+  useEffect(() => {
+    if (open && user) {
+      setName(user.name || "");
+      setPhone(user.phone || "");
+      setStatus("idle");
+      setMessage("");
+    }
+  }, [open, user]);
+
   if (!open || !user) return null;
+
+  const trimmedName = name.trim();
+  const trimmedPhone = phone.trim();
+  const dirty = trimmedName !== (user.name || "") || trimmedPhone !== (user.phone || "");
+  const phoneInvalid = trimmedPhone.length > 0 && !isValidPhone(trimmedPhone);
+  const canSave = dirty && !saving && trimmedName.length > 0 && !phoneInvalid;
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSave) return;
+    setStatus("idle");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await api.auth.updateProfile({ name: trimmedName, phone: trimmedPhone || undefined });
+      updateUser(res.user);
+      setStatus("success");
+      setMessage("Your changes have been saved.");
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof ApiError ? err.message : "Couldn't save your changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldClass =
+    "rounded-sm border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive-500";
+  const labelClass = "text-sm font-medium text-foreground/80";
 
   return (
     <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans">
@@ -836,28 +882,75 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
       <div className="mx-auto w-full max-w-md flex-1 px-5 py-8 md:px-8">
         <div className="flex items-center gap-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-olive-500 text-xl font-semibold uppercase text-white">
-            {user.name.trim().charAt(0) || "U"}
+            {(name || user.name).trim().charAt(0) || "U"}
           </span>
           <div>
-            <p className="font-serif text-lg text-foreground">{user.name}</p>
+            <p className="font-serif text-lg text-foreground">{name || user.name}</p>
             <p className="text-sm text-foreground/60">{user.email}</p>
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col divide-y divide-border rounded-sm border border-border">
-          <div className="flex items-center justify-between px-4 py-3 text-sm">
-            <span className="text-foreground/60">Name</span>
-            <span className="font-medium text-foreground">{user.name}</span>
+        <form onSubmit={handleSave} className="mt-8 flex flex-col gap-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">Account details</p>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="profile-name" className={labelClass}>
+              Name
+            </label>
+            <input
+              id="profile-name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={fieldClass}
+            />
           </div>
-          <div className="flex items-center justify-between px-4 py-3 text-sm">
-            <span className="text-foreground/60">Email</span>
-            <span className="font-medium text-foreground">{user.email}</span>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="profile-email" className={labelClass}>
+              Email
+            </label>
+            <input
+              id="profile-email"
+              value={user.email}
+              disabled
+              className={`${fieldClass} cursor-not-allowed bg-olive-50/60 text-foreground/60`}
+            />
+            <p className="text-xs text-foreground/40">Your email is linked to your Google account and can't be changed here.</p>
           </div>
-          <div className="flex items-center justify-between px-4 py-3 text-sm">
-            <span className="text-foreground/60">Phone</span>
-            <span className="font-medium text-foreground">{user.phone || "Not added"}</span>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="profile-phone" className={labelClass}>
+              Phone
+            </label>
+            <input
+              id="profile-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder={PHONE_PLACEHOLDER}
+              pattern={PHONE_REGEX.source}
+              className={`${fieldClass} ${phoneInvalid ? "border-destructive focus:ring-destructive" : ""}`}
+            />
+            {phoneInvalid ? (
+              <p className="text-xs text-destructive">{PHONE_HELPER_TEXT}</p>
+            ) : (
+              <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
+            )}
           </div>
-        </div>
+
+          {status !== "idle" && message && (
+            <p className={`text-sm ${status === "success" ? "text-olive-600" : "text-destructive"}`}>{message}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={!canSave}
+            className="mt-1 w-full rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -1052,6 +1145,35 @@ function stageLabel(stage: string) {
     .join(" ");
 }
 
+// Matches the backend's mandatory phone format exactly: a leading "+" and
+// country code, then 6-14 digits (an optional single space/hyphen allowed
+// right after the country code) — e.g. "+91 98765 43210" or "+919876543210".
+const PHONE_REGEX = /^\+[1-9]\d{0,3}[\s-]?\d{6,14}$/;
+const PHONE_PLACEHOLDER = "+91 98765 43210";
+const PHONE_HELPER_TEXT = "Include your country code, e.g. +91 98765 43210.";
+function isValidPhone(phone: string) {
+  return PHONE_REGEX.test(phone.trim());
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatShortDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function CheckoutModal({
   open,
   onOpenChange,
@@ -1094,6 +1216,10 @@ function CheckoutModal({
     e.preventDefault();
     if (items.length === 0) return;
     setError(null);
+    if (!isValidPhone(phone)) {
+      setError(`Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.orders.place({
@@ -1147,11 +1273,13 @@ function CheckoutModal({
               required
               minLength={7}
               maxLength={20}
+              pattern={PHONE_REGEX.source}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="For delivery updates"
+              placeholder={PHONE_PLACEHOLDER}
               className={fieldClass}
             />
+            <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="ship-line1" className={labelClass}>
@@ -1321,6 +1449,254 @@ function ReviewComposer({
   );
 }
 
+const MAX_COMPLAINT_IMAGES = 5;
+type ComplaintImageAttachment = {
+  id: string;
+  name: string;
+  status: "uploading" | "done" | "error";
+  url?: string;
+  error?: string;
+};
+
+// "Raise a complaint" composer — only offered on a delivered order within the
+// 10-day complaint window (see OrdersView). Structured the same way as
+// ReviewComposer above (a Dialog gated on a nullable `target`), with an
+// added image-attachment control: each selected file uploads immediately via
+// api.uploads.image, and only successfully-uploaded URLs are submitted.
+function ComplaintComposer({
+  target,
+  onClose,
+  onSubmitted,
+}: {
+  target: { orderNumber: string; items: OrderItemDto[] } | null;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) {
+  const { user } = useAuth();
+  const [productName, setProductName] = useState("");
+  const [description, setDescription] = useState("");
+  const [phone, setPhone] = useState("");
+  const [attachments, setAttachments] = useState<ComplaintImageAttachment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (target) {
+      setProductName("");
+      setDescription("");
+      setPhone(user?.phone || "");
+      setAttachments([]);
+      setError(null);
+      setSubmitted(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  if (!target) return null;
+
+  const uniqueProductNames = Array.from(new Set(target.items.map((i) => i.product_name)));
+  const uploading = attachments.some((a) => a.status === "uploading");
+
+  const handleFilesSelected = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remainingSlots = MAX_COMPLAINT_IMAGES - attachments.length;
+    if (remainingSlots <= 0) {
+      setError(`You can attach up to ${MAX_COMPLAINT_IMAGES} images.`);
+      return;
+    }
+    const toAdd = Array.from(files).slice(0, remainingSlots);
+    setError(
+      files.length > remainingSlots
+        ? `Only ${remainingSlots} more image${remainingSlots === 1 ? "" : "s"} can be added (max ${MAX_COMPLAINT_IMAGES}).`
+        : null
+    );
+    toAdd.forEach((file) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setAttachments((prev) => [...prev, { id, name: file.name, status: "uploading" }]);
+      api.uploads
+        .image(file)
+        .then((res) => {
+          setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, status: "done", url: res.url } : a)));
+        })
+        .catch((err) => {
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === id ? { ...a, status: "error", error: err instanceof ApiError ? err.message : "Upload failed" } : a
+            )
+          );
+        });
+    });
+  };
+
+  const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (description.trim().length < 5) {
+      setError("Please describe the issue in a few more words.");
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setError(`Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`);
+      return;
+    }
+    if (uploading) {
+      setError("Please wait for your images to finish uploading.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const images = attachments.filter((a) => a.status === "done" && a.url).map((a) => a.url as string);
+      await api.complaints.create(target.orderNumber, {
+        productName: productName || undefined,
+        description: description.trim(),
+        images,
+        phone: phone.trim(),
+      });
+      setSubmitted(true);
+      setTimeout(onSubmitted, 1400);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't submit your complaint. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!target} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto font-sans sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-xl">Raise a Complaint</DialogTitle>
+          <DialogDescription>Order {target.orderNumber}</DialogDescription>
+        </DialogHeader>
+
+        {submitted ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <p className="font-serif text-lg text-olive-600">Complaint submitted</p>
+            <p className="text-sm text-foreground/60">Our team will get back to you shortly on the number you provided.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="complaint-product" className="text-sm font-medium text-foreground/80">
+                Product (optional)
+              </label>
+              <select
+                id="complaint-product"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                className="rounded-sm border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive-500"
+              >
+                <option value="">General issue</option>
+                {uniqueProductNames.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="complaint-desc" className="text-sm font-medium text-foreground/80">
+                Describe the issue
+              </label>
+              <textarea
+                id="complaint-desc"
+                required
+                rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us what went wrong…"
+                className="w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-olive-500"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="complaint-phone" className="text-sm font-medium text-foreground/80">
+                Phone number
+              </label>
+              <input
+                id="complaint-phone"
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={PHONE_PLACEHOLDER}
+                pattern={PHONE_REGEX.source}
+                className="rounded-sm border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive-500"
+              />
+              <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground/80">Attach photos (optional, up to {MAX_COMPLAINT_IMAGES})</label>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((a) => (
+                  <div key={a.id} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-sm border border-border bg-olive-50">
+                    {a.status === "uploading" && (
+                      <div className="flex h-full w-full items-center justify-center text-center text-[9px] text-foreground/50">
+                        Uploading…
+                      </div>
+                    )}
+                    {a.status === "done" && a.url && <img src={a.url} alt="" className="h-full w-full object-cover" draggable={false} />}
+                    {a.status === "error" && (
+                      <div className="flex h-full w-full items-center justify-center p-1 text-center text-[9px] text-destructive">
+                        Failed
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(a.id)}
+                      aria-label="Remove image"
+                      className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+                {attachments.length < MAX_COMPLAINT_IMAGES && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Add photo"
+                    className="flex h-16 w-16 shrink-0 items-center justify-center rounded-sm border border-dashed border-border text-lg text-foreground/40 transition-colors hover:border-olive-500 hover:text-olive-600"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  handleFilesSelected(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+
+            {error && <p className="text-xs text-destructive">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading || uploading}
+              className="w-full rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Submitting…" : "Submit Complaint"}
+            </button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // A custom order an admin built for a customer lands with status
 // 'awaiting_payment' and no shipping address yet — this card is how the
 // customer reviews it and supplies/confirms their shipping details
@@ -1352,6 +1728,10 @@ function CustomOrderConfirmCard({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!isValidPhone(phone)) {
+      setError(`Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`);
+      return;
+    }
     setLoading(true);
     try {
       const shipping: ShippingInput = {
@@ -1404,10 +1784,13 @@ function CustomOrderConfirmCard({
               required
               minLength={7}
               maxLength={20}
+              pattern={PHONE_REGEX.source}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              placeholder={PHONE_PLACEHOLDER}
               className={fieldClass}
             />
+            <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="confirm-line1" className={labelClass}>
@@ -1504,6 +1887,7 @@ function OrdersView({
   // a review (delivered, not yet reviewed). null while unknown/loading.
   const [reviewableNames, setReviewableNames] = useState<Set<string> | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ orderId: number; productName: string } | null>(null);
+  const [complaintTarget, setComplaintTarget] = useState<{ orderNumber: string; items: OrderItemDto[] } | null>(null);
 
   const loadOrder = (orderNumber: string) => {
     setError(null);
@@ -1623,95 +2007,154 @@ function OrdersView({
           </div>
         )}
 
-        {!loading && selected && (
-          <div className="flex flex-col gap-8">
-            {selected.order.status === "awaiting_payment" ? (
-              <CustomOrderConfirmCard order={selected.order} onConfirmed={() => loadOrder(selected.order.order_number)} />
-            ) : (
-              <>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selected.stages.map((stage, i) => {
-                      const currentIdx = selected.stages.indexOf(selected.order.status);
-                      const done = i <= currentIdx;
-                      return (
-                        <div key={stage} className="flex items-center gap-2">
-                          <div className="flex flex-col items-center gap-1.5">
-                            <div
-                              className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold ${
-                                done ? "bg-olive-600 text-olive-50" : "border border-border text-foreground/40"
-                              }`}
-                            >
-                              {i + 1}
+        {!loading && selected && (() => {
+          const deliveredAt = selected.history.find((h) => h.status === "delivered")?.created_at;
+          const daysSinceDelivered = deliveredAt ? (Date.now() - new Date(deliveredAt).getTime()) / (24 * 60 * 60 * 1000) : null;
+          const canComplain = selected.order.status === "delivered" && daysSinceDelivered !== null && daysSinceDelivered <= 10;
+          const handleInvoice = () => {
+            alert("Invoice PDF download will be available once the payment gateway is set up.");
+          };
+          return (
+            <div className="flex flex-col gap-8">
+              <p className="-mb-4 text-xs text-foreground/50">Placed on {formatDateTime(selected.order.created_at)}</p>
+
+              {selected.order.status === "awaiting_payment" ? (
+                <CustomOrderConfirmCard order={selected.order} onConfirmed={() => loadOrder(selected.order.order_number)} />
+              ) : (
+                <>
+                  <div>
+                    <div className="flex flex-wrap items-start gap-2">
+                      {selected.stages.map((stage, i) => {
+                        const currentIdx = selected.stages.indexOf(selected.order.status);
+                        const done = i <= currentIdx;
+                        const stageDate = selected.history.find((h) => h.status === stage)?.created_at;
+                        return (
+                          <div key={stage} className="flex items-start gap-2">
+                            <div className="flex w-14 flex-col items-center gap-1.5 sm:w-20">
+                              <div
+                                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold ${
+                                  done ? "bg-olive-600 text-olive-50" : "border border-border text-foreground/40"
+                                }`}
+                              >
+                                {i + 1}
+                              </div>
+                              <span className={`text-center text-[10px] uppercase tracking-wide ${done ? "text-olive-600" : "text-foreground/40"}`}>
+                                {stageLabel(stage)}
+                              </span>
+                              {done && stageDate && (
+                                <span className="text-center text-[9px] leading-tight text-foreground/40">
+                                  {formatShortDateTime(stageDate)}
+                                </span>
+                              )}
                             </div>
-                            <span className={`text-center text-[10px] uppercase tracking-wide ${done ? "text-olive-600" : "text-foreground/40"}`}>
-                              {stageLabel(stage)}
-                            </span>
+                            {i < selected.stages.length - 1 && (
+                              <div className={`mt-3 h-px w-4 sm:w-8 ${i < currentIdx ? "bg-olive-600" : "bg-border"}`} />
+                            )}
                           </div>
-                          {i < selected.stages.length - 1 && (
-                            <div className={`h-px w-6 sm:w-10 ${i < currentIdx ? "bg-olive-600" : "bg-border"}`} />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">Shipping to</p>
-                  <p className="text-sm text-foreground/80">
-                    {selected.order.shipping_name}
-                    <br />
-                    {selected.order.shipping_line1}
-                    {selected.order.shipping_line2 ? `, ${selected.order.shipping_line2}` : ""}
-                    <br />
-                    {selected.order.shipping_city}
-                    {selected.order.shipping_state ? `, ${selected.order.shipping_state}` : ""}{" "}
-                    {selected.order.shipping_postal_code || ""}
-                    <br />
-                    {selected.order.shipping_country}
-                  </p>
-                </div>
-              </>
-            )}
-
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">Items</p>
-              <div className="flex flex-col divide-y divide-border rounded-sm border border-border">
-                {selected.items.map((it, i) => (
-                  <div key={i} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-                    <span>
-                      {it.product_name} <span className="text-foreground/50">× {it.quantity}</span>
-                    </span>
-                    <div className="flex items-center gap-3">
-                      {reviewableNames?.has(it.product_name) && (
-                        <button
-                          type="button"
-                          onClick={() => setReviewTarget({ orderId: selected.order.id, productName: it.product_name })}
-                          className="flex items-center gap-1 rounded-full border border-olive-400 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-50"
-                        >
-                          <Star className="h-3 w-3" />
-                          Write a Review
-                        </button>
-                      )}
-                      {selected.order.status === "delivered" && reviewableNames && !reviewableNames.has(it.product_name) && (
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-olive-600">
-                          <Star className="h-3 w-3 fill-gold-400 text-gold-400" />
-                          Reviewed
-                        </span>
-                      )}
-                      <span className="font-serif">{formatPrice(it.product_price * it.quantity, currency)}</span>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-                <div className="flex items-center justify-between px-4 py-3 text-sm font-semibold">
-                  <span>Total</span>
-                  <span className="font-serif text-base">{formatPrice(selected.order.total_amount, currency)}</span>
+
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">Shipping to</p>
+                    <p className="text-sm text-foreground/80">
+                      {selected.order.shipping_name}
+                      <br />
+                      {selected.order.shipping_line1}
+                      {selected.order.shipping_line2 ? `, ${selected.order.shipping_line2}` : ""}
+                      <br />
+                      {selected.order.shipping_city}
+                      {selected.order.shipping_state ? `, ${selected.order.shipping_state}` : ""}{" "}
+                      {selected.order.shipping_postal_code || ""}
+                      <br />
+                      {selected.order.shipping_country}
+                      {selected.order.shipping_phone && (
+                        <>
+                          <br />
+                          {selected.order.shipping_phone}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">Items</p>
+                <div className="flex flex-col divide-y divide-border rounded-sm border border-border">
+                  {selected.items.map((it, i) => (
+                    <div key={i} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-olive-50">
+                          {it.product_image && (
+                            <img src={it.product_image} alt="" className="h-full w-full object-cover" draggable={false} />
+                          )}
+                        </div>
+                        <span className="truncate">
+                          {it.product_name} <span className="text-foreground/50">× {it.quantity}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {reviewableNames?.has(it.product_name) && (
+                          <button
+                            type="button"
+                            onClick={() => setReviewTarget({ orderId: selected.order.id, productName: it.product_name })}
+                            className="flex items-center gap-1 rounded-full border border-olive-400 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-50"
+                          >
+                            <Star className="h-3 w-3" />
+                            Write a Review
+                          </button>
+                        )}
+                        {selected.order.status === "delivered" && reviewableNames && !reviewableNames.has(it.product_name) && (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-olive-600">
+                            <Star className="h-3 w-3 fill-gold-400 text-gold-400" />
+                            Reviewed
+                          </span>
+                        )}
+                        <span className="font-serif">{formatPrice(it.product_price * it.quantity, currency)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-4 py-3 text-sm font-semibold">
+                    <span>Total</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-serif text-base">{formatPrice(selected.order.total_amount, currency)}</span>
+                      <button
+                        type="button"
+                        onClick={handleInvoice}
+                        className="text-xs font-medium text-olive-600 hover:underline"
+                      >
+                        Invoice
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {selected.order.status === "delivered" && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border px-4 py-3.5">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Need help with this order?</p>
+                    <p className="mt-0.5 text-xs text-foreground/50">
+                      {canComplain
+                        ? "You can raise a complaint within 10 days of delivery."
+                        : "The 10-day complaint window for this order has closed. Please reach out to us via WhatsApp for further help."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!canComplain}
+                    onClick={() => setComplaintTarget({ orderNumber: selected.order.order_number, items: selected.items })}
+                    className="flex-shrink-0 rounded-sm border border-olive-400 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-50 disabled:cursor-not-allowed disabled:border-border disabled:text-foreground/30 disabled:hover:bg-transparent"
+                  >
+                    Raise a Complaint
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
       <ReviewComposer
         target={reviewTarget}
@@ -1726,6 +2169,7 @@ function OrdersView({
           setReviewTarget(null);
         }}
       />
+      <ComplaintComposer target={complaintTarget} onClose={() => setComplaintTarget(null)} onSubmitted={() => setComplaintTarget(null)} />
     </div>
   );
 }
@@ -2595,7 +3039,7 @@ export default function App() {
   const topPicks = liveProducts ? liveProducts.filter((p) => p.isBestseller) : TOP_PICKS;
   const featuredProducts = liveProducts ? liveProducts.filter((p) => p.isFeatured) : FEATURED_PRODUCTS;
   const newArrivals = liveProducts ? liveProducts.filter((p) => p.isNewArrival) : NEW_ARRIVALS;
-  const spotlightPicks = liveProducts ? liveProducts.slice(0, 10) : SPOTLIGHT_PICKS;
+  const spotlightPicks = liveProducts ? (liveProducts.filter((p) => p.isSpotlight).length ? liveProducts.filter((p) => p.isSpotlight) : liveProducts.slice(0, 10)) : SPOTLIGHT_PICKS;
 
   // Site-wide, admin-managed settings (hero image, materials/care copy, shipping/returns
   // copy, homepage banner image). Any key can be missing until the admin sets it — every
@@ -2692,8 +3136,12 @@ export default function App() {
       const sync = async () => {
         if (wasGuest && (cartItems.length || wishlistItems.length)) {
           await Promise.allSettled([
-            ...cartItems.map((i) => api.cart.add({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
-            ...wishlistItems.map((i) => api.wishlist.add({ productName: i.product_name, productPrice: i.product_price })),
+            ...cartItems.map((i) =>
+              api.cart.add({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity, productImage: i.product_image || undefined })
+            ),
+            ...wishlistItems.map((i) =>
+              api.wishlist.add({ productName: i.product_name, productPrice: i.product_price, productImage: i.product_image || undefined })
+            ),
           ]);
         }
         const [cart, wl] = await Promise.all([api.cart.list(), api.wishlist.list()]);
@@ -2980,10 +3428,11 @@ export default function App() {
     }
     const product = allProducts.find((p) => p.name === name);
     if (!product) return;
-    setWishlistItems((prev) => [...prev, { id: -Date.now(), product_name: name, product_price: product.price, product_image: null }]);
+    const image = product.images?.[0] || null;
+    setWishlistItems((prev) => [...prev, { id: -Date.now(), product_name: name, product_price: product.price, product_image: image }]);
     if (user) {
       api.wishlist
-        .add({ productName: name, productPrice: product.price })
+        .add({ productName: name, productPrice: product.price, productImage: image || undefined })
         .then((r) => setWishlistItems(r.items))
         .catch(() => {});
     }
@@ -2994,16 +3443,21 @@ export default function App() {
     setAdded((prev) => new Set(prev).add(name));
     const product = allProducts.find((p) => p.name === name);
     if (!product) return;
+    // Note: images are populated on `product` for every product, from either the
+    // live catalog or the placeholder fallback — pull the first one through here
+    // and to the backend so the cart drawer and account cart both show a real
+    // product photo instead of the old blank-icon placeholder.
+    const image = product.images?.[0] || null;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === name);
       if (existing) {
         return prev.map((i) => (i.product_name === name ? { ...i, quantity: i.quantity + 1 } : i));
       }
-      return [...prev, { id: -Date.now(), product_name: name, product_price: product.price, product_image: null, quantity: 1 }];
+      return [...prev, { id: -Date.now(), product_name: name, product_price: product.price, product_image: image, quantity: 1 }];
     });
     if (user) {
       api.cart
-        .add({ productName: name, productPrice: product.price })
+        .add({ productName: name, productPrice: product.price, productImage: image || undefined })
         .then((r) => setCartItems(r.items))
         .catch(() => {});
     }
@@ -3014,16 +3468,17 @@ export default function App() {
   // this adds an explicit quantity and can be called again to add more.
   const addProductWithQuantity = (product: Product, quantity: number) => {
     setAdded((prev) => new Set(prev).add(product.name));
+    const image = product.images?.[0] || null;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === product.name);
       if (existing) {
         return prev.map((i) => (i.product_name === product.name ? { ...i, quantity: i.quantity + quantity } : i));
       }
-      return [...prev, { id: -Date.now(), product_name: product.name, product_price: product.price, product_image: null, quantity }];
+      return [...prev, { id: -Date.now(), product_name: product.name, product_price: product.price, product_image: image, quantity }];
     });
     if (user) {
       api.cart
-        .add({ productName: product.name, productPrice: product.price, quantity })
+        .add({ productName: product.name, productPrice: product.price, quantity, productImage: image || undefined })
         .then((r) => setCartItems(r.items))
         .catch(() => {});
     }
@@ -3202,7 +3657,16 @@ export default function App() {
                   </span>
                 )}
               </button>
-              {user ? (
+              {!ready ? (
+                // Session check (GET /api/auth/me) still in flight — show a neutral,
+                // non-committal placeholder instead of the "logged out" icon so an
+                // already-signed-in visitor never sees a guest icon flash to an avatar
+                // a moment later, which is what read as "the page just reloaded".
+                <span
+                  aria-hidden="true"
+                  className="h-[18px] w-[18px] animate-pulse rounded-full bg-foreground/10 sm:h-5 sm:w-5"
+                />
+              ) : user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -3211,7 +3675,7 @@ export default function App() {
                       title={user.name}
                       className="flex items-center justify-center border-none bg-transparent p-0"
                     >
-                      <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-olive-500 text-[10px] font-semibold uppercase text-white sm:h-5 sm:w-5">
+                      <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-olive-500 text-[10px] font-semibold uppercase text-white transition-colors duration-200 sm:h-5 sm:w-5">
                         {user.name.trim().charAt(0) || "U"}
                       </span>
                     </button>
@@ -3228,12 +3692,6 @@ export default function App() {
                       className="cursor-pointer rounded-sm px-3 py-2 text-sm text-foreground/80 focus:bg-olive-50 focus:text-olive-600"
                     >
                       Order History
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={openOrdersView}
-                      className="cursor-pointer rounded-sm px-3 py-2 text-sm text-foreground/80 focus:bg-olive-50 focus:text-olive-600"
-                    >
-                      Track My Order
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -3252,7 +3710,7 @@ export default function App() {
                   onClick={openAuthModal}
                   className="flex items-center justify-center border-none bg-transparent p-0"
                 >
-                  <User className="h-[18px] w-[18px] cursor-pointer text-foreground/70 hover:text-olive-500 sm:h-5 sm:w-5" />
+                  <User className="h-[18px] w-[18px] cursor-pointer text-foreground/70 transition-colors duration-200 hover:text-olive-500 sm:h-5 sm:w-5" />
                 </button>
               )}
             </div>
@@ -3306,20 +3764,22 @@ export default function App() {
               Collections <ChevronRight className="h-4 w-4 text-foreground/40" />
             </button>
             <a href="#contact" className="py-2" onClick={() => setMenuOpen(false)}>Contact Us</a>
-            <button
-              type="button"
-              className="mt-2 w-full rounded-sm border border-foreground/20 py-2.5 text-center text-sm font-sans font-medium uppercase tracking-wide text-foreground transition-colors hover:bg-foreground hover:text-background"
-              onClick={() => {
-                setMenuOpen(false);
-                if (user) {
-                  logout();
-                } else {
-                  openAuthModal();
-                }
-              }}
-            >
-              {user ? `Log Out (${user.name.split(" ")[0]})` : "Log In"}
-            </button>
+            {ready && (
+              <button
+                type="button"
+                className="mt-2 w-full rounded-sm border border-foreground/20 py-2.5 text-center text-sm font-sans font-medium uppercase tracking-wide text-foreground transition-colors hover:bg-foreground hover:text-background"
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (user) {
+                    logout();
+                  } else {
+                    openAuthModal();
+                  }
+                }}
+              >
+                {user ? `Log Out (${user.name.split(" ")[0]})` : "Log In"}
+              </button>
+            )}
           </nav>
         )}
       </header>
@@ -3335,6 +3795,14 @@ export default function App() {
               <BeadStrand colors={s.colors} bg={s.bg} size={20} />
             </div>
           ))}
+          {siteSettings.hero_image && (
+            <img
+              src={siteSettings.hero_image}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+            />
+          )}
           <button
             aria-label="Previous slide"
             onClick={() => setSlide((s) => (s - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
@@ -3491,7 +3959,16 @@ export default function App() {
       {/* Heritage banner image */}
       <section className="relative overflow-hidden">
         <div className="relative flex aspect-[16/7] w-full items-center justify-center sm:aspect-[21/6]">
-          <BeadStrand colors={["#4B5540", "#6B7658", "#DDBB6E", "#F1E4D3", "#833E20"]} bg="linear-gradient(120deg,#2E3524,#4B5540)" size={22} />
+          {siteSettings.homepage_banner_image ? (
+            <img
+              src={siteSettings.homepage_banner_image}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+            />
+          ) : (
+            <BeadStrand colors={["#4B5540", "#6B7658", "#DDBB6E", "#F1E4D3", "#833E20"]} bg="linear-gradient(120deg,#2E3524,#4B5540)" size={22} />
+          )}
         </div>
       </section>
 
@@ -3835,7 +4312,16 @@ export default function App() {
       <section className="relative overflow-hidden">
         <h2 className="bg-white px-6 pb-4 pt-6 text-center font-serif text-2xl text-foreground sm:hidden">Want to meet us in person?</h2>
         <div className="relative flex aspect-[16/9] w-full items-center justify-center sm:aspect-[21/6]">
-          <BeadStrand colors={["#C79A3E", "#833E20", "#DDBB6E", "#F1E4D3"]} bg="linear-gradient(120deg,#3A2E22,#6B4A2E)" size={20} />
+          {siteSettings.store_visit_banner_image ? (
+            <img
+              src={siteSettings.store_visit_banner_image}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+            />
+          ) : (
+            <BeadStrand colors={["#C79A3E", "#833E20", "#DDBB6E", "#F1E4D3"]} bg="linear-gradient(120deg,#3A2E22,#6B4A2E)" size={20} />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
           <div className="absolute inset-x-0 bottom-3 flex flex-col items-center gap-4 px-6 text-center sm:bottom-6 md:bottom-10">
             <h2 className="hidden font-serif text-3xl text-white sm:block md:text-4xl">Want to meet us in person?</h2>

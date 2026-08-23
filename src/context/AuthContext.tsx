@@ -11,6 +11,11 @@ type AuthState = {
   signup: (name: string, email: string, password: string) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
+  // Patches the signed-in user's locally-held profile fields (e.g. after a
+  // successful PATCH /api/auth/me) so every consumer — header greeting,
+  // checkout prefill, profile page — reflects the change immediately without
+  // a hard reload or a second round trip to /me.
+  updateUser: (patch: Partial<ApiUser>) => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -80,7 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, ready, login, signup, loginWithGoogle, logout }}>{children}</AuthContext.Provider>;
+  const updateUser = useCallback((patch: Partial<ApiUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, loading, ready, login, signup, loginWithGoogle, logout, updateUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
