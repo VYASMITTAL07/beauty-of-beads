@@ -32,16 +32,26 @@ const GOOGLE_CLIENT_ID_HARDCODED = "958754486244-3ji2ug716o2vgpl3g27v6v5ipk07trb
 const GOOGLE_CLIENT_ID = readViteEnv("VITE_GOOGLE_CLIENT_ID") || GOOGLE_CLIENT_ID_HARDCODED;
 export { GOOGLE_CLIENT_ID };
 
-// Resolves a media URL that may have been stored as a root-relative path.
+// Resolves a media URL that may have been stored in one of two broken shapes.
 //
-// Uploads used to return "/media/<key>" whenever MEDIA_PUBLIC_BASE_URL was
-// unset. Those paths resolve against the STOREFRONT's origin, but the files
-// are served by the API worker, so every such image 404s. The API now returns
-// absolute URLs, and this repairs the values already saved in the database.
+// 1. "/media/<key>" — what uploads returned while MEDIA_PUBLIC_BASE_URL was
+//    unset. Root-relative, so the browser resolved it against this site's
+//    origin, but the files are served by the API worker.
+// 2. "<api-origin>/<key>" — absolute but missing the "/media" segment, from a
+//    later fix that appended the key straight onto the origin.
+//
+// Uploads now return the correct absolute URL; this repairs the rows already
+// written to the database so they render without a migration.
 export function mediaUrl(url: string | null | undefined): string {
   if (!url) return "";
-  if (url.startsWith("/media/")) return `${API_BASE}${url}`;
-  return url;
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("/media/")) return `${API_BASE}${trimmed}`;
+  // Anything under the API origin must sit beneath /media/.
+  if (trimmed.startsWith(`${API_BASE}/`) && !trimmed.startsWith(`${API_BASE}/media/`)) {
+    return `${API_BASE}/media/${trimmed.slice(API_BASE.length + 1)}`;
+  }
+  return trimmed;
 }
 
 export class ApiError extends Error {
