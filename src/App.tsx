@@ -2694,6 +2694,100 @@ function OrdersView({
 // hero is the LCP element — so only the first frame loads eagerly and with
 // fetchPriority high; the rest are lazy and decode off the main thread. With
 // one image it renders a plain <img> and starts no timer at all.
+// Chooses between the desktop and mobile image sets for an admin-managed slot.
+// Falls back to the desktop set whenever no mobile-specific image was uploaded,
+// which is what every slot does until someone adds one.
+function useSlotImages(desktop: string[], mobile: string[]) {
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 639px)").matches : false
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const onChange = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    setIsNarrow(mq.matches);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return isNarrow && mobile.length > 0 ? mobile : desktop;
+}
+
+// A full-bleed banner that is never cropped.
+//
+// The banner slots used to be fixed-aspect containers (21:6 on desktop, 16:7
+// or 16:9 on mobile) with object-cover, which is right for a photograph but
+// destroys a *designed* banner: a 16:9 promotional graphic loses about half its
+// height to the 21:6 crop, taking the headline, the button and the trust strip
+// with it. Instead the container takes its aspect ratio from the image itself,
+// so the whole thing is always visible on any screen width.
+function BannerSlideshow({
+  images,
+  alt,
+  intervalMs = 6000,
+}: {
+  images: string[];
+  alt: string;
+  intervalMs?: number;
+}) {
+  const [index, setIndex] = useState(0);
+  // Ratio of the first image, used for the container so there is no layout
+  // shift once it loads and no letterboxing for the common single-image case.
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    setIndex(0);
+    setRatio(null);
+  }, [images.join("|")]);
+
+  useEffect(() => {
+    if (images.length < 2) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % images.length), intervalMs);
+    return () => clearInterval(id);
+  }, [images.length, intervalMs]);
+
+  if (images.length === 0) return null;
+
+  return (
+    <div className="relative w-full overflow-hidden" style={ratio ? { aspectRatio: String(ratio) } : undefined}>
+      {images.map((src, i) => (
+        <img
+          key={src}
+          src={mediaUrl(src)}
+          alt={i === 0 ? alt : ""}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={(e) => {
+            if (i !== 0) return;
+            const el = e.currentTarget;
+            if (el.naturalWidth && el.naturalHeight) setRatio(el.naturalWidth / el.naturalHeight);
+          }}
+          className={`w-full transition-opacity duration-1000 ${
+            // The first image defines the container height; the rest are laid
+            // over it and contained so a differently-shaped one is never cut.
+            i === 0 ? "block h-auto" : "absolute inset-0 h-full object-contain"
+          } ${i === index ? "opacity-100" : "opacity-0"}`}
+        />
+      ))}
+
+      {images.length > 1 && (
+        <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
+          {images.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              aria-label={`Banner ${i + 1}`}
+              onClick={() => setIndex(i)}
+              className={`h-1.5 rounded-full transition-all ${i === index ? "w-6 bg-white" : "w-1.5 bg-white/60"}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ImageSlideshow({
   images,
   alt,
@@ -3690,9 +3784,15 @@ export default function App() {
   const newArrivals = sectionOr("newArrivals", NEW_ARRIVALS);
   const spotlightPicks = sectionOr("spotlight", SPOTLIGHT_PICKS);
 
-  const heroImages = homepage?.images.hero ?? [];
-  const heritageBannerImages = homepage?.images.heritageBanner ?? [];
-  const storeVisitBannerImages = homepage?.images.storeVisitBanner ?? [];
+  const heroImages = useSlotImages(homepage?.images.hero ?? [], homepage?.imagesMobile?.hero ?? []);
+  const heritageBannerImages = useSlotImages(
+    homepage?.images.heritageBanner ?? [],
+    homepage?.imagesMobile?.heritageBanner ?? []
+  );
+  const storeVisitBannerImages = useSlotImages(
+    homepage?.images.storeVisitBanner ?? [],
+    homepage?.imagesMobile?.storeVisitBanner ?? []
+  );
 
   // Site-wide copy the product detail page reads. Any key can be missing
   // until the admin sets it — every reader below falls back to hardcoded copy.
@@ -4569,13 +4669,15 @@ export default function App() {
 
       {/* Heritage banner image */}
       <section className="relative overflow-hidden">
-        <div className="relative flex aspect-[16/7] w-full items-center justify-center sm:aspect-[21/6]">
-          {heritageBannerImages.length > 0 ? (
-            <ImageSlideshow images={heritageBannerImages} alt="" intervalMs={6000} />
-          ) : (
-            <BeadStrand colors={["#4B5540", "#6B7658", "#DDBB6E", "#F1E4D3", "#833E20"]} bg="linear-gradient(120deg,#2E3524,#4B5540)" size={22} />
-          )}
-        </div>
+        {heritageBannerImages.length > 0 ? (
+          <BannerSlideshow images={heritageBannerImages} alt="" intervalMs={6000} />
+        ) : (
+          <div className="relative flex aspect-[16/7] w-full items-center justify-center sm:aspect-[21/6]">
+            {(
+              <BeadStrand colors={["#4B5540", "#6B7658", "#DDBB6E", "#F1E4D3", "#833E20"]} bg="linear-gradient(120deg,#2E3524,#4B5540)" size={22} />
+            )}
+          </div>
+        )}
       </section>
 
       {/* Featured Products */}

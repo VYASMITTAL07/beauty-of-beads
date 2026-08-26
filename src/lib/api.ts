@@ -340,6 +340,8 @@ export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "s
 export type HomepageImageSlot = "hero" | "heritageBanner" | "storeVisitBanner";
 export type HomepagePayload = {
   images: Record<HomepageImageSlot, string[]>;
+  // Optional per-slot images for narrow screens; empty means "use `images`".
+  imagesMobile?: Record<HomepageImageSlot, string[]>;
   categories: CategoryDto[];
   sections: Record<HomepageSectionKey, ProductCardDto[]>;
   featuredReviews: FeaturedReviewDto[];
