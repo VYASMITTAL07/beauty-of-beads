@@ -12,6 +12,7 @@ import {
   type AdminHomepage,
   type AdminPickerProduct,
   type HomepageImageSlot,
+  type ImageVariant,
   type HomepageSectionKey,
 } from "../adminApi";
 
@@ -53,9 +54,16 @@ export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
                 <ImageSlotEditor
                   slot={entry.key as HomepageImageSlot}
                   images={data.images[entry.key as HomepageImageSlot] || []}
+                  mobileImages={data.imagesMobile?.[entry.key as HomepageImageSlot] || []}
                   max={data.maxImagesPerSlot}
-                  onChange={(images) =>
-                    setData((d) => (d ? { ...d, images: { ...d.images, [entry.key as HomepageImageSlot]: images } } : d))
+                  onChange={(images, variant) =>
+                    setData((d) => {
+                      if (!d) return d;
+                      const key = entry.key as HomepageImageSlot;
+                      return variant === "mobile"
+                        ? { ...d, imagesMobile: { ...d.imagesMobile, [key]: images } }
+                        : { ...d, images: { ...d.images, [key]: images } };
+                    })
                   }
                   onError={onError}
                   onSuccess={onSuccess}
@@ -193,6 +201,7 @@ function move<T>(list: T[], from: number, to: number): T[] {
 function ImageSlotEditor({
   slot,
   images,
+  mobileImages,
   max,
   onChange,
   onError,
@@ -200,16 +209,22 @@ function ImageSlotEditor({
 }: Notify & {
   slot: HomepageImageSlot;
   images: string[];
+  mobileImages: string[];
   max: number;
-  onChange: (images: string[]) => void;
+  onChange: (images: string[], variant: ImageVariant) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  // Which set is being edited. A wide banner cannot be cropped down to a phone
+  // without losing its text, so a slot can carry a separate mobile version;
+  // leaving it empty just reuses the desktop images.
+  const [variant, setVariant] = useState<ImageVariant>("desktop");
+  const current = variant === "mobile" ? mobileImages : images;
 
   const persist = async (next: string[], message: string) => {
     setBusy(true);
     try {
-      const r = await adminApi.homepage.setImages(slot, next);
-      onChange(r.images);
+      const r = await adminApi.homepage.setImages(slot, next, variant);
+      onChange(r.images, variant);
       onSuccess(message);
     } catch (e) {
       onError(e instanceof AdminApiError ? e.message : "Couldn't save these images");
@@ -219,7 +234,7 @@ function ImageSlotEditor({
   };
 
   const uploadFiles = async (files: FileList) => {
-    const room = max - images.length;
+    const room = max - current.length;
     if (room <= 0) {
       onError(`This section can hold at most ${max} images.`);
       return;
@@ -234,9 +249,9 @@ function ImageSlotEditor({
         const { url } = await adminApi.products.upload(file);
         uploaded.push(url);
       }
-      const next = [...images, ...uploaded];
-      const r = await adminApi.homepage.setImages(slot, next);
-      onChange(r.images);
+      const next = [...current, ...uploaded];
+      const r = await adminApi.homepage.setImages(slot, next, variant);
+      onChange(r.images, variant);
       onSuccess(uploaded.length === 1 ? "Image added and published" : `${uploaded.length} images added and published`);
     } catch (e) {
       onError(e instanceof AdminApiError ? e.message : "Upload failed");
@@ -249,10 +264,10 @@ function ImageSlotEditor({
     setBusy(true);
     try {
       const { url } = await adminApi.products.upload(file);
-      const next = [...images];
+      const next = [...current];
       next[index] = url;
-      const r = await adminApi.homepage.setImages(slot, next);
-      onChange(r.images);
+      const r = await adminApi.homepage.setImages(slot, next, variant);
+      onChange(r.images, variant);
       onSuccess("Image replaced");
     } catch (e) {
       onError(e instanceof AdminApiError ? e.message : "Upload failed");
@@ -261,12 +276,39 @@ function ImageSlotEditor({
     }
   };
 
+  const tabClass = (v: ImageVariant) =>
+    `rounded-sm px-3 py-1.5 text-xs transition-colors ${
+      variant === v ? "bg-olive-100 font-medium text-olive-600" : "text-foreground/60 hover:bg-olive-50"
+    }`;
+
   return (
     <div>
-      {images.length === 0 && <p className="mb-3 text-sm text-foreground/50">No images yet — the storefront shows its built-in artwork.</p>}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex rounded-sm border border-border bg-background p-0.5">
+          <button type="button" onClick={() => setVariant("desktop")} className={tabClass("desktop")}>
+            Laptop
+          </button>
+          <button type="button" onClick={() => setVariant("mobile")} className={tabClass("mobile")}>
+            Mobile{mobileImages.length > 0 ? ` (${mobileImages.length})` : ""}
+          </button>
+        </div>
+        <span className="text-xs text-foreground/45">
+          {variant === "mobile"
+            ? "Optional. Leave empty and phones will use the laptop images."
+            : "Shown on laptops and tablets."}
+        </span>
+      </div>
+
+      {current.length === 0 && (
+        <p className="mb-3 text-sm text-foreground/50">
+          {variant === "mobile"
+            ? "No mobile image — phones will use the laptop images."
+            : "No images yet — the storefront shows its built-in artwork."}
+        </p>
+      )}
 
       <ul className="flex flex-col gap-2">
-        {images.map((url, i) => (
+        {current.map((url, i) => (
           <li key={`${url}-${i}`} className="flex items-center gap-3 rounded-sm border border-border/70 p-2">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[11px] text-foreground/40">
               <GripVertical className="h-3.5 w-3.5" />
@@ -294,11 +336,11 @@ function ImageSlotEditor({
             </div>
             <OrderControls
               index={i}
-              total={images.length}
+              total={current.length}
               busy={busy}
               removeLabel="Remove image"
-              onMove={(from, to) => void persist(move(images, from, to), "Image order updated")}
-              onRemove={() => void persist(images.filter((_, idx) => idx !== i), "Image removed")}
+              onMove={(from, to) => void persist(move(current, from, to), "Image order updated")}
+              onRemove={() => void persist(current.filter((_, idx) => idx !== i), "Image removed")}
             />
           </li>
         ))}
@@ -307,7 +349,7 @@ function ImageSlotEditor({
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label
           className={`inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-olive-400 px-3 py-2 text-xs font-medium text-olive-600 transition-colors hover:bg-olive-50 ${
-            busy || images.length >= max ? "pointer-events-none opacity-40" : ""
+            busy || current.length >= max ? "pointer-events-none opacity-40" : ""
           }`}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -317,7 +359,7 @@ function ImageSlotEditor({
             accept="image/*"
             multiple
             className="hidden"
-            disabled={busy || images.length >= max}
+            disabled={busy || current.length >= max}
             onChange={(e) => {
               if (e.target.files?.length) void uploadFiles(e.target.files);
               e.target.value = "";
@@ -325,7 +367,7 @@ function ImageSlotEditor({
           />
         </label>
         <span className="text-xs text-foreground/45">
-          {images.length} of {max} used{images.length > 1 ? " · they cross-fade automatically on the site" : ""}
+          {current.length} of {max} used{current.length > 1 ? " · they cross-fade automatically on the site" : ""}
         </span>
       </div>
     </div>

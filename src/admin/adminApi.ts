@@ -182,6 +182,9 @@ export type ImportProductInput = {
   bg?: string;
   slug?: string;
 };
+// A slot can hold a separate set of images for narrow screens — a wide banner
+// cannot be auto-cropped to a phone without cutting its text.
+export type ImageVariant = "desktop" | "mobile";
 export type AdminPickerProduct = { id: number; name: string; category: string; price: number; image: string; active: boolean };
 // One entry per homepage section, in the exact order the storefront renders
 // them — the editor builds its cards straight from this so the two can't drift.
@@ -194,6 +197,7 @@ export type HomepageLayoutEntry = {
 export type AdminHomepage = {
   layout: HomepageLayoutEntry[];
   images: Record<HomepageImageSlot, string[]>;
+  imagesMobile: Record<HomepageImageSlot, string[]>;
   categories: AdminCategory[];
   sections: Record<HomepageSectionKey, AdminPickerProduct[]>;
   allProducts: AdminPickerProduct[];
@@ -289,8 +293,11 @@ export const adminApi = {
   // then one PUT per section.
   homepage: {
     get: () => request<AdminHomepage>("/api/admin/homepage"),
-    setImages: (slot: HomepageImageSlot, images: string[]) =>
-      request<{ images: string[] }>(`/api/admin/homepage/images/${slot}`, { method: "PUT", body: JSON.stringify({ images }) }),
+    setImages: (slot: HomepageImageSlot, images: string[], variant: ImageVariant = "desktop") =>
+      request<{ images: string[]; variant: ImageVariant }>(`/api/admin/homepage/images/${slot}`, {
+        method: "PUT",
+        body: JSON.stringify({ images, variant }),
+      }),
     // Sets membership and order together — saving them separately could
     // leave a section half-applied if the second call failed.
     setSection: (key: HomepageSectionKey, productIds: number[]) =>
