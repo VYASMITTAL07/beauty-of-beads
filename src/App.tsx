@@ -4627,10 +4627,13 @@ export default function App() {
                       <img
                         src={mediaUrl(c.imageUrl)}
                         alt={c.name}
-                        loading="lazy"
+                        // The first handful sit in the first screenful of the
+                        // row, so waiting for a lazy-load trigger left visible
+                        // circles empty while the rest of the row was already
+                        // painted. They load straight away — but at low
+                        // priority, so they still never compete with the hero.
+                        loading={i < 6 ? "eager" : "lazy"}
                         decoding="async"
-                        // 21 tiles sit in a horizontal scroller; none of them
-                        // should ever compete with the hero for bandwidth.
                         // @ts-expect-error fetchPriority is valid HTML but not yet in React's typings
                         fetchpriority="low"
                         width={240}
