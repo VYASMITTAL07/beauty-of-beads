@@ -201,6 +201,8 @@ export type AdminHomepage = {
   layout: HomepageLayoutEntry[];
   images: Record<HomepageImageSlot, string[]>;
   imagesMobile: Record<HomepageImageSlot, string[]>;
+  focus: Record<HomepageImageSlot, string>;
+  focusChoices: string[];
   categories: AdminCategory[];
   sections: Record<HomepageSectionKey, AdminPickerProduct[]>;
   allProducts: AdminPickerProduct[];
@@ -313,6 +315,8 @@ export const adminApi = {
         method: "PUT",
         body: JSON.stringify({ productIds }),
       }),
+    setFocus: (slot: HomepageImageSlot, focus: string) =>
+      request<{ focus: string }>(`/api/admin/homepage/focus/${slot}`, { method: "PUT", body: JSON.stringify({ focus }) }),
     setCategoryOrder: (categoryIds: number[]) =>
       request<{ categories: AdminCategory[] }>("/api/admin/homepage/categories/order", {
         method: "PUT",
