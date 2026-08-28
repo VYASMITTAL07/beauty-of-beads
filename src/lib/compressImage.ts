@@ -8,9 +8,17 @@
 //
 // Videos and anything non-image are passed through untouched.
 
-// Full-bleed banners are the widest thing on the site; beyond this the extra
-// pixels are invisible on any real screen.
-const MAX_DIMENSION = 2400;
+// Sensible caps per use. An image only needs about twice the pixels it is
+// actually drawn at; beyond that the extra bytes are invisible. Category tiles
+// in particular render as a 120px circle, so a 2400px file is roughly ten
+// times more pixels than any screen can show.
+export const IMAGE_CAPS = {
+  banner: 2400, // full-bleed hero and banners
+  product: 1400, // product cards and the detail gallery
+  thumbnail: 400, // category tiles (drawn at 120px), avatars
+} as const;
+
+const DEFAULT_MAX_DIMENSION = IMAGE_CAPS.banner;
 const QUALITY = 0.85;
 // Below this, re-encoding tends to cost more than it saves.
 const SKIP_BELOW_BYTES = 150 * 1024;
@@ -28,17 +36,17 @@ async function encode(canvas: HTMLCanvasElement, type: string): Promise<Blob | n
  * not help (already small, not an image, animated GIF, or the browser cannot
  * decode it). Never throws — a failed optimisation must not block an upload.
  */
-export async function compressImage(file: File): Promise<File> {
+export async function compressImage(file: File, maxDimension: number = DEFAULT_MAX_DIMENSION): Promise<File> {
   if (!file.type.startsWith("image/")) return file;
   // SVG is already vector, and a GIF may be animated — re-encoding either
   // through a canvas would damage it.
   if (file.type === "image/svg+xml" || file.type === "image/gif") return file;
-  if (file.size < SKIP_BELOW_BYTES) return file;
+  if (file.size < SKIP_BELOW_BYTES && maxDimension >= DEFAULT_MAX_DIMENSION) return file;
   if (!canUseCanvas()) return file;
 
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
     const width = Math.round(bitmap.width * scale);
     const height = Math.round(bitmap.height * scale);
 

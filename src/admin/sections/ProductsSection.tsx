@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { adminApi, AdminApiError, mediaUrl, type AdminCategory, type AdminProduct, type ImportProductInput } from "../adminApi";
+import { adminApi, AdminApiError, mediaUrl, IMAGE_CAPS, type AdminCategory, type AdminProduct, type ImportProductInput } from "../adminApi";
 
 type FormState = {
   name: string;
@@ -308,7 +308,9 @@ function ProductFormModal({
   const uploadFile = async (file: File, kind: "images" | "videos") => {
     setUploading(true);
     try {
-      const { url } = await adminApi.products.upload(file);
+      // Videos pass through compressImage untouched; product stills only ever
+      // render at card or gallery size, so they don't need banner resolution.
+      const { url } = await adminApi.products.upload(file, kind === "images" ? IMAGE_CAPS.product : undefined);
       setForm((f) => ({ ...f, [kind]: [...f[kind], url] }));
     } catch (e) {
       onError(e instanceof AdminApiError ? e.message : "Upload failed");
