@@ -586,10 +586,11 @@ function ImageSlotEditor({
               className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
             >
               <option value="cover">Fill the frame (crops the edges)</option>
-              <option value="40%">Show 40%</option>
-              <option value="60%">Show 60%</option>
-              <option value="80%">Show 80%</option>
-              <option value="100%">Show the whole picture</option>
+              {["100%", "90%", "80%", "70%", "60%", "50%", "40%", "30%"].map((v) => (
+                <option key={v} value={v}>
+                  {v === "100%" ? "Show the whole picture" : `Show ${v}`}
+                </option>
+              ))}
             </select>
             <span className="min-w-[10rem] flex-1 text-xs leading-relaxed text-foreground/50">
               How much of the picture's height stays visible. Filling a wide frame with a portrait phone video only shows about a quarter of it.
