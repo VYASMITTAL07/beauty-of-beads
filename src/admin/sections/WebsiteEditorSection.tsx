@@ -80,6 +80,7 @@ export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
                   focus={data.focus?.[entry.key as HomepageImageSlot] || "50%"}
                   focusChoices={data.focusChoices || []}
                   fit={data.fit?.[entry.key as HomepageImageSlot] || "cover"}
+                  fitRange={data.fitRange || { min: 20, max: 100 }}
                   onFitChange={(f) =>
                     setData((d) => (d ? { ...d, fit: { ...d.fit, [entry.key as HomepageImageSlot]: f } } : d))
                   }
@@ -372,6 +373,7 @@ function ImageSlotEditor({
   focusChoices,
   onFocusChange,
   fit,
+  fitRange,
   onFitChange,
   max,
   onChange,
@@ -385,6 +387,7 @@ function ImageSlotEditor({
   focusChoices: string[];
   onFocusChange: (focus: string) => void;
   fit: string;
+  fitRange: { min: number; max: number };
   onFitChange: (fit: string) => void;
   max: number;
   onChange: (images: string[], variant: ImageVariant) => void;
@@ -454,6 +457,18 @@ function ImageSlotEditor({
       onError(e instanceof AdminApiError ? e.message : "Upload failed");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const pct = fit === "cover" ? 100 : Number(fit.replace("%", "")) || 100;
+
+  const saveFit = async (next: string) => {
+    onFitChange(next);
+    try {
+      await adminApi.homepage.setFit(slot, next);
+      onSuccess("Zoom updated");
+    } catch (err) {
+      onError(err instanceof AdminApiError ? err.message : "Couldn't save the zoom");
     }
   };
 
@@ -568,32 +583,42 @@ function ImageSlotEditor({
             This frame is wider than it is tall, so part of the picture is cropped. Pick which part stays.
           </span>
 
-          <div className="flex w-full items-center gap-2 border-t border-border/60 pt-2.5">
+          <div className="flex w-full flex-wrap items-center gap-3 border-t border-border/60 pt-2.5">
             <span className="text-xs font-medium text-foreground">Zoom</span>
-            <select
-              value={fit}
-              disabled={busy}
-              onChange={async (e) => {
-                const next = e.target.value;
-                onFitChange(next);
-                try {
-                  await adminApi.homepage.setFit(slot, next);
-                  onSuccess("Framing updated");
-                } catch (err) {
-                  onError(err instanceof AdminApiError ? err.message : "Couldn't save the framing");
-                }
-              }}
-              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
-            >
-              <option value="cover">Fill the frame (crops the edges)</option>
-              {["100%", "90%", "80%", "70%", "60%", "50%", "40%", "30%"].map((v) => (
-                <option key={v} value={v}>
-                  {v === "100%" ? "Show the whole picture" : `Show ${v}`}
-                </option>
-              ))}
-            </select>
-            <span className="min-w-[10rem] flex-1 text-xs leading-relaxed text-foreground/50">
-              How much of the picture's height stays visible. Filling a wide frame with a portrait phone video only shows about a quarter of it.
+
+            <label className="flex items-center gap-1.5 text-xs text-foreground/70">
+              <input
+                type="checkbox"
+                checked={fit === "cover"}
+                disabled={busy}
+                onChange={(e) => void saveFit(e.target.checked ? "cover" : "65%")}
+              />
+              Fill the frame
+            </label>
+
+            {fit !== "cover" && (
+              <div className="flex min-w-[14rem] flex-1 items-center gap-2">
+                <input
+                  type="range"
+                  min={fitRange.min}
+                  max={fitRange.max}
+                  step={1}
+                  value={pct}
+                  disabled={busy}
+                  onChange={(e) => onFitChange(`${e.target.value}%`)}
+                  onMouseUp={(e) => void saveFit(`${(e.target as HTMLInputElement).value}%`)}
+                  onTouchEnd={(e) => void saveFit(`${(e.target as HTMLInputElement).value}%`)}
+                  onKeyUp={(e) => void saveFit(`${(e.target as HTMLInputElement).value}%`)}
+                  className="min-w-0 flex-1"
+                />
+                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-foreground">{pct}%</span>
+              </div>
+            )}
+
+            <span className="w-full text-xs leading-relaxed text-foreground/50">
+              {fit === "cover"
+                ? "Crops whatever doesn't fit. Good when the picture is roughly the same shape as the frame."
+                : `Shows ${pct}% of the picture's height, with a blurred copy behind filling the sides.`}
             </span>
           </div>
         </div>
