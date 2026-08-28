@@ -131,13 +131,18 @@ function ImageOptimiser({
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
 
   // Everything that can be re-compressed, with the cap for where it is shown.
+  // Videos are skipped outright — re-encoding one isn't possible in the
+  // browser, and simply fetching it would pull megabytes for nothing.
+  const skip = (u: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(u);
   const jobs = useMemo(() => {
     const list: { kind: "image-slot" | "category"; slot?: HomepageImageSlot; variant?: ImageVariant; index?: number; id?: number; url: string; cap: number; label: string }[] = [];
     for (const slot of Object.keys(data.images) as HomepageImageSlot[]) {
       (data.images[slot] || []).forEach((url, index) => {
+        if (skip(url)) return;
         list.push({ kind: "image-slot", slot, variant: "desktop", index, url, cap: IMAGE_CAPS.banner, label: slot });
       });
       (data.imagesMobile?.[slot] || []).forEach((url, index) => {
+        if (skip(url)) return;
         list.push({ kind: "image-slot", slot, variant: "mobile", index, url, cap: IMAGE_CAPS.banner, label: `${slot} (mobile)` });
       });
     }
@@ -354,6 +359,11 @@ function ImageSlotEditor({
   onChange: (images: string[], variant: ImageVariant) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  // Only the hero takes a video — a full-bleed banner behind page content is
+  // not somewhere a moving background belongs.
+  const allowsVideo = slot === "hero";
+  const accept = allowsVideo ? "image/*,video/mp4,video/webm" : "image/*";
+  const isVideo = (u: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(u);
   // Which set is being edited. A wide banner cannot be cropped down to a phone
   // without losing its text, so a slot can carry a separate mobile version;
   // leaving it empty just reuses the desktop images.
@@ -435,7 +445,9 @@ function ImageSlotEditor({
         <span className="text-xs text-foreground/45">
           {variant === "mobile"
             ? "Optional. Leave empty and phones will use the laptop images."
-            : "Shown on laptops and tablets."}
+            : allowsVideo
+              ? "Shown on laptops and tablets. A video works here too — it plays muted on loop."
+              : "Shown on laptops and tablets."}
         </span>
       </div>
 
@@ -453,17 +465,28 @@ function ImageSlotEditor({
             <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[11px] text-foreground/40">
               <GripVertical className="h-3.5 w-3.5" />
             </span>
-            <img src={mediaUrl(url)} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-sm object-cover sm:h-16 sm:w-28" />
+            {isVideo(url) ? (
+              <video
+                src={mediaUrl(url)}
+                muted
+                playsInline
+                preload="metadata"
+                className="h-14 w-20 shrink-0 rounded-sm bg-black object-cover sm:h-16 sm:w-28"
+              />
+            ) : (
+              <img src={mediaUrl(url)} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-sm object-cover sm:h-16 sm:w-28" />
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-foreground">
                 {i === 0 ? "Shown first" : `Slide ${i + 1}`}
+                {isVideo(url) && <span className="ml-1 text-foreground/45">· video</span>}
               </p>
               <label className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-olive-600 hover:underline">
                 <Upload className="h-3 w-3" />
                 Replace
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={accept}
                   className="hidden"
                   disabled={busy}
                   onChange={(e) => {
@@ -496,7 +519,7 @@ function ImageSlotEditor({
           {busy ? "Working…" : "Add image"}
           <input
             type="file"
-            accept="image/*"
+            accept={accept}
             multiple
             className="hidden"
             disabled={busy || current.length >= max}

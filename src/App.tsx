@@ -2811,6 +2811,22 @@ function BannerSlideshow({
   );
 }
 
+// The hero slot accepts a video as well as stills — the admin uploads to the
+// same list, so the type is decided by the file extension in the stored URL.
+const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v)(\?.*)?$/i;
+
+function isVideoUrl(url: string) {
+  return VIDEO_EXTENSIONS.test(url);
+}
+
+// A video shows nothing until it has buffered, so if the slot also holds a
+// still, use it as the poster — the hero then paints instantly and the video
+// fades in over it.
+function posterFor(images: string[]): string | undefined {
+  const still = images.find((u) => !isVideoUrl(u));
+  return still ? mediaUrl(still) : undefined;
+}
+
 function ImageSlideshow({
   images,
   alt,
@@ -2848,21 +2864,41 @@ function ImageSlideshow({
 
   return (
     <>
-      {images.map((src, i) => (
-        <img
-          key={src}
-          src={mediaUrl(src)}
-          alt={i === 0 ? alt : ""}
-          loading={priority && i === 0 ? "eager" : "lazy"}
-          decoding="async"
-          // @ts-expect-error fetchPriority is valid HTML but not yet in React's typings
-          fetchpriority={priority && i === 0 ? "high" : "low"}
-          draggable={false}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
-            i === index ? "opacity-100" : "opacity-0"
-          } ${className}`}
-        />
-      ))}
+      {images.map((src, i) =>
+        isVideoUrl(src) ? (
+          <video
+            key={src}
+            src={mediaUrl(src)}
+            // Autoplay is only permitted when muted, and iOS additionally
+            // needs playsInline or it takes the video fullscreen.
+            autoPlay
+            muted
+            loop
+            playsInline
+            // Only fetch the whole file once this slide is the visible one;
+            // metadata alone is enough to reserve the frame.
+            preload={i === index ? "auto" : "metadata"}
+            poster={posterFor(images)}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+              i === index ? "opacity-100" : "opacity-0"
+            } ${className}`}
+          />
+        ) : (
+          <img
+            key={src}
+            src={mediaUrl(src)}
+            alt={i === 0 ? alt : ""}
+            loading={priority && i === 0 ? "eager" : "lazy"}
+            decoding="async"
+            // @ts-expect-error fetchPriority is valid HTML but not yet in React's typings
+            fetchpriority={priority && i === 0 ? "high" : "low"}
+            draggable={false}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+              i === index ? "opacity-100" : "opacity-0"
+            } ${className}`}
+          />
+        )
+      )}
 
       {showControls && images.length > 1 && (
         <>
