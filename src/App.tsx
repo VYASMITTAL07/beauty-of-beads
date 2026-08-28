@@ -2697,6 +2697,29 @@ function OrdersView({
 // Chooses between the desktop and mobile image sets for an admin-managed slot.
 // Falls back to the desktop set whenever no mobile-specific image was uploaded,
 // which is what every slot does until someone adds one.
+// The homepage payload is small (a few KB) and changes only when the admin
+// edits the site, so the previous copy is a safe thing to paint immediately
+// while the current one is fetched. Storage is per-browser and best-effort:
+// private windows and blocked site data must not break the page.
+const HOMEPAGE_CACHE_KEY = "bob_homepage_v1";
+
+function readCachedHomepage(): HomepagePayload | null {
+  try {
+    const raw = localStorage.getItem(HOMEPAGE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as HomepagePayload) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedHomepage(payload: HomepagePayload) {
+  try {
+    localStorage.setItem(HOMEPAGE_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // Quota exceeded or storage disabled — the page works without it.
+  }
+}
+
 function useSlotImages(desktop: string[], mobile: string[]) {
   const [isNarrow, setIsNarrow] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(max-width: 639px)").matches : false
@@ -3727,17 +3750,28 @@ export default function App() {
   // caps limit at 60, so with a 400-product catalogue any bestseller ranked
   // below 60th silently disappeared from the homepage. /api/homepage queries
   // each carousel directly, in the admin's chosen order, so that can't happen.
-  const [homepage, setHomepage] = useState<HomepagePayload | null>(null);
+  // Rendered from the last known payload straight away, then refreshed in the
+  // background.
+  //
+  // Without this the page can't show a single image until the API answers:
+  // the browser has to fetch the HTML, download and parse the bundle, mount
+  // React, call /api/homepage, and only *then* does it learn the hero's URL
+  // and start downloading it. Reading the previous payload out of
+  // localStorage lets returning visitors start those image downloads in the
+  // first frame instead, and the fresh copy replaces it a moment later.
+  const [homepage, setHomepage] = useState<HomepagePayload | null>(readCachedHomepage);
   useEffect(() => {
     let cancelled = false;
     api.homepage
       .get()
       .then((r) => {
-        if (!cancelled) setHomepage(r);
+        if (cancelled) return;
+        setHomepage(r);
+        writeCachedHomepage(r);
       })
       .catch(() => {
-        // no backend reachable — every reader below falls back to the
-        // built-in placeholder content, exactly as before
+        // no backend reachable — the cached copy stays on screen, and every
+        // reader below still falls back to the built-in placeholder content
       });
     return () => {
       cancelled = true;
