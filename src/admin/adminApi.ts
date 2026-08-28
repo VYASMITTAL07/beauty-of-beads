@@ -204,7 +204,7 @@ export type AdminHomepage = {
   focus: Record<HomepageImageSlot, string>;
   focusChoices: string[];
   fit: Record<HomepageImageSlot, string>;
-  fitChoices: string[];
+  fitRange: { min: number; max: number };
   categories: AdminCategory[];
   sections: Record<HomepageSectionKey, AdminPickerProduct[]>;
   allProducts: AdminPickerProduct[];
