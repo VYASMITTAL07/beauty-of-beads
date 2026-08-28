@@ -4575,7 +4575,19 @@ export default function App() {
           {/* Admin-uploaded hero images take over completely when present;
               the decorative bead strands are only the pre-setup fallback. */}
           {heroImages.length > 0 ? (
-            <ImageSlideshow images={heroImages} alt="Beauty of Beads" showControls intervalMs={5000} priority />
+            <ImageSlideshow
+              images={heroImages}
+              alt="Beauty of Beads"
+              showControls
+              intervalMs={5000}
+              priority
+              // The hero is much wider on a laptop than it is tall, so
+              // object-cover has to crop somewhere. Anchoring to the top keeps
+              // the head and the accessory being modelled in frame and takes
+              // the crop off the bottom instead, which is usually just
+              // background.
+              className="object-top"
+            />
           ) : (
             <>
               {HERO_SLIDES.map((s, i) => (
