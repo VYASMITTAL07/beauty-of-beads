@@ -2817,12 +2817,18 @@ function ImageSlideshow({
   intervalMs = 5000,
   showControls = false,
   className = "",
+  priority = false,
 }: {
   images: string[];
   alt: string;
   intervalMs?: number;
   showControls?: boolean;
   className?: string;
+  /** Only the hero is above the fold. Everything else must stay lazy — the
+   *  store-visit banner sits at the bottom of the page but was being fetched
+   *  eagerly at high priority, so a 1.9MB image competed with the hero for
+   *  bandwidth on first load. */
+  priority?: boolean;
 }) {
   const [index, setIndex] = useState(0);
 
@@ -2847,10 +2853,10 @@ function ImageSlideshow({
           key={src}
           src={mediaUrl(src)}
           alt={i === 0 ? alt : ""}
-          loading={i === 0 ? "eager" : "lazy"}
+          loading={priority && i === 0 ? "eager" : "lazy"}
           decoding="async"
           // @ts-expect-error fetchPriority is valid HTML but not yet in React's typings
-          fetchpriority={i === 0 ? "high" : undefined}
+          fetchpriority={priority && i === 0 ? "high" : "low"}
           draggable={false}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
             i === index ? "opacity-100" : "opacity-0"
@@ -4533,7 +4539,7 @@ export default function App() {
           {/* Admin-uploaded hero images take over completely when present;
               the decorative bead strands are only the pre-setup fallback. */}
           {heroImages.length > 0 ? (
-            <ImageSlideshow images={heroImages} alt="Beauty of Beads" showControls intervalMs={5000} />
+            <ImageSlideshow images={heroImages} alt="Beauty of Beads" showControls intervalMs={5000} priority />
           ) : (
             <>
               {HERO_SLIDES.map((s, i) => (
@@ -4618,7 +4624,20 @@ export default function App() {
                 >
                   <div className="aspect-square w-full max-w-[7.5rem] overflow-hidden rounded-full ring-1 ring-border transition-transform duration-300 group-hover:scale-105">
                     {c.imageUrl ? (
-                      <img src={mediaUrl(c.imageUrl)} alt={c.name} loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
+                      <img
+                        src={mediaUrl(c.imageUrl)}
+                        alt={c.name}
+                        loading="lazy"
+                        decoding="async"
+                        // 21 tiles sit in a horizontal scroller; none of them
+                        // should ever compete with the hero for bandwidth.
+                        // @ts-expect-error fetchPriority is valid HTML but not yet in React's typings
+                        fetchpriority="low"
+                        width={240}
+                        height={240}
+                        className="h-full w-full object-cover"
+                        draggable={false}
+                      />
                     ) : (
                       <BeadStrand colors={TILE_PALETTE[i % TILE_PALETTE.length].colors} bg={TILE_PALETTE[i % TILE_PALETTE.length].bg} size={8} />
                     )}
