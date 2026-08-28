@@ -19,6 +19,18 @@ import {
 
 type Notify = { onError: (m: string) => void; onSuccess: (m: string) => void };
 
+// Vertical anchor presets, phrased as what the viewer keeps rather than a
+// percentage nobody can picture.
+const FOCUS_LABELS: Record<string, string> = {
+  "0%": "Very top",
+  "20%": "Near the top",
+  "35%": "Slightly above centre",
+  "50%": "Centre",
+  "65%": "Slightly below centre",
+  "80%": "Near the bottom",
+  "100%": "Very bottom",
+};
+
 // The Website Editor mirrors the storefront homepage from top to bottom. The
 // order and titles come from the server (lib/homepage.js HOMEPAGE_LAYOUT), so
 // adding a section there shows up here without touching this file.
@@ -65,6 +77,11 @@ export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
                   slot={entry.key as HomepageImageSlot}
                   images={data.images[entry.key as HomepageImageSlot] || []}
                   mobileImages={data.imagesMobile?.[entry.key as HomepageImageSlot] || []}
+                  focus={data.focus?.[entry.key as HomepageImageSlot] || "50%"}
+                  focusChoices={data.focusChoices || []}
+                  onFocusChange={(f) =>
+                    setData((d) => (d ? { ...d, focus: { ...d.focus, [entry.key as HomepageImageSlot]: f } } : d))
+                  }
                   max={data.maxImagesPerSlot}
                   onChange={(images, variant) =>
                     setData((d) => {
@@ -347,6 +364,9 @@ function ImageSlotEditor({
   slot,
   images,
   mobileImages,
+  focus,
+  focusChoices,
+  onFocusChange,
   max,
   onChange,
   onError,
@@ -355,6 +375,9 @@ function ImageSlotEditor({
   slot: HomepageImageSlot;
   images: string[];
   mobileImages: string[];
+  focus: string;
+  focusChoices: string[];
+  onFocusChange: (focus: string) => void;
   max: number;
   onChange: (images: string[], variant: ImageVariant) => void;
 }) {
@@ -508,6 +531,36 @@ function ImageSlotEditor({
           </li>
         ))}
       </ul>
+
+      {current.length > 0 && focusChoices.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-sm border border-border/70 p-2.5">
+          <span className="text-xs font-medium text-foreground">Framing</span>
+          <select
+            value={focus}
+            disabled={busy}
+            onChange={async (e) => {
+              const next = e.target.value;
+              onFocusChange(next);
+              try {
+                await adminApi.homepage.setFocus(slot, next);
+                onSuccess("Framing updated");
+              } catch (err) {
+                onError(err instanceof AdminApiError ? err.message : "Couldn't save the framing");
+              }
+            }}
+            className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+          >
+            {focusChoices.map((f) => (
+              <option key={f} value={f}>
+                {FOCUS_LABELS[f] || f}
+              </option>
+            ))}
+          </select>
+          <span className="min-w-[12rem] flex-1 text-xs leading-relaxed text-foreground/50">
+            This frame is wider than it is tall, so part of the picture is always cropped. Pick which part stays.
+          </span>
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label

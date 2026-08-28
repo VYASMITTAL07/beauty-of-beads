@@ -348,6 +348,8 @@ export type HomepagePayload = {
   images: Record<HomepageImageSlot, string[]>;
   // Optional per-slot images for narrow screens; empty means "use `images`".
   imagesMobile?: Record<HomepageImageSlot, string[]>;
+  // Vertical anchor for cover-cropping, e.g. "35%". See FOCUS_CHOICES.
+  focus?: Record<HomepageImageSlot, string>;
   categories: CategoryDto[];
   sections: Record<HomepageSectionKey, ProductCardDto[]>;
   featuredReviews: FeaturedReviewDto[];

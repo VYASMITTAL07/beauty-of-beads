@@ -2834,12 +2834,17 @@ function ImageSlideshow({
   showControls = false,
   className = "",
   priority = false,
+  focus,
 }: {
   images: string[];
   alt: string;
   intervalMs?: number;
   showControls?: boolean;
   className?: string;
+  /** Vertical anchor for the cover crop, e.g. "35%". The frame is much wider
+   *  than it is tall, so part of the picture is always discarded — which part
+   *  depends on the footage, so the admin chooses it per slot. */
+  focus?: string;
   /** Only the hero is above the fold. Everything else must stay lazy — the
    *  store-visit banner sits at the bottom of the page but was being fetched
    *  eagerly at high priority, so a 1.9MB image competed with the hero for
@@ -2879,6 +2884,7 @@ function ImageSlideshow({
             // metadata alone is enough to reserve the frame.
             preload={i === index ? "auto" : "metadata"}
             poster={posterFor(images)}
+            style={focus ? { objectPosition: `50% ${focus}` } : undefined}
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
               i === index ? "opacity-100" : "opacity-0"
             } ${className}`}
@@ -2893,6 +2899,7 @@ function ImageSlideshow({
             // @ts-expect-error fetchPriority is valid HTML but not yet in React's typings
             fetchpriority={priority && i === 0 ? "high" : "low"}
             draggable={false}
+            style={focus ? { objectPosition: `50% ${focus}` } : undefined}
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
               i === index ? "opacity-100" : "opacity-0"
             } ${className}`}
@@ -4581,12 +4588,7 @@ export default function App() {
               showControls
               intervalMs={5000}
               priority
-              // The hero is much wider on a laptop than it is tall, so
-              // object-cover has to crop somewhere. Anchoring to the top keeps
-              // the head and the accessory being modelled in frame and takes
-              // the crop off the bottom instead, which is usually just
-              // background.
-              className="object-top"
+              focus={homepage?.focus?.hero}
             />
           ) : (
             <>
