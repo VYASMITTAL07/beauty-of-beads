@@ -2835,6 +2835,7 @@ function ImageSlideshow({
   className = "",
   priority = false,
   focus,
+  fit = "cover",
 }: {
   images: string[];
   alt: string;
@@ -2845,6 +2846,10 @@ function ImageSlideshow({
    *  than it is tall, so part of the picture is always discarded — which part
    *  depends on the footage, so the admin chooses it per slot. */
   focus?: string;
+  /** "cover" crops to fill the frame; "contain" shows the whole picture with a
+   *  blurred, enlarged copy behind it filling the sides. A portrait phone video
+   *  in an ultrawide hero only shows about a quarter of itself under "cover". */
+  fit?: string;
   /** Only the hero is above the fold. Everything else must stay lazy — the
    *  store-visit banner sits at the bottom of the page but was being fetched
    *  eagerly at high priority, so a 1.9MB image competed with the hero for
@@ -2871,8 +2876,25 @@ function ImageSlideshow({
     <>
       {images.map((src, i) =>
         isVideoUrl(src) ? (
-          <video
+          <div
             key={src}
+            className={`absolute inset-0 transition-opacity duration-1000 ${i === index ? "opacity-100" : "opacity-0"}`}
+          >
+            {fit === "contain" && (
+              // Enlarged and blurred so the sides read as part of the shot
+              // rather than as empty letterbox bars.
+              <video
+                src={mediaUrl(src)}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="none"
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl"
+              />
+            )}
+          <video
             src={mediaUrl(src)}
             // Autoplay is only permitted when muted, and iOS additionally
             // needs playsInline or it takes the video fullscreen.
@@ -2884,11 +2906,10 @@ function ImageSlideshow({
             // metadata alone is enough to reserve the frame.
             preload={i === index ? "auto" : "metadata"}
             poster={posterFor(images)}
-            style={focus ? { objectPosition: `50% ${focus}` } : undefined}
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
-              i === index ? "opacity-100" : "opacity-0"
-            } ${className}`}
+            style={focus && fit !== "contain" ? { objectPosition: `50% ${focus}` } : undefined}
+            className={`absolute inset-0 h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"} ${className}`}
           />
+          </div>
         ) : (
           <img
             key={src}
@@ -4589,6 +4610,7 @@ export default function App() {
               intervalMs={5000}
               priority
               focus={homepage?.focus?.hero}
+              fit={homepage?.fit?.hero}
             />
           ) : (
             <>

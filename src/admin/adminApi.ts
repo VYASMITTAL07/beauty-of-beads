@@ -203,6 +203,8 @@ export type AdminHomepage = {
   imagesMobile: Record<HomepageImageSlot, string[]>;
   focus: Record<HomepageImageSlot, string>;
   focusChoices: string[];
+  fit: Record<HomepageImageSlot, string>;
+  fitChoices: string[];
   categories: AdminCategory[];
   sections: Record<HomepageSectionKey, AdminPickerProduct[]>;
   allProducts: AdminPickerProduct[];
@@ -317,6 +319,8 @@ export const adminApi = {
       }),
     setFocus: (slot: HomepageImageSlot, focus: string) =>
       request<{ focus: string }>(`/api/admin/homepage/focus/${slot}`, { method: "PUT", body: JSON.stringify({ focus }) }),
+    setFit: (slot: HomepageImageSlot, fit: string) =>
+      request<{ fit: string }>(`/api/admin/homepage/fit/${slot}`, { method: "PUT", body: JSON.stringify({ fit }) }),
     setCategoryOrder: (categoryIds: number[]) =>
       request<{ categories: AdminCategory[] }>("/api/admin/homepage/categories/order", {
         method: "PUT",

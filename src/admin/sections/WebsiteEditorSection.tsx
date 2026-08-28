@@ -79,6 +79,10 @@ export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
                   mobileImages={data.imagesMobile?.[entry.key as HomepageImageSlot] || []}
                   focus={data.focus?.[entry.key as HomepageImageSlot] || "50%"}
                   focusChoices={data.focusChoices || []}
+                  fit={data.fit?.[entry.key as HomepageImageSlot] || "cover"}
+                  onFitChange={(f) =>
+                    setData((d) => (d ? { ...d, fit: { ...d.fit, [entry.key as HomepageImageSlot]: f } } : d))
+                  }
                   onFocusChange={(f) =>
                     setData((d) => (d ? { ...d, focus: { ...d.focus, [entry.key as HomepageImageSlot]: f } } : d))
                   }
@@ -367,6 +371,8 @@ function ImageSlotEditor({
   focus,
   focusChoices,
   onFocusChange,
+  fit,
+  onFitChange,
   max,
   onChange,
   onError,
@@ -378,6 +384,8 @@ function ImageSlotEditor({
   focus: string;
   focusChoices: string[];
   onFocusChange: (focus: string) => void;
+  fit: string;
+  onFitChange: (fit: string) => void;
   max: number;
   onChange: (images: string[], variant: ImageVariant) => void;
 }) {
@@ -556,9 +564,34 @@ function ImageSlotEditor({
               </option>
             ))}
           </select>
-          <span className="min-w-[12rem] flex-1 text-xs leading-relaxed text-foreground/50">
-            This frame is wider than it is tall, so part of the picture is always cropped. Pick which part stays.
+          <span className="min-w-[10rem] flex-1 text-xs leading-relaxed text-foreground/50">
+            This frame is wider than it is tall, so part of the picture is cropped. Pick which part stays.
           </span>
+
+          <div className="flex w-full items-center gap-2 border-t border-border/60 pt-2.5">
+            <span className="text-xs font-medium text-foreground">Size</span>
+            <select
+              value={fit}
+              disabled={busy}
+              onChange={async (e) => {
+                const next = e.target.value;
+                onFitChange(next);
+                try {
+                  await adminApi.homepage.setFit(slot, next);
+                  onSuccess("Framing updated");
+                } catch (err) {
+                  onError(err instanceof AdminApiError ? err.message : "Couldn't save the framing");
+                }
+              }}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+            >
+              <option value="cover">Fill the frame (crops the edges)</option>
+              <option value="contain">Show the whole picture (zoomed out)</option>
+            </select>
+            <span className="min-w-[10rem] flex-1 text-xs leading-relaxed text-foreground/50">
+              Use "show the whole picture" for a portrait phone video — filling a wide frame with one only shows about a quarter of it.
+            </span>
+          </div>
         </div>
       )}
 
