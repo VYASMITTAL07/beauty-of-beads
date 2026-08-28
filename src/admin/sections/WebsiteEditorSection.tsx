@@ -44,6 +44,15 @@ export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
         Every section of the storefront homepage, in the order it appears. Changes here go live immediately.
       </p>
 
+      {data && (
+        <ImageOptimiser
+          data={data}
+          onDone={() => adminApi.homepage.get().then(setData).catch(() => {})}
+          onError={onError}
+          onSuccess={onSuccess}
+        />
+      )}
+
       {!data && !loadFailed && <p className="mt-6 text-sm text-foreground/50">Loading the homepage…</p>}
       {loadFailed && <p className="mt-6 text-sm text-red-600">Couldn't load the homepage layout. Please refresh.</p>}
 
@@ -97,6 +106,136 @@ export default function WebsiteEditorSection({ onError, onSuccess }: Notify) {
           <SiteCopyCard onError={onError} onSuccess={onSuccess} />
         </div>
       )}
+    </div>
+  );
+}
+
+// One-click re-compression for images uploaded before compression existed.
+//
+// Uploads are shrunk in the browser now, but everything already in R2 was
+// stored at full export size — on this site that was 6.4MB across the homepage
+// (a 1.6MB banner, a 1.9MB banner, and 3.0MB of category tiles each drawn as a
+// 120px circle). Those files cannot shrink themselves, and re-uploading them by
+// hand is dozens of rounds of the same clicking, so this fetches each one,
+// re-encodes it at the right size for where it is actually used, and swaps the
+// URL over.
+//
+// Safe to run repeatedly: an image already at or below its cap comes back no
+// smaller and is left alone.
+function ImageOptimiser({
+  data,
+  onDone,
+  onError,
+  onSuccess,
+}: Notify & { data: AdminHomepage; onDone: () => void }) {
+  const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
+
+  // Everything that can be re-compressed, with the cap for where it is shown.
+  const jobs = useMemo(() => {
+    const list: { kind: "image-slot" | "category"; slot?: HomepageImageSlot; variant?: ImageVariant; index?: number; id?: number; url: string; cap: number; label: string }[] = [];
+    for (const slot of Object.keys(data.images) as HomepageImageSlot[]) {
+      (data.images[slot] || []).forEach((url, index) => {
+        list.push({ kind: "image-slot", slot, variant: "desktop", index, url, cap: IMAGE_CAPS.banner, label: slot });
+      });
+      (data.imagesMobile?.[slot] || []).forEach((url, index) => {
+        list.push({ kind: "image-slot", slot, variant: "mobile", index, url, cap: IMAGE_CAPS.banner, label: `${slot} (mobile)` });
+      });
+    }
+    for (const c of data.categories) {
+      if (c.imageUrl) list.push({ kind: "category", id: c.id, url: c.imageUrl, cap: IMAGE_CAPS.thumbnail, label: c.name });
+    }
+    return list;
+  }, [data]);
+
+  const run = async () => {
+    if (jobs.length === 0) return;
+    if (!confirm(`Re-compress ${jobs.length} image(s)? They stay the same pictures — this only makes them faster to download. Safe to run more than once.`)) return;
+
+    let before = 0;
+    let after = 0;
+    let changed = 0;
+    const failures: string[] = [];
+
+    // Slot images are rewritten per slot+variant, so collect the new URLs and
+    // save each list once at the end rather than after every single image.
+    const slotResults = new Map<string, string[]>();
+    for (const slot of Object.keys(data.images) as HomepageImageSlot[]) {
+      slotResults.set(`${slot}|desktop`, [...(data.images[slot] || [])]);
+      slotResults.set(`${slot}|mobile`, [...(data.imagesMobile?.[slot] || [])]);
+    }
+
+    try {
+      for (let i = 0; i < jobs.length; i++) {
+        const job = jobs[i];
+        setProgress({ done: i, total: jobs.length, label: job.label });
+        try {
+          const res = await fetch(mediaUrl(job.url));
+          if (!res.ok) throw new Error(`could not fetch (${res.status})`);
+          const blob = await res.blob();
+          if (!blob.type.startsWith("image/")) continue;
+          before += blob.size;
+
+          const ext = blob.type.split("/")[1] || "jpg";
+          const original = new File([blob], `image.${ext}`, { type: blob.type });
+          const { url } = await adminApi.products.upload(original, job.cap);
+
+          if (job.kind === "category" && job.id != null) {
+            await adminApi.categories.update(job.id, { imageUrl: url });
+          } else if (job.slot && job.variant && job.index != null) {
+            const key = `${job.slot}|${job.variant}`;
+            const arr = slotResults.get(key);
+            if (arr) arr[job.index] = url;
+          }
+          changed += 1;
+
+          // Measure what the visitor will now download.
+          const check = await fetch(mediaUrl(url), { method: "HEAD" });
+          const len = Number(check.headers.get("content-length") || 0);
+          after += len || blob.size;
+        } catch (e) {
+          failures.push(`${job.label}: ${e instanceof Error ? e.message : "failed"}`);
+        }
+      }
+
+      // Persist each slot's rewritten list.
+      for (const [key, urls] of slotResults) {
+        const [slot, variant] = key.split("|") as [HomepageImageSlot, ImageVariant];
+        const originalList = variant === "mobile" ? data.imagesMobile?.[slot] || [] : data.images[slot] || [];
+        if (urls.length === 0 || urls.join("|") === originalList.join("|")) continue;
+        try {
+          await adminApi.homepage.setImages(slot, urls, variant);
+        } catch (e) {
+          failures.push(`${slot} (${variant}): ${e instanceof AdminApiError ? e.message : "couldn't save"}`);
+        }
+      }
+
+      const savedKb = Math.max(0, Math.round((before - after) / 1024));
+      onSuccess(
+        changed === 0
+          ? "Nothing needed re-compressing."
+          : `Re-compressed ${changed} image(s) — every visitor now downloads about ${savedKb}KB less.`
+      );
+      // Failures are surfaced rather than swallowed, so a silent no-op is
+      // never mistaken for success.
+      if (failures.length) onError(`${failures.length} image(s) failed: ${failures.slice(0, 3).join("; ")}`);
+      onDone();
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  if (jobs.length === 0) return null;
+
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3 rounded-md border border-olive-300 bg-olive-50/60 p-4">
+      <Button type="button" disabled={!!progress} onClick={() => void run()} className="bg-olive-600 hover:bg-black">
+        {progress ? `Optimising ${progress.done + 1} of ${progress.total}…` : `Optimise all images (${jobs.length})`}
+      </Button>
+      <span className="min-w-[12rem] flex-1 text-xs leading-relaxed text-foreground/60">
+        {progress
+          ? progress.label
+          : "Re-compresses every hero, banner and category image that was uploaded before automatic compression was added. Same pictures, far faster to load."}
+      </span>
     </div>
   );
 }
@@ -425,53 +564,6 @@ function CategoriesEditor({
     }
   };
 
-  // Re-optimises every existing cover in place.
-  //
-  // Uploads are compressed from now on, but the covers already in R2 were
-  // stored at full export size: 21 tiles totalling about 3MB, each drawn as a
-  // 120px circle. Re-uploading them by hand is 21 rounds of the same clicking,
-  // so this fetches each one, shrinks it, and swaps the URL over.
-  const [optimising, setOptimising] = useState<{ done: number; total: number } | null>(null);
-
-  const optimiseCovers = async () => {
-    const withCovers = categories.filter((c) => c.imageUrl);
-    if (withCovers.length === 0) return;
-    if (!confirm(`Re-compress ${withCovers.length} category image(s)? They stay exactly the same picture, just much smaller to download.`)) return;
-
-    setOptimising({ done: 0, total: withCovers.length });
-    let saved = 0;
-    let changed = 0;
-    try {
-      for (let i = 0; i < withCovers.length; i++) {
-        const c = withCovers[i];
-        setOptimising({ done: i, total: withCovers.length });
-        try {
-          const res = await fetch(mediaUrl(c.imageUrl));
-          if (!res.ok) continue;
-          const blob = await res.blob();
-          if (!blob.type.startsWith("image/")) continue;
-          const original = new File([blob], `${c.slug || "category"}.${blob.type.split("/")[1] || "jpg"}`, { type: blob.type });
-
-          const { url } = await adminApi.products.upload(original, IMAGE_CAPS.thumbnail);
-          if (url === c.imageUrl) continue;
-          const r = await adminApi.categories.update(c.id, { imageUrl: url });
-          onChange(categories.map((x) => (x.id === c.id ? r.category : x)));
-          saved += blob.size;
-          changed += 1;
-        } catch {
-          // One bad image shouldn't stop the rest.
-        }
-      }
-      onSuccess(
-        changed === 0
-          ? "Nothing needed re-compressing."
-          : `Re-compressed ${changed} image(s), freeing about ${Math.round(saved / 1024)}KB of downloads per visitor.`
-      );
-    } finally {
-      setOptimising(null);
-    }
-  };
-
   const addCategory = async () => {
     const name = newName.trim();
     if (!name) return;
@@ -554,23 +646,6 @@ function CategoriesEditor({
           </li>
         ))}
       </ul>
-
-      {categories.some((c) => c.imageUrl) && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-sm border border-olive-200 bg-olive-50/50 p-3">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !!optimising}
-            onClick={() => void optimiseCovers()}
-            className="h-8 border-olive-400 text-xs text-olive-600 hover:bg-olive-50"
-          >
-            {optimising ? `Optimising ${optimising.done + 1} of ${optimising.total}…` : "Re-compress category images"}
-          </Button>
-          <span className="text-xs text-foreground/50">
-            Shrinks covers uploaded before compression was added. Same picture, much faster to load.
-          </span>
-        </div>
-      )}
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[10rem] flex-1">
