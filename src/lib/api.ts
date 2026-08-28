@@ -16,6 +16,8 @@
 // does not statically inline custom `process.env.SOME_VAR` references in this project's
 // setup either, so an env var can't reliably reach the artifact build at all. Guarded
 // so a Vite build can still override via VITE_API_BASE / VITE_GOOGLE_CLIENT_ID if set.
+import { compressImage } from "@/lib/compressImage";
+
 function readViteEnv(key: "VITE_API_BASE" | "VITE_GOOGLE_CLIENT_ID"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
@@ -95,8 +97,12 @@ export type ApiUser = { id: number; name: string; email: string; phone?: string 
 // Uploads bypass `request()` because a multipart body must NOT have an
 // explicit Content-Type set (the browser needs to add its own boundary=...).
 async function uploadFile(path: string, file: File): Promise<{ url: string; key: string }> {
+  // Complaint photos come straight off a phone camera and are routinely
+  // several megabytes each, with up to five per complaint. Shrinking them here
+  // keeps the upload quick on mobile data and the admin's view of them fast.
+  const optimised = await compressImage(file);
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", optimised);
   const res = await fetch(`${API_BASE}${path}`, { method: "POST", credentials: "include", body: form });
   let body: unknown = null;
   const text = await res.text();

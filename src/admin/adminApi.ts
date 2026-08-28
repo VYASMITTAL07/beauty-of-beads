@@ -2,6 +2,8 @@
 // the /api/admin/* routes, which use a separate admin_session cookie (see
 // beauty-of-beads-worker/src/lib/auth.js) so being logged in as a customer
 // on the same browser never grants admin access and vice versa.
+import { compressImage } from "@/lib/compressImage";
+
 function readViteEnv(key: "VITE_API_BASE"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
@@ -259,9 +261,14 @@ export const adminApi = {
     create: (data: Partial<AdminProduct>) => request<{ product: AdminProduct }>("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<AdminProduct>) => request<{ product: AdminProduct }>(`/api/admin/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: number, hard?: boolean) => request<{ ok: true }>(`/api/admin/products/${id}${hard ? "?hard=1" : ""}`, { method: "DELETE" }),
-    upload: (file: File) => {
+    // Every admin image upload goes through here — product photos, category
+    // covers, hero and banner images — so compression is applied once, at the
+    // single point they all share. Videos and small files pass through
+    // untouched (see compressImage).
+    upload: async (file: File) => {
+      const optimised = await compressImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", optimised);
       return request<{ url: string; key: string }>("/api/admin/products/upload", { method: "POST", body: form });
     },
   },
