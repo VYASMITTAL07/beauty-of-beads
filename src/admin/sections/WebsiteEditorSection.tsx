@@ -8,6 +8,7 @@ import {
   adminApi,
   AdminApiError,
   mediaUrl,
+  IMAGE_CAPS,
   type AdminCategory,
   type AdminHomepage,
   type AdminPickerProduct,
@@ -413,7 +414,7 @@ function CategoriesEditor({
   const uploadCover = async (c: AdminCategory, file: File) => {
     setBusy(true);
     try {
-      const { url } = await adminApi.products.upload(file);
+      const { url } = await adminApi.products.upload(file, IMAGE_CAPS.thumbnail);
       const r = await adminApi.categories.update(c.id, { imageUrl: url });
       onChange(categories.map((x) => (x.id === c.id ? r.category : x)));
       onSuccess("Cover image updated");
@@ -421,6 +422,53 @@ function CategoriesEditor({
       onError(e instanceof AdminApiError ? e.message : "Upload failed");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Re-optimises every existing cover in place.
+  //
+  // Uploads are compressed from now on, but the covers already in R2 were
+  // stored at full export size: 21 tiles totalling about 3MB, each drawn as a
+  // 120px circle. Re-uploading them by hand is 21 rounds of the same clicking,
+  // so this fetches each one, shrinks it, and swaps the URL over.
+  const [optimising, setOptimising] = useState<{ done: number; total: number } | null>(null);
+
+  const optimiseCovers = async () => {
+    const withCovers = categories.filter((c) => c.imageUrl);
+    if (withCovers.length === 0) return;
+    if (!confirm(`Re-compress ${withCovers.length} category image(s)? They stay exactly the same picture, just much smaller to download.`)) return;
+
+    setOptimising({ done: 0, total: withCovers.length });
+    let saved = 0;
+    let changed = 0;
+    try {
+      for (let i = 0; i < withCovers.length; i++) {
+        const c = withCovers[i];
+        setOptimising({ done: i, total: withCovers.length });
+        try {
+          const res = await fetch(mediaUrl(c.imageUrl));
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          if (!blob.type.startsWith("image/")) continue;
+          const original = new File([blob], `${c.slug || "category"}.${blob.type.split("/")[1] || "jpg"}`, { type: blob.type });
+
+          const { url } = await adminApi.products.upload(original, IMAGE_CAPS.thumbnail);
+          if (url === c.imageUrl) continue;
+          const r = await adminApi.categories.update(c.id, { imageUrl: url });
+          onChange(categories.map((x) => (x.id === c.id ? r.category : x)));
+          saved += blob.size;
+          changed += 1;
+        } catch {
+          // One bad image shouldn't stop the rest.
+        }
+      }
+      onSuccess(
+        changed === 0
+          ? "Nothing needed re-compressing."
+          : `Re-compressed ${changed} image(s), freeing about ${Math.round(saved / 1024)}KB of downloads per visitor.`
+      );
+    } finally {
+      setOptimising(null);
     }
   };
 
@@ -506,6 +554,23 @@ function CategoriesEditor({
           </li>
         ))}
       </ul>
+
+      {categories.some((c) => c.imageUrl) && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-sm border border-olive-200 bg-olive-50/50 p-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || !!optimising}
+            onClick={() => void optimiseCovers()}
+            className="h-8 border-olive-400 text-xs text-olive-600 hover:bg-olive-50"
+          >
+            {optimising ? `Optimising ${optimising.done + 1} of ${optimising.total}…` : "Re-compress category images"}
+          </Button>
+          <span className="text-xs text-foreground/50">
+            Shrinks covers uploaded before compression was added. Same picture, much faster to load.
+          </span>
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[10rem] flex-1">
