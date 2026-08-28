@@ -350,6 +350,8 @@ export type HomepagePayload = {
   imagesMobile?: Record<HomepageImageSlot, string[]>;
   // Vertical anchor for cover-cropping, e.g. "35%". See FOCUS_CHOICES.
   focus?: Record<HomepageImageSlot, string>;
+  // "cover" crops to fill; "contain" shows the whole frame. See FIT_CHOICES.
+  fit?: Record<HomepageImageSlot, string>;
   categories: CategoryDto[];
   sections: Record<HomepageSectionKey, ProductCardDto[]>;
   featuredReviews: FeaturedReviewDto[];
