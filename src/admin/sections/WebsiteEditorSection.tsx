@@ -569,7 +569,7 @@ function ImageSlotEditor({
           </span>
 
           <div className="flex w-full items-center gap-2 border-t border-border/60 pt-2.5">
-            <span className="text-xs font-medium text-foreground">Size</span>
+            <span className="text-xs font-medium text-foreground">Zoom</span>
             <select
               value={fit}
               disabled={busy}
@@ -586,10 +586,13 @@ function ImageSlotEditor({
               className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
             >
               <option value="cover">Fill the frame (crops the edges)</option>
-              <option value="contain">Show the whole picture (zoomed out)</option>
+              <option value="40%">Show 40%</option>
+              <option value="60%">Show 60%</option>
+              <option value="80%">Show 80%</option>
+              <option value="100%">Show the whole picture</option>
             </select>
             <span className="min-w-[10rem] flex-1 text-xs leading-relaxed text-foreground/50">
-              Use "show the whole picture" for a portrait phone video — filling a wide frame with one only shows about a quarter of it.
+              How much of the picture's height stays visible. Filling a wide frame with a portrait phone video only shows about a quarter of it.
             </span>
           </div>
         </div>

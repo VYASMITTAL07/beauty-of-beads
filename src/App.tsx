@@ -2822,6 +2822,16 @@ function isVideoUrl(url: string) {
 // A video shows nothing until it has buffered, so if the slot also holds a
 // still, use it as the poster — the hero then paints instantly and the video
 // fades in over it.
+// object-contain fits the whole thing in; scaling up from there trims it back
+// to the requested share of its height. 1 / 0.6 shows the middle 60%.
+function zoomScale(fit: string): number | null {
+  const m = /^(\d+)%$/.exec(fit);
+  if (!m) return null;
+  const pct = Number(m[1]);
+  if (!pct || pct > 100) return null;
+  return 100 / pct;
+}
+
 function posterFor(images: string[]): string | undefined {
   const still = images.find((u) => !isVideoUrl(u));
   return still ? mediaUrl(still) : undefined;
@@ -2846,9 +2856,11 @@ function ImageSlideshow({
    *  than it is tall, so part of the picture is always discarded — which part
    *  depends on the footage, so the admin chooses it per slot. */
   focus?: string;
-  /** "cover" crops to fill the frame; "contain" shows the whole picture with a
-   *  blurred, enlarged copy behind it filling the sides. A portrait phone video
-   *  in an ultrawide hero only shows about a quarter of itself under "cover". */
+  /** "cover" crops to fill the frame. A percentage instead says how much of the
+   *  media's height to keep visible — "60%" shows the middle 60% — rendered
+   *  contained and scaled up, with a blurred copy behind filling the sides.
+   *  A portrait phone video in an ultrawide hero shows only about a quarter of
+   *  itself under "cover", which no focal point can fix. */
   fit?: string;
   /** Only the hero is above the fold. Everything else must stay lazy — the
    *  store-visit banner sits at the bottom of the page but was being fetched
@@ -2880,7 +2892,7 @@ function ImageSlideshow({
             key={src}
             className={`absolute inset-0 transition-opacity duration-1000 ${i === index ? "opacity-100" : "opacity-0"}`}
           >
-            {fit === "contain" && (
+            {zoomScale(fit) !== null && (
               // Enlarged and blurred so the sides read as part of the shot
               // rather than as empty letterbox bars.
               <video
@@ -2906,8 +2918,16 @@ function ImageSlideshow({
             // metadata alone is enough to reserve the frame.
             preload={i === index ? "auto" : "metadata"}
             poster={posterFor(images)}
-            style={focus && fit !== "contain" ? { objectPosition: `50% ${focus}` } : undefined}
-            className={`absolute inset-0 h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"} ${className}`}
+            style={
+              zoomScale(fit) !== null
+                ? // Anchored at the focal point so zooming keeps the subject in
+                  // frame rather than pulling towards the middle.
+                  { transform: `scale(${zoomScale(fit)})`, transformOrigin: `50% ${focus || "50%"}` }
+                : focus
+                  ? { objectPosition: `50% ${focus}` }
+                  : undefined
+            }
+            className={`absolute inset-0 h-full w-full ${zoomScale(fit) !== null ? "object-contain" : "object-cover"} ${className}`}
           />
           </div>
         ) : (
