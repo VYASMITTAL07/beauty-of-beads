@@ -3906,6 +3906,7 @@ export default function App() {
     ? homepage.sections.onSale.map(cardDtoToProduct)
     : SHOP_BY_TYPE.map((c) => ({ ...c, category: "", rating: 4.6 }));
   const videoStrip = homepage?.images.videos ?? [];
+  const shopAllTile = useSlotImages(homepage?.images.shopAllTile ?? [], homepage?.imagesMobile?.shopAllTile ?? []);
 
   const heroImages = useSlotImages(homepage?.images.hero ?? [], homepage?.imagesMobile?.hero ?? []);
   const heritageBannerImages = useSlotImages(
@@ -4960,7 +4961,19 @@ export default function App() {
               onClick={() => setProductListView({ title: "New Arrivals", products: newArrivals })}
               className="group relative -mx-1 col-span-1 flex h-[325px] flex-col justify-end self-start overflow-hidden rounded-none border-none p-0 sm:mx-0 sm:h-full sm:min-h-[340px] sm:self-auto"
             >
-              <BeadStrand colors={["#833E20", "#C1653A", "#DDBB6E", "#F1E4D3", "#6B7658", "#4B5540"]} bg="linear-gradient(150deg,#3A2E22,#6B4A2E)" size={20} />
+              {shopAllTile.length > 0 ? (
+                <img
+                  src={mediaUrl(shopAllTile[0])}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={homepage?.focus?.shopAllTile ? { objectPosition: `50% ${homepage.focus.shopAllTile}` } : undefined}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <BeadStrand colors={["#833E20", "#C1653A", "#DDBB6E", "#F1E4D3", "#6B7658", "#4B5540"]} bg="linear-gradient(150deg,#3A2E22,#6B4A2E)" size={20} />
+              )}
               <div className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/25" />
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 border-t border-white/40 bg-black/20 py-3 text-sm font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-olive-600">
                 Shop All <ChevronRight className="h-4 w-4" />
