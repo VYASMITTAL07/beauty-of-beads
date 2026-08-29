@@ -393,9 +393,9 @@ function ImageSlotEditor({
   onChange: (images: string[], variant: ImageVariant) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Only the hero takes a video — a full-bleed banner behind page content is
-  // not somewhere a moving background belongs.
-  const allowsVideo = slot === "hero";
+  // The hero and the reel strip take video; a full-bleed banner sitting behind
+  // page content is not somewhere a moving background belongs.
+  const allowsVideo = slot === "hero" || slot === "videos";
   const accept = allowsVideo ? "image/*,video/mp4,video/webm" : "image/*";
   const isVideo = (u: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(u);
   // Which set is being edited. A wide banner cannot be cropped down to a phone
