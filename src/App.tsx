@@ -4066,11 +4066,19 @@ export default function App() {
   // The header sits over the hero until the page is scrolled, so the video
   // runs behind it; past the threshold its own background comes back.
   const [headerOverHero, setHeaderOverHero] = useState(true);
+  // Watched with an IntersectionObserver on a sentinel rather than a scroll
+  // listener: the observer reports against the actual scrolling box, so it
+  // keeps working regardless of which element ends up scrolling, and it
+  // doesn't run code on every scroll frame.
+  const topSentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const onScroll = () => setHeaderOverHero(window.scrollY < 40);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const el = topSentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setHeaderOverHero(entry.isIntersecting), {
+      threshold: 0,
+    });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   // The hero is pulled up by exactly the header's height so the video runs
@@ -4442,6 +4450,9 @@ export default function App() {
           ✦ {OFFERS[offerIndex]}
         </span>
       </div>
+
+      {/* Marks "still at the very top" for the header overlay above. */}
+      <div ref={topSentinelRef} aria-hidden="true" className="h-px w-full" />
 
       {/* Header */}
       <header
