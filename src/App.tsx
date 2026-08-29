@@ -721,7 +721,7 @@ function AllProductsView({
         ) : (
           <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4">
             {products.map((p) => (
-              <ProductCard key={p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
+              <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
             ))}
           </div>
         )}
@@ -799,7 +799,7 @@ function AllCollectionsView({
               </div>
               <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
                 {products.slice(0, 4).map((p) => (
-                  <ProductCard key={p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
+                  <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
                 ))}
               </div>
             </section>
@@ -1274,6 +1274,10 @@ function SearchOverlay({
   if (!open) return null;
 
   const trimmed = query.trim().toLowerCase();
+  // Keyed by slug, not name, in the render below: the catalogue contains
+  // products that share a name, and duplicate React keys make a list reuse
+  // another list's DOM nodes — which showed up here as a correct result count
+  // above a grid of completely unrelated products.
   const results = trimmed
     ? allProducts.filter((p) => p.name.toLowerCase().includes(trimmed) || p.category.toLowerCase().includes(trimmed))
     : [];
@@ -1329,7 +1333,7 @@ function SearchOverlay({
             </p>
             <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4">
               {results.map((p) => (
-                <ProductCard key={p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
+                <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
               ))}
             </div>
           </>
@@ -3749,7 +3753,7 @@ function ProductDetailView({
             >
               {related.map((p) => (
                 <div
-                  key={p.name}
+                  key={p.slug || p.name}
                   className="basis-[calc((100%-1.25rem)/2)] flex-shrink-0 md:basis-[calc((100%-2.5rem)/3)] lg:basis-[calc((100%-3.75rem)/4)]"
                   style={{ minWidth: 0 }}
                 >
@@ -4811,7 +4815,7 @@ export default function App() {
           >
             {topPicks.map((p) => (
               <div
-                key={p.name}
+                key={p.slug || p.name}
                 className="basis-[calc((100%-1.25rem)/2)] flex-shrink-0 md:basis-[calc((100%-2.5rem)/3)] lg:basis-[calc((100%-3.75rem)/4)]"
                 style={{ minWidth: 0 }}
               >
@@ -4883,7 +4887,7 @@ export default function App() {
           >
             {featuredProducts.map((p) => (
               <div
-                key={p.name}
+                key={p.slug || p.name}
                 className="basis-[calc((100%-1.25rem)/2)] flex-shrink-0 md:basis-[calc((100%-2.5rem)/3)] lg:basis-[calc((100%-3.75rem)/4)]"
                 style={{ minWidth: 0 }}
               >
@@ -4917,7 +4921,7 @@ export default function App() {
           </div>
           <div className="grid grid-cols-2 gap-x-5 gap-y-7 px-5 pt-4 sm:grid-cols-4 sm:gap-y-5 md:px-8">
             {newArrivals.slice(0, 3).map((p) => (
-              <div key={p.name} className="relative">
+              <div key={p.slug || p.name} className="relative">
                 <span className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-olive-600 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-olive-50 shadow-sm">
                   New Arrival
                 </span>
@@ -4970,7 +4974,7 @@ export default function App() {
             const isCenter = i === spotlightActive;
             return (
               <div
-                key={p.name}
+                key={p.slug || p.name}
                 className="relative flex-shrink-0 basis-[44%] sm:basis-[30%] md:basis-[20%]"
                 style={{ minWidth: 0 }}
               >
