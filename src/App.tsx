@@ -4090,6 +4090,13 @@ export default function App() {
     const cardFrac = vw >= 768 ? 0.2 : vw >= 640 ? 0.3 : 0.44;
     const gap = vw >= 640 ? 32 : 8; // gap-8 (sm+) / gap-2 (mobile)
     const containerWidth = container.clientWidth;
+    // Zero until the row has been laid out. The maths below would then resolve
+    // to scrollLeft 0, parking the carousel at one end instead of centring, so
+    // wait a frame and let the effect run again.
+    if (containerWidth === 0) {
+      const retry = requestAnimationFrame(() => setSpotlightActive((i) => i));
+      return () => cancelAnimationFrame(retry);
+    }
     const cardWidth = containerWidth * cardFrac;
 
     const offsetLeft = spotlightActive * (cardWidth + gap);
