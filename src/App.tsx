@@ -3940,7 +3940,41 @@ export default function App() {
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [allCollectionsOpen, setAllCollectionsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const openProduct = (p: Product) => setSelectedProduct(p);
+  // Opens the detail view straight away with what the card already knows, then
+  // fills in the rest.
+  //
+  // Lists are served a trimmed card shape — no description, no materials/care
+  // or shipping copy, one image — because sending all of that for 476 products
+  // would be several hundred KB nobody reads. The detail view needs it, so it
+  // is fetched per product on open. Without this the page fell back to its
+  // generic "handmade piece" blurb even when the admin had written a real
+  // description.
+  const openProduct = (p: Product) => {
+    setSelectedProduct(p);
+    if (!p.slug) return;
+    api.products
+      .get(p.slug)
+      .then(({ product: d }) => {
+        setSelectedProduct((current) =>
+          // Ignore a late response for a product the shopper has moved on from.
+          current && current.slug === d.slug
+            ? {
+                ...current,
+                images: d.images.length ? d.images : current.images,
+                videos: d.videos,
+                description: d.description || undefined,
+                materialsCare: d.materialsCare || undefined,
+                shippingReturns: d.shippingReturns || undefined,
+                colorOptions: d.colors.length ? d.colors : current.colorOptions,
+                colors: d.colors.length ? d.colors : current.colors,
+              }
+            : current
+        );
+      })
+      .catch(() => {
+        // Keep the card-level detail rather than blanking the page.
+      });
+  };
   const [cartItems, setCartItems] = useState<CartItemDto[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItemDto[]>([]);
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
