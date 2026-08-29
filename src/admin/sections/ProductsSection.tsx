@@ -69,31 +69,58 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   const [importing, setImporting] = useState(false);
   const [migrating, setMigrating] = useState<{ done: number; total: number } | null>(null);
   const [hotlinked, setHotlinked] = useState(0);
+  const [hidden, setHidden] = useState(0);
+  const [showingAll, setShowingAll] = useState(false);
 
-  // How many products still point at the old site. Shown so the migration
-  // banner disappears once there is nothing left to move.
   useEffect(() => {
     if (!products) return;
     setHotlinked(products.filter((p) => p.images.some((u) => u.includes("beautyofbeadsbykhushi.com"))).length);
+    setHidden(products.filter((p) => !p.active).length);
   }, [products]);
+
+  // A hidden product is invisible to the storefront, so a catalogue that is
+  // mostly hidden looks like one that is mostly missing.
+  const showAll = async () => {
+    if (!confirm(`Make ${hidden} hidden product(s) visible on the storefront?`)) return;
+    setShowingAll(true);
+    try {
+      const r = await adminApi.products.showAll();
+      onSuccess(r.shown === 0 ? "Nothing was hidden." : `${r.shown} product(s) are now visible on the storefront.`);
+      load();
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't update the products");
+    } finally {
+      setShowingAll(false);
+    }
+  };
 
   // The old host takes ~6s per image and drops most of them under load, so a
   // catalogue that points at it renders mostly empty. The worker copies them
-  // into our own bucket a batch at a time; this just keeps calling until it
-  // reports nothing left.
+  // into our own bucket a batch at a time; this keeps calling until it reports
+  // nothing left. Counts come from the server response throughout, so the
+  // progress and the banner can never disagree.
   const migrateImages = async () => {
-    if (!confirm("Copy all product images from your old site into this site's own storage? Existing images are left alone. This can take a few minutes.")) return;
-    setMigrating({ done: 0, total: hotlinked });
+    if (!confirm("Copy all product images from your old site into this site's own storage? Existing images are left alone, and this can take a few minutes.")) return;
+    setMigrating({ done: 0, total: 0 });
+    const failures: string[] = [];
     let guard = 0;
     try {
       for (;;) {
         const r = await adminApi.products.migrateImages();
-        setMigrating({ done: Math.max(0, r.total - r.remaining), total: r.total || hotlinked });
-        if (r.failed && r.failures.length) onError(`${r.failed} image(s) failed: ${r.failures.slice(0, 2).join("; ")}`);
+        // `total` counts what still needed copying when the batch began, so
+        // done = total - remaining is progress within this run.
+        setMigrating({ done: Math.max(0, r.total - r.remaining), total: r.total });
+        if (r.failures?.length) failures.push(...r.failures);
         if (r.remaining === 0 || r.migrated === 0) break;
         if (++guard > 200) break; // never spin forever on a stuck batch
       }
       onSuccess("Product images now load from this site instead of the old one.");
+      // Reported once at the end rather than after every batch. These are
+      // images the old site no longer has (HTTP 404); those products keep
+      // their original URL and simply need a new photo uploaded.
+      if (failures.length) {
+        onError(`${failures.length} image(s) couldn't be copied — they're missing from the old site. Those products need a new photo.`);
+      }
       load();
     } catch (e) {
       onError(e instanceof AdminApiError ? e.message : "Couldn't migrate the images");
@@ -176,6 +203,19 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
         </div>
       </div>
 
+      {hidden > 0 && (
+        <div className="mt-5 rounded-md border border-clay-300 bg-clay-50/60 p-4 sm:p-5">
+          <p className="font-serif text-base text-clay-600">{hidden} product(s) are hidden from the storefront</p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground/65">
+            Hidden products don't appear anywhere on the site — not in their category, not in search, not in the homepage
+            sections. Everything else about them is kept.
+          </p>
+          <Button onClick={showAll} disabled={showingAll} className="mt-3 bg-olive-600 hover:bg-black">
+            {showingAll ? "Updating…" : "Make them all visible"}
+          </Button>
+        </div>
+      )}
+
       {hotlinked > 0 && (
         <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
           <p className="font-serif text-base text-olive-600">{hotlinked} product images still load from your old site</p>
@@ -184,7 +224,11 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
             Copying them here fixes that and means the storefront no longer depends on the old site at all.
           </p>
           <Button onClick={migrateImages} disabled={!!migrating} className="mt-3 bg-olive-600 hover:bg-black">
-            {migrating ? `Copying ${migrating.done} of ${migrating.total}…` : "Copy images to this site"}
+            {migrating
+              ? migrating.total
+                ? `Copying ${migrating.done} of ${migrating.total}…`
+                : "Starting…"
+              : "Copy images to this site"}
           </Button>
         </div>
       )}

@@ -254,6 +254,7 @@ export const adminApi = {
       request<{ admin: AdminUser }>("/api/admin/auth/setup", { method: "POST", body: JSON.stringify(data) }),
   },
   products: {
+    showAll: () => request<{ shown: number; total: number }>("/api/admin/products/show-all", { method: "POST" }),
     // Copies product images off the old WordPress site into our own R2, a
     // batch per call. Repeat until `remaining` is 0.
     migrateImages: () =>
