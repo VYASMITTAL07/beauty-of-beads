@@ -21,7 +21,6 @@ import {
   type OrderItemDto,
   type OrderHistoryDto,
   type ReviewDto,
-  type ProductDto,
   type ShippingInput,
   type AddressDto,
   type ComplaintDto,
@@ -204,12 +203,9 @@ type Product = {
   colorOptions?: string[];
 };
 
-// Converts a backend ProductDto (admin-managed, camelCase) into the shape
-// the storefront has always used internally, deriving `tag` and `bg`/`colors`
-// fallbacks the same way the placeholder catalog did.
-// Homepage carousels are served a trimmed card shape (no long-form copy, one
-// image) — enough to render a card, and the full product is fetched when the
-// card is opened.
+// Converts the backend's card shape into the shape the storefront has always
+// used internally, deriving `tag` and the `bg`/`colors` fallbacks the same way
+// the placeholder catalog did.
 function cardDtoToProduct(d: ProductCardDto): Product {
   return {
     name: d.name,
@@ -222,30 +218,6 @@ function cardDtoToProduct(d: ProductCardDto): Product {
     tag: d.isBestseller ? "Bestseller" : d.isNewArrival ? "New Arrival" : undefined,
     slug: d.slug,
     images: d.images,
-    isBestseller: d.isBestseller,
-    isNewArrival: d.isNewArrival,
-    isFeatured: d.isFeatured,
-    isSpotlight: d.isSpotlight,
-    colorOptions: d.colors.length ? d.colors : undefined,
-  };
-}
-
-function dtoToProduct(d: ProductDto): Product {
-  return {
-    name: d.name,
-    category: d.category,
-    price: d.price,
-    mrp: d.mrp,
-    rating: d.rating,
-    colors: d.colors.length ? d.colors : ["#C1653A", "#DDBB6E", "#F1E4D3"],
-    bg: d.bg || "linear-gradient(135deg,#F1E4D3,#E4D3BE)",
-    tag: d.isBestseller ? "Bestseller" : d.isNewArrival ? "New Arrival" : undefined,
-    slug: d.slug,
-    images: d.images,
-    videos: d.videos,
-    description: d.description || undefined,
-    materialsCare: d.materialsCare || undefined,
-    shippingReturns: d.shippingReturns || undefined,
     isBestseller: d.isBestseller,
     isNewArrival: d.isNewArrival,
     isFeatured: d.isFeatured,
@@ -3868,24 +3840,40 @@ export default function App() {
     };
   }, []);
 
-  // The full catalogue, needed only by search and "Shop All" — not by the
-  // homepage itself any more. Deferred until the browser is idle so it never
+  // The full catalogue, needed by search, "Shop All" and every category view.
+  //
+  // This used to fetch a single page of 60 products and filter it client-side,
+  // so with 413 products in the catalogue a category like "Resin Jewellery"
+  // (62 items) showed only whichever handful happened to land in that first
+  // page — and most categories looked empty. It now pages through the whole
+  // list in card shape, deferred until the browser is idle so it never
   // competes with first paint.
   const [liveProducts, setLiveProducts] = useState<Product[] | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const load = () => {
-      api.products
-        .list({ limit: 60 })
-        .then((r) => {
-          if (!cancelled && r.products.length > 0) setLiveProducts(r.products.map(dtoToProduct));
-        })
-        .catch(() => {
-          // no backend reachable — keep showing the placeholder catalog
-        });
+
+    const loadAll = async () => {
+      try {
+        const collected: Product[] = [];
+        let page = 1;
+        for (;;) {
+          const r = await api.products.cards({ page, limit: 250 });
+          if (cancelled) return;
+          collected.push(...r.products.map(cardDtoToProduct));
+          if (collected.length >= r.total || r.products.length === 0) break;
+          page += 1;
+          // A catalogue this size is a handful of pages; the guard is only
+          // here so a bad `total` can never spin forever.
+          if (page > 20) break;
+        }
+        if (!cancelled && collected.length > 0) setLiveProducts(collected);
+      } catch {
+        // no backend reachable — keep showing the placeholder catalog
+      }
     };
+
     const idle = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    const handle = idle ? idle(load, { timeout: 2000 }) : window.setTimeout(load, 400);
+    const handle = idle ? idle(() => void loadAll(), { timeout: 2000 }) : window.setTimeout(() => void loadAll(), 400);
     return () => {
       cancelled = true;
       const cancelIdle = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;

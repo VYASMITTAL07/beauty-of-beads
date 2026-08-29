@@ -221,6 +221,15 @@ export const api = {
       const suffix = qs.toString() ? `?${qs.toString()}` : "";
       return request<{ products: ProductDto[]; page: number; limit: number; total: number }>(`/api/products${suffix}`);
     },
+    // Card shape: the whole catalogue without the long-form copy, for browsing
+    // and search. Pages are larger because each row is much smaller.
+    cards: (params?: { category?: string; limit?: number; page?: number }) => {
+      const qs = new URLSearchParams({ cards: "1" });
+      if (params?.category) qs.set("category", params.category);
+      qs.set("limit", String(params?.limit ?? 250));
+      if (params?.page) qs.set("page", String(params.page));
+      return request<{ products: ProductCardDto[]; page: number; limit: number; total: number }>(`/api/products?${qs.toString()}`);
+    },
   },
   reviews: {
     // Public — anyone can read a product's live, verified-purchase reviews.
