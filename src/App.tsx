@@ -4734,7 +4734,7 @@ export default function App() {
                   type="button"
                   key={c.id}
                   onClick={() => openCategoryView(c.name)}
-                  className="group relative z-0 flex flex-shrink-0 origin-top basis-[calc(25%-1.125rem)] flex-col items-center gap-2.5 border-none bg-transparent text-center transition-transform duration-300 hover:z-20 hover:scale-110 sm:basis-[calc(20%-1.2rem)] md:basis-[calc(16.666%-1.25rem)]"
+                  className="group relative z-0 flex flex-shrink-0 origin-top basis-[calc(25%-1.125rem)] flex-col items-center gap-2.5 border-none bg-transparent text-center transition-transform duration-300 hover:z-20 hover:scale-110 sm:basis-[calc(20%-1.2rem)] md:basis-[calc(16.666%-1.25rem)] lg:basis-[calc(14.2857%-1.2857rem)]"
                 >
                   <div className="aspect-square w-full max-w-[7.5rem] overflow-hidden rounded-full ring-1 ring-border transition-transform duration-300 group-hover:scale-105">
                     {c.imageUrl ? (
@@ -4767,7 +4767,7 @@ export default function App() {
                   type="button"
                   key={t.name}
                   onClick={() => openCategoryView(t.name)}
-                  className="group relative z-0 flex flex-shrink-0 origin-top basis-[calc(25%-1.125rem)] flex-col items-center gap-2.5 border-none bg-transparent text-center transition-transform duration-300 hover:z-20 hover:scale-110 sm:basis-[calc(20%-1.2rem)] md:basis-[calc(16.666%-1.25rem)]"
+                  className="group relative z-0 flex flex-shrink-0 origin-top basis-[calc(25%-1.125rem)] flex-col items-center gap-2.5 border-none bg-transparent text-center transition-transform duration-300 hover:z-20 hover:scale-110 sm:basis-[calc(20%-1.2rem)] md:basis-[calc(16.666%-1.25rem)] lg:basis-[calc(14.2857%-1.2857rem)]"
                 >
                   <div className="aspect-square w-full max-w-[7.5rem] overflow-hidden rounded-full ring-1 ring-border transition-transform duration-300 group-hover:scale-105">
                     <BeadStrand colors={t.colors} bg={t.bg} size={8} />
