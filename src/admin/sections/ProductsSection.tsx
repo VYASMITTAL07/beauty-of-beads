@@ -67,6 +67,40 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<AdminProduct | "new" | null>(null);
   const [importing, setImporting] = useState(false);
+  const [migrating, setMigrating] = useState<{ done: number; total: number } | null>(null);
+  const [hotlinked, setHotlinked] = useState(0);
+
+  // How many products still point at the old site. Shown so the migration
+  // banner disappears once there is nothing left to move.
+  useEffect(() => {
+    if (!products) return;
+    setHotlinked(products.filter((p) => p.images.some((u) => u.includes("beautyofbeadsbykhushi.com"))).length);
+  }, [products]);
+
+  // The old host takes ~6s per image and drops most of them under load, so a
+  // catalogue that points at it renders mostly empty. The worker copies them
+  // into our own bucket a batch at a time; this just keeps calling until it
+  // reports nothing left.
+  const migrateImages = async () => {
+    if (!confirm("Copy all product images from your old site into this site's own storage? Existing images are left alone. This can take a few minutes.")) return;
+    setMigrating({ done: 0, total: hotlinked });
+    let guard = 0;
+    try {
+      for (;;) {
+        const r = await adminApi.products.migrateImages();
+        setMigrating({ done: Math.max(0, r.total - r.remaining), total: r.total || hotlinked });
+        if (r.failed && r.failures.length) onError(`${r.failed} image(s) failed: ${r.failures.slice(0, 2).join("; ")}`);
+        if (r.remaining === 0 || r.migrated === 0) break;
+        if (++guard > 200) break; // never spin forever on a stuck batch
+      }
+      onSuccess("Product images now load from this site instead of the old one.");
+      load();
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't migrate the images");
+    } finally {
+      setMigrating(null);
+    }
+  };
 
   // One-time catalogue migration. The real products scraped from the old
   // WooCommerce site ship as a hardcoded array in the storefront bundle, which
@@ -141,6 +175,19 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
           </Button>
         </div>
       </div>
+
+      {hotlinked > 0 && (
+        <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
+          <p className="font-serif text-base text-olive-600">{hotlinked} product images still load from your old site</p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground/65">
+            That host takes several seconds per image and drops most of them, which is why product grids show blank tiles.
+            Copying them here fixes that and means the storefront no longer depends on the old site at all.
+          </p>
+          <Button onClick={migrateImages} disabled={!!migrating} className="mt-3 bg-olive-600 hover:bg-black">
+            {migrating ? `Copying ${migrating.done} of ${migrating.total}…` : "Copy images to this site"}
+          </Button>
+        </div>
+      )}
 
       {products && products.length === 0 && (
         <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">

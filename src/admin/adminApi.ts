@@ -254,6 +254,13 @@ export const adminApi = {
       request<{ admin: AdminUser }>("/api/admin/auth/setup", { method: "POST", body: JSON.stringify(data) }),
   },
   products: {
+    // Copies product images off the old WordPress site into our own R2, a
+    // batch per call. Repeat until `remaining` is 0.
+    migrateImages: () =>
+      request<{ migrated: number; remaining: number; total: number; failed: number; failures: string[] }>(
+        "/api/admin/products/migrate-images",
+        { method: "POST" }
+      ),
     // One-time catalogue migration: sends the whole scraped array in a single
     // request. Idempotent by slug on the server, so re-running is safe.
     importCatalogue: (products: ImportProductInput[]) =>
