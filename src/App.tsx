@@ -3899,6 +3899,13 @@ export default function App() {
   const featuredProducts = sectionOr("shopByTrend", FEATURED_PRODUCTS);
   const newArrivals = sectionOr("newArrivals", NEW_ARRIVALS);
   const spotlightPicks = sectionOr("spotlight", SPOTLIGHT_PICKS);
+  // Both of these used to be hardcoded arrays with no admin control at all.
+  // Normalised to Product up front so the row below has one shape to render,
+  // whether it came from the admin or from the built-in placeholders.
+  const saleRow: Product[] = homepage?.sections.onSale?.length
+    ? homepage.sections.onSale.map(cardDtoToProduct)
+    : SHOP_BY_TYPE.map((c) => ({ ...c, category: "", rating: 4.6 }));
+  const videoStrip = homepage?.images.videos ?? [];
 
   const heroImages = useSlotImages(homepage?.images.hero ?? [], homepage?.imagesMobile?.hero ?? []);
   const heritageBannerImages = useSlotImages(
@@ -5000,19 +5007,38 @@ export default function App() {
         <div className="mx-auto max-w-6xl px-5 md:px-8">
           <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Currently on Sale</h2>
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-            {SHOP_BY_TYPE.map((c) => {
-              const discount = Math.round(((c.mrp - c.price) / c.mrp) * 100);
+            {saleRow.map((c) => {
+              const discount = c.mrp > 0 ? Math.round(((c.mrp - c.price) / c.mrp) * 100) : 0;
               const isAdded = added.has(c.name);
+              const saleImage = c.images && c.images.length > 0 ? c.images[0] : null;
               return (
-                <div key={c.name} className="group relative">
-                  <div className="relative aspect-[3/4] w-full overflow-hidden shadow-xl">
-                    <div className="absolute inset-0 opacity-100 transition-opacity duration-500 group-hover:opacity-0">
-                      <BeadStrand colors={c.colors} bg={c.bg} size={16} />
-                    </div>
-                    <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                      <BeadStrand colors={c.colors} bg={c.bg} size={16} variant="b" />
-                    </div>
-                  </div>
+                <div key={c.slug || c.name} className="group relative">
+                  <button
+                    type="button"
+                    onClick={() => openProduct(c)}
+                    aria-label={`View ${c.name}`}
+                    className="relative block aspect-[3/4] w-full overflow-hidden shadow-xl"
+                  >
+                    {saleImage ? (
+                      <img
+                        src={mediaUrl(saleImage)}
+                        alt={c.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                        draggable={false}
+                      />
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 opacity-100 transition-opacity duration-500 group-hover:opacity-0">
+                          <BeadStrand colors={c.colors} bg={c.bg} size={16} />
+                        </div>
+                        <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                          <BeadStrand colors={c.colors} bg={c.bg} size={16} variant="b" />
+                        </div>
+                      </>
+                    )}
+                  </button>
                   <div className="mt-3">
                     <h3 className="font-serif text-[15px] leading-snug">{c.name}</h3>
                     <div className="mt-1.5 flex items-baseline gap-2">
@@ -5051,21 +5077,59 @@ export default function App() {
             ref={videoScrollRef}
             className="scrollbar-hide flex w-full gap-5 overflow-x-auto scroll-smooth pl-0 sm:pl-5"
           >
-            {VIDEO_PICKS.map((v) => (
-              <div
-                key={v.name}
-                className="relative flex-shrink-0 basis-[43%] sm:basis-[24%] md:basis-[16%]"
-                style={{ minWidth: 0 }}
-              >
-                <div
-                  onClick={() => setActiveVideo({ name: v.name, bg: v.bg })}
-                  className="relative aspect-[3/4] w-full cursor-pointer overflow-hidden"
-                >
-                  <div className="animate-video-live absolute inset-0" style={{ background: v.bg }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
-                </div>
-              </div>
-            ))}
+            {/* Real reels once the admin uploads any; the animated gradients are
+                only the pre-setup placeholder. */}
+            {videoStrip.length > 0
+              ? videoStrip.map((src, i) => (
+                  <div
+                    key={src}
+                    className="relative flex-shrink-0 basis-[43%] sm:basis-[24%] md:basis-[16%]"
+                    style={{ minWidth: 0 }}
+                  >
+                    <div className="relative aspect-[3/4] w-full overflow-hidden bg-black">
+                      {isVideoUrl(src) ? (
+                        <video
+                          src={mediaUrl(src)}
+                          // Muted is what lets a browser autoplay at all, and
+                          // playsInline stops iOS taking it fullscreen.
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          // Only the first couple are likely on screen; the
+                          // rest fetch metadata until they are scrolled to.
+                          preload={i < 2 ? "auto" : "metadata"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={mediaUrl(src)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      )}
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
+                    </div>
+                  </div>
+                ))
+              : VIDEO_PICKS.map((v) => (
+                  <div
+                    key={v.name}
+                    className="relative flex-shrink-0 basis-[43%] sm:basis-[24%] md:basis-[16%]"
+                    style={{ minWidth: 0 }}
+                  >
+                    <div
+                      onClick={() => setActiveVideo({ name: v.name, bg: v.bg })}
+                      className="relative aspect-[3/4] w-full cursor-pointer overflow-hidden"
+                    >
+                      <div className="animate-video-live absolute inset-0" style={{ background: v.bg }} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
+                    </div>
+                  </div>
+                ))}
           </div>
         </div>
       </section>

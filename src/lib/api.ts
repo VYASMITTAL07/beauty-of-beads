@@ -354,8 +354,8 @@ export type ProductCardDto = Pick<
   ProductDto,
   "id" | "slug" | "name" | "category" | "price" | "mrp" | "rating" | "images" | "colors" | "bg" | "isBestseller" | "isNewArrival" | "isFeatured" | "isSpotlight" | "stock"
 >;
-export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight";
-export type HomepageImageSlot = "hero" | "heritageBanner" | "storeVisitBanner";
+export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight" | "onSale";
+export type HomepageImageSlot = "hero" | "heritageBanner" | "videos" | "storeVisitBanner";
 export type HomepagePayload = {
   images: Record<HomepageImageSlot, string[]>;
   // Optional per-slot images for narrow screens; empty means "use `images`".
