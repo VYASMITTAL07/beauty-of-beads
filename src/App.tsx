@@ -4057,7 +4057,10 @@ export default function App() {
   const scrollCategories = (dir: number) => scrollRow(categoryScrollRef, dir);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [slide, setSlide] = useState(0);
-  const [spotlightActive, setSpotlightActive] = useState(3);
+  // Third tile by default, so the carousel opens mid-row with items either
+  // side rather than against one end. Clamped for short lists.
+  const SPOTLIGHT_DEFAULT_INDEX = 2;
+  const [spotlightActive, setSpotlightActive] = useState(SPOTLIGHT_DEFAULT_INDEX);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeVideo, setActiveVideo] = useState<{ name: string; bg: string } | null>(null);
   const [videoVisible, setVideoVisible] = useState(false);
@@ -4112,7 +4115,17 @@ export default function App() {
     frame = requestAnimationFrame(step);
 
     return () => cancelAnimationFrame(frame);
-  }, [spotlightActive]);
+  }, [spotlightActive, spotlightPicks.length]);
+
+  useEffect(() => {
+    // A shorter live list can leave the index past the end, which parks the
+    // row against its right edge.
+    if (spotlightPicks.length === 0) return;
+    if (spotlightActive > spotlightPicks.length - 1) {
+      setSpotlightActive(Math.min(SPOTLIGHT_DEFAULT_INDEX, spotlightPicks.length - 1));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotlightPicks.length]);
 
   useEffect(() => {
     // auto-advance the Spotlight carousel every 5s; resets on any change (including a
