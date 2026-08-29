@@ -4063,6 +4063,30 @@ export default function App() {
   const SPOTLIGHT_DEFAULT_INDEX = 2;
   const [spotlightActive, setSpotlightActive] = useState(SPOTLIGHT_DEFAULT_INDEX);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  // The header sits over the hero until the page is scrolled, so the video
+  // runs behind it; past the threshold its own background comes back.
+  const [headerOverHero, setHeaderOverHero] = useState(true);
+  useEffect(() => {
+    const onScroll = () => setHeaderOverHero(window.scrollY < 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // The hero is pulled up by exactly the header's height so the video runs
+  // behind it. Measured rather than hardcoded because the header is shorter on
+  // mobile (py-3) than on desktop (py-4), and re-measured on resize.
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const measure = () => setHeaderHeight(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [activeVideo, setActiveVideo] = useState<{ name: string; bg: string } | null>(null);
   const [videoVisible, setVideoVisible] = useState(false);
 
@@ -4420,7 +4444,12 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur">
+      <header
+        ref={headerRef}
+        className={`sticky top-0 z-40 transition-colors duration-300 ${
+          headerOverHero ? "over-hero bg-transparent" : "bg-background/95 backdrop-blur"
+        }`}
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-8 md:py-4">
           <div className="flex items-center gap-6">
             <button className="md:hidden" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
@@ -4672,7 +4701,7 @@ export default function App() {
       </header>
 
       {/* Hero — auto-sliding */}
-      <section id="top" className="relative overflow-hidden">
+      <section id="top" className="relative overflow-hidden" style={{ marginTop: -headerHeight }}>
         <div className="relative h-[calc(100vh-13rem)] min-h-[340px] w-full sm:h-auto sm:aspect-[21/9]">
           {/* Admin-uploaded hero images take over completely when present;
               the decorative bead strands are only the pre-setup fallback. */}
