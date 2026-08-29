@@ -221,6 +221,9 @@ export const api = {
       const suffix = qs.toString() ? `?${qs.toString()}` : "";
       return request<{ products: ProductDto[]; page: number; limit: number; total: number }>(`/api/products${suffix}`);
     },
+    // Full detail for one product, including the description, materials/care
+    // and shipping copy and every image — none of which the card shape carries.
+    get: (slug: string) => request<{ product: ProductDto }>(`/api/products/${encodeURIComponent(slug)}`),
     // Card shape: the whole catalogue without the long-form copy, for browsing
     // and search. Pages are larger because each row is much smaller.
     cards: (params?: { category?: string; limit?: number; page?: number }) => {
