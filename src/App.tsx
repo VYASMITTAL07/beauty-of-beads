@@ -5654,37 +5654,90 @@ export default function App() {
         </p>
       </section>
 
-      {/* Want to meet us in person — store visit banner */}
-      <section className="relative overflow-hidden">
-        <h2 className="bg-white px-6 pb-4 pt-6 text-center font-serif text-2xl text-foreground sm:hidden">Want to meet us in person?</h2>
-        {/* Portrait footage in a landscape frame loses most of itself. The clip
-            here is 9:16 and the phone frame was 16:9, so cover was showing
-            roughly a third of it. 4:5 keeps the banner proportions readable on
-            a phone while showing far more of the shot. The laptop frame is
-            unchanged. */}
-        <div className="relative flex aspect-[4/5] w-full items-center justify-center sm:aspect-[21/6]">
-          {storeVisitBannerImages.length > 0 ? (
-            // focus and fit were never passed here, so this slot ignored the
-            // Framing and Zoom controls the Website Editor offers for it.
-            <ImageSlideshow
-              images={storeVisitBannerImages}
-              alt=""
-              intervalMs={6000}
-              focus={homepage?.focus?.storeVisitBanner}
-              fit={homepage?.fit?.storeVisitBanner}
+      {/* Want to meet us in person — store visit */}
+      {/*
+        An editorial split rather than a strip of video with a button dropped on
+        top of it. The old version put the heading in a plain white bar above
+        the clip on phones, which read as a caption stuck onto an advert; and on
+        laptops it squeezed portrait footage into a 21:6 band and laid white
+        text over whatever happened to be behind it.
+
+        The media now keeps its own frame and the words get their own ground, so
+        neither is fighting the other. Copy is deliberately about the pieces —
+        no address or opening hours are invented here.
+      */}
+      <section className="bg-olive-600 text-background">
+        <div className="grid md:grid-cols-[1.1fr_1fr] md:items-stretch">
+          <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-auto md:min-h-[560px]">
+            {storeVisitBannerImages.length > 0 ? (
+              <ImageSlideshow
+                images={storeVisitBannerImages}
+                alt=""
+                intervalMs={6000}
+                focus={homepage?.focus?.storeVisitBanner}
+                fit={homepage?.fit?.storeVisitBanner}
+              />
+            ) : (
+              <BeadStrand colors={["#C79A3E", "#833E20", "#DDBB6E", "#F1E4D3"]} bg="linear-gradient(120deg,#3A2E22,#6B4A2E)" size={20} />
+            )}
+            {/* A vignette rather than the old heavy black wash — it settles the
+                edges without dulling the middle of the shot. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "radial-gradient(120% 90% at 50% 45%, transparent 45%, rgb(0 0 0 / 0.34) 100%)" }}
             />
-          ) : (
-            <BeadStrand colors={["#C79A3E", "#833E20", "#DDBB6E", "#F1E4D3"]} bg="linear-gradient(120deg,#3A2E22,#6B4A2E)" size={20} />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-          <div className="absolute inset-x-0 bottom-3 flex flex-col items-center gap-4 px-6 text-center sm:bottom-6 md:bottom-10">
-            <h2 className="hidden font-serif text-3xl text-white sm:block md:text-4xl">Want to meet us in person?</h2>
-            <a
-              href="#contact"
-              className="inline-flex items-center gap-2 rounded-sm bg-white px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground shadow-md transition-colors hover:bg-black hover:text-white sm:px-8 sm:py-3.5 sm:text-base"
-            >
-              Visit Our Store
-            </a>
+            {/* Thin gold rule set in from the edge, the way a printed page
+                frames a plate. */}
+            <div aria-hidden="true" className="pointer-events-none absolute inset-4 border border-gold-300/35 md:inset-6" />
+          </div>
+
+          <div className="flex flex-col justify-center gap-7 px-6 py-12 md:px-9 md:py-14 lg:px-14 lg:py-16">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-10 bg-gold-300/70" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-300">Visit Us</span>
+              </div>
+              <h2 className="mt-5 font-serif text-3xl leading-tight text-background md:text-[1.85rem] lg:text-[2.6rem]">
+                Want to meet us in person?
+              </h2>
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-background/70 md:text-[15px]">
+                See the pieces up close — the weight of the beads, the shine of the thread, and the
+                small details a photograph can never quite carry.
+              </p>
+            </div>
+
+            <div className="h-px w-full bg-background/15" />
+
+            <ul className="flex flex-col gap-4">
+              <li className="flex items-start gap-3.5">
+                <Sparkles className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gold-300" />
+                <span className="text-sm text-background/75">Handmade, and made to order</span>
+              </li>
+              <li className="flex items-start gap-3.5">
+                <MessageCircle className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gold-300" />
+                <span className="text-sm text-background/75">Message us and we'll arrange a time</span>
+              </li>
+            </ul>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center md:flex-col md:items-start lg:flex-row lg:items-center">
+              <a
+                href="#contact"
+                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm bg-background px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-gold-300 hover:text-olive-600"
+              >
+                Visit Our Store
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </a>
+              <a
+                href="https://wa.me/919999999999"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border border-background/35 px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-background transition-colors hover:border-gold-300 hover:text-gold-300"
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+            </div>
           </div>
         </div>
       </section>
