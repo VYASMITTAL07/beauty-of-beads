@@ -104,14 +104,19 @@
 .over-hero {
   color: #faf6f0;
 }
-.over-hero a,
-.over-hero button,
-.over-hero span,
-.over-hero svg {
+/* Everything except the dropdown panel, which sits on its own light
+ * background and keeps the colours its own classes give it. */
+.over-hero a:not(.header-popover *),
+.over-hero button:not(.header-popover *),
+.over-hero span:not(.header-popover *),
+.over-hero svg:not(.header-popover *) {
   color: #faf6f0;
   position: relative;
 }
-.over-hero a:hover,
-.over-hero button:hover {
+.over-hero a:not(.header-popover *):hover,
+.over-hero button:not(.header-popover *):hover {
   color: #ffffff;
+}
+.over-hero .header-popover {
+  color: hsl(var(--foreground));
 }
