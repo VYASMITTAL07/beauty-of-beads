@@ -92,7 +92,7 @@
   display: none;
 }
 
-/* Header sitting over the hero.
+/* The offer strip and header sitting over the hero.
  *
  * At the top of the page the header has no background of its own so the hero
  * video runs behind it, but its own text has to stay readable. The inner links
@@ -101,24 +101,24 @@
  * while the header carries .over-hero, and a soft scrim underneath keeps the
  * text legible over a bright frame. Everything reverts the moment the class
  * comes off on scroll. */
-header.over-hero {
+.over-hero {
   color: #faf6f0;
 }
-header.over-hero::before {
+.over-hero::before {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(to bottom, rgb(0 0 0 / 0.38), rgb(0 0 0 / 0.12) 60%, transparent);
   pointer-events: none;
 }
-header.over-hero a,
-header.over-hero button,
-header.over-hero span,
-header.over-hero svg {
+.over-hero a,
+.over-hero button,
+.over-hero span,
+.over-hero svg {
   color: #faf6f0;
   position: relative;
 }
-header.over-hero a:hover,
-header.over-hero button:hover {
+.over-hero a:hover,
+.over-hero button:hover {
   color: #ffffff;
 }

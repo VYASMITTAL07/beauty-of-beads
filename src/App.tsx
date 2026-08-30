@@ -4085,14 +4085,20 @@ export default function App() {
   // behind it. Measured rather than hardcoded because the header is shorter on
   // mobile (py-3) than on desktop (py-4), and re-measured on resize.
   const headerRef = useRef<HTMLElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
+  const offerStripRef = useRef<HTMLDivElement>(null);
+  const [topBarsHeight, setTopBarsHeight] = useState(0);
   useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const measure = () => setHeaderHeight(el.getBoundingClientRect().height);
+    const header = headerRef.current;
+    const strip = offerStripRef.current;
+    if (!header) return;
+    const measure = () =>
+      setTopBarsHeight(
+        header.getBoundingClientRect().height + (strip ? strip.getBoundingClientRect().height : 0)
+      );
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    ro.observe(header);
+    if (strip) ro.observe(strip);
     return () => ro.disconnect();
   }, []);
   const [activeVideo, setActiveVideo] = useState<{ name: string; bg: string } | null>(null);
@@ -4445,7 +4451,12 @@ export default function App() {
     <CurrencyContext.Provider value={{ currency, setCurrency }}>
     <div className="min-h-screen bg-background text-foreground">
       {/* Offer strip — fixed position, text cycles (no scroll/marquee) */}
-      <div className="relative flex h-9 items-center justify-center overflow-hidden bg-olive-600 px-6 text-olive-50">
+      <div
+        ref={offerStripRef}
+        className={`relative flex h-9 items-center justify-center overflow-hidden px-6 text-olive-50 transition-colors duration-300 ${
+          headerOverHero ? "over-hero bg-transparent" : "bg-olive-600"
+        }`}
+      >
         <span key={offerIndex} className="animate-offer-fade text-center text-xs font-medium tracking-wide sm:text-[13px]">
           ✦ {OFFERS[offerIndex]}
         </span>
@@ -4712,7 +4723,7 @@ export default function App() {
       </header>
 
       {/* Hero — auto-sliding */}
-      <section id="top" className="relative overflow-hidden" style={{ marginTop: -headerHeight }}>
+      <section id="top" className="relative overflow-hidden" style={{ marginTop: -topBarsHeight }}>
         <div className="relative h-[calc(100vh-13rem)] min-h-[340px] w-full sm:h-auto sm:aspect-[21/9]">
           {/* Admin-uploaded hero images take over completely when present;
               the decorative bead strands are only the pre-setup fallback. */}
