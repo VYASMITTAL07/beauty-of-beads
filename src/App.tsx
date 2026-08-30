@@ -2886,7 +2886,13 @@ function ImageSlideshow({
   // A <video> with a src starts downloading immediately, wherever it sits on
   // the page. These clips run to double-digit megabytes, so nothing is
   // attached until the slot is near the viewport.
-  const { ref: viewRef, inView } = useInViewport<HTMLDivElement>();
+  //
+  // The hero is exempt: it is on screen from the first frame, it is the LCP
+  // element, and making it wait on an observer would leave it blank if the
+  // observer never reported — which is exactly what happens in some embedded
+  // browser views.
+  const { ref: viewRef, inView: observedInView } = useInViewport<HTMLDivElement>();
+  const shouldLoadMedia = priority || observedInView;
 
   // Reset when the set of images changes (e.g. the admin removes one) so the
   // index can never point past the end of the list.
@@ -2917,7 +2923,7 @@ function ImageSlideshow({
               // Enlarged and blurred so the sides read as part of the shot
               // rather than as empty letterbox bars.
               <video
-                src={inView ? mediaUrl(src) : undefined}
+                src={shouldLoadMedia ? mediaUrl(src) : undefined}
                 autoPlay
                 muted
                 loop
@@ -2930,14 +2936,14 @@ function ImageSlideshow({
           <video
             // No src at all until the slot is near view — that keeps a
             // below-the-fold clip off the initial page load entirely.
-            src={inView ? mediaUrl(src) : undefined}
+            src={shouldLoadMedia ? mediaUrl(src) : undefined}
             // Autoplay is only permitted when muted, and iOS additionally
             // needs playsInline or it takes the video fullscreen.
             autoPlay
             muted
             loop
             playsInline
-            preload={inView && i === index ? "auto" : "none"}
+            preload={shouldLoadMedia && i === index ? "auto" : "none"}
             poster={posterFor(images)}
             style={
               zoomScale(fit) !== null
