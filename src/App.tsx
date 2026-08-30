@@ -2918,21 +2918,50 @@ function videoPoster(src: string): string | undefined {
 // view and pauses again when it leaves — otherwise a dozen of them download and
 // decode at once behind the edge of the screen.
 function LazyReel({ src }: { src: string }) {
-  const { ref, inView } = useInViewport<HTMLDivElement>("200px");
+  const boxRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Two separate questions, with different answers.
+  //
+  // `near` decides whether to show the still — generous, so a tile is already
+  // drawn by the time it is scrolled to. `onScreen` decides whether to stream
+  // and play, and is deliberately strict: a strip holds thirteen clips side by
+  // side, and a margin wide enough to pre-warm the stills was also starting
+  // four or five videos downloading at once on a phone, all competing for the
+  // same connection. Only the tiles actually being looked at now play; the
+  // rest sit on their still.
+  const [near, setNear] = useState(false);
+  const [onScreen, setOnScreen] = useState(false);
+
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setNear(true);
+      setOnScreen(true);
+      return;
+    }
+    const nearIo = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: "300px" });
+    const screenIo = new IntersectionObserver(([e]) => setOnScreen(e.isIntersecting), { threshold: 0.55 });
+    nearIo.observe(el);
+    screenIo.observe(el);
+    return () => {
+      nearIo.disconnect();
+      screenIo.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (inView) void v.play().catch(() => {});
+    if (onScreen) void v.play().catch(() => {});
     else v.pause();
-  }, [inView]);
+  }, [onScreen]);
 
   return (
-    <div ref={ref} className="h-full w-full bg-olive-100">
+    <div ref={boxRef} className="h-full w-full bg-olive-100">
       <video
         ref={videoRef}
-        src={inView ? src : undefined}
+        src={onScreen ? src : undefined}
         // Muted is what lets a browser autoplay at all, and playsInline stops
         // iOS taking it fullscreen.
         autoPlay
@@ -2940,15 +2969,11 @@ function LazyReel({ src }: { src: string }) {
         loop
         playsInline
         // "auto" asks the browser to pull the entire clip up front. These run
-        // to several megabytes each, so let it fetch the header and then
-        // stream the rest as it plays — the media route answers range
-        // requests, so it only ever downloads what it is about to show.
-        preload={inView ? "metadata" : "none"}
-        // Gated like the source. A poster is fetched as soon as the attribute
-        // is set, whether or not the video has a src and whether or not the
-        // element is on screen — leaving it unconditional pulled all twenty
-        // stills on first load.
-        poster={inView ? videoPoster(src) : undefined}
+        // to megabytes each, so let it fetch the header and then stream the
+        // rest as it plays — the media route answers range requests, so it
+        // only ever downloads what it is about to show.
+        preload={onScreen ? "metadata" : "none"}
+        poster={near ? videoPoster(src) : undefined}
         className="h-full w-full object-cover"
       />
     </div>
