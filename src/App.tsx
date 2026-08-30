@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAuth, ApiError } from "@/context/AuthContext";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useInViewport } from "@/hooks/useInViewport";
 import { CountryStateFields } from "@/components/store/CountryStateFields";
 import { DEFAULT_COUNTRY, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
 // Imported as files rather than an inline data: URI — as base64 this single
@@ -2817,6 +2818,39 @@ function posterFor(images: string[]): string | undefined {
   return still ? mediaUrl(still) : undefined;
 }
 
+// One reel in the strip. The clips run to several megabytes each and the strip
+// scrolls horizontally, so a reel attaches its source only once it is close to
+// view and pauses again when it leaves — otherwise a dozen of them download and
+// decode at once behind the edge of the screen.
+function LazyReel({ src }: { src: string }) {
+  const { ref, inView } = useInViewport<HTMLDivElement>("200px");
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (inView) void v.play().catch(() => {});
+    else v.pause();
+  }, [inView]);
+
+  return (
+    <div ref={ref} className="h-full w-full">
+      <video
+        ref={videoRef}
+        src={inView ? src : undefined}
+        // Muted is what lets a browser autoplay at all, and playsInline stops
+        // iOS taking it fullscreen.
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload={inView ? "auto" : "none"}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
 function ImageSlideshow({
   images,
   alt,
@@ -2849,6 +2883,10 @@ function ImageSlideshow({
   priority?: boolean;
 }) {
   const [index, setIndex] = useState(0);
+  // A <video> with a src starts downloading immediately, wherever it sits on
+  // the page. These clips run to double-digit megabytes, so nothing is
+  // attached until the slot is near the viewport.
+  const { ref: viewRef, inView } = useInViewport<HTMLDivElement>();
 
   // Reset when the set of images changes (e.g. the admin removes one) so the
   // index can never point past the end of the list.
@@ -2866,6 +2904,9 @@ function ImageSlideshow({
 
   return (
     <>
+      {/* Fills the slot purely so the observer above has a box to watch; the
+          component itself renders absolutely-positioned layers. */}
+      <div ref={viewRef} aria-hidden="true" className="pointer-events-none absolute inset-0" />
       {images.map((src, i) =>
         isVideoUrl(src) ? (
           <div
@@ -2876,7 +2917,7 @@ function ImageSlideshow({
               // Enlarged and blurred so the sides read as part of the shot
               // rather than as empty letterbox bars.
               <video
-                src={mediaUrl(src)}
+                src={inView ? mediaUrl(src) : undefined}
                 autoPlay
                 muted
                 loop
@@ -2887,16 +2928,16 @@ function ImageSlideshow({
               />
             )}
           <video
-            src={mediaUrl(src)}
+            // No src at all until the slot is near view — that keeps a
+            // below-the-fold clip off the initial page load entirely.
+            src={inView ? mediaUrl(src) : undefined}
             // Autoplay is only permitted when muted, and iOS additionally
             // needs playsInline or it takes the video fullscreen.
             autoPlay
             muted
             loop
             playsInline
-            // Only fetch the whole file once this slide is the visible one;
-            // metadata alone is enough to reserve the frame.
-            preload={i === index ? "auto" : "metadata"}
+            preload={inView && i === index ? "auto" : "none"}
             poster={posterFor(images)}
             style={
               zoomScale(fit) !== null
@@ -4227,44 +4268,14 @@ export default function App() {
   }, []);
 
   const reviewScrollRef = useRef<HTMLDivElement>(null);
-  const [reviewActive, setReviewActive] = useState(0);
 
   useEffect(() => {
-    const container = reviewScrollRef.current;
-    if (!container) return;
-    if (window.innerWidth < 640) return; // mobile: auto-scroll marquee effect handles positioning instead
-
-    const vw = window.innerWidth;
-    const cardFrac = vw >= 768 ? 0.18 : vw >= 640 ? 0.3 : 0.85;
-    const gap = 32; // gap-8
-    const containerWidth = container.clientWidth;
-    const cardWidth = containerWidth * cardFrac;
-
-    const offsetLeft = reviewActive * (cardWidth + gap);
-    const target = Math.max(0, offsetLeft - (containerWidth - cardWidth) / 2);
-
-    const start = container.scrollLeft;
-    const distance = target - start;
-    const duration = 500;
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-    let startTime: number | undefined;
-    let frame: number;
-
-    const step = (now: number) => {
-      if (startTime === undefined) startTime = now;
-      const t = Math.min(1, (now - startTime) / duration);
-      container.scrollLeft = start + distance * easeOutCubic(t);
-      if (t < 1) frame = requestAnimationFrame(step);
-    };
-    frame = requestAnimationFrame(step);
-
-    return () => cancelAnimationFrame(frame);
-  }, [reviewActive]);
-
-  useEffect(() => {
-    // mobile-only: continuous slow auto-scroll marquee, looping seamlessly.
+    // Continuous slow auto-scroll, looping seamlessly. This used to run on
+    // mobile only — on wider screens the row sat still unless someone pressed
+    // the arrow. The list is rendered twice, so resetting at the halfway point
+    // loops without a visible jump.
     const el = reviewScrollRef.current;
-    if (!el || window.innerWidth >= 640) return;
+    if (!el) return;
 
     let frame: number;
     let halfWidth = 0;
@@ -4281,8 +4292,17 @@ export default function App() {
 
     const speed = 0.18; // px per frame, even slower
 
+    // Nothing to animate while the section is off screen — this runs every
+    // frame otherwise, on a page that already has video decoding to do.
+    let visible = true;
+    const io =
+      typeof IntersectionObserver !== "undefined"
+        ? new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), { rootMargin: "100px" })
+        : null;
+    io?.observe(el);
+
     const step = () => {
-      if (halfWidth > 0) {
+      if (visible && halfWidth > 0) {
         pos += speed;
         if (pos >= halfWidth) {
           pos -= halfWidth;
@@ -4296,6 +4316,7 @@ export default function App() {
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(frame);
+      io?.disconnect();
     };
   }, []);
 
@@ -5194,7 +5215,7 @@ export default function App() {
             {/* Real reels once the admin uploads any; the animated gradients are
                 only the pre-setup placeholder. */}
             {videoStrip.length > 0
-              ? videoStrip.map((src, i) => (
+              ? videoStrip.map((src) => (
                   <div
                     key={src}
                     className="relative flex-shrink-0 basis-[43%] sm:basis-[24%] md:basis-[16%]"
@@ -5202,19 +5223,7 @@ export default function App() {
                   >
                     <div className="relative aspect-[3/4] w-full overflow-hidden bg-black">
                       {isVideoUrl(src) ? (
-                        <video
-                          src={mediaUrl(src)}
-                          // Muted is what lets a browser autoplay at all, and
-                          // playsInline stops iOS taking it fullscreen.
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          // Only the first couple are likely on screen; the
-                          // rest fetch metadata until they are scrolled to.
-                          preload={i < 2 ? "auto" : "metadata"}
-                          className="h-full w-full object-cover"
-                        />
+                        <LazyReel src={mediaUrl(src)} />
                       ) : (
                         <img
                           src={mediaUrl(src)}
@@ -5253,7 +5262,7 @@ export default function App() {
         <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-white md:text-3xl">Reviews</h2>
         <button
           aria-label="Next review"
-          onClick={() => setReviewActive((i) => (i + 1) % homepageReviews.length)}
+          onClick={() => scrollRow(reviewScrollRef, 1)}
           className="absolute right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:flex md:right-4"
         >
           <ChevronRight className="h-5 w-5" />
