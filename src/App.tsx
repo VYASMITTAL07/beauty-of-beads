@@ -743,6 +743,7 @@ function AllCollectionsView({
   onOpenProduct,
   onOpenGroup,
   allProducts,
+  categories,
 }: {
   open: boolean;
   onBack: () => void;
@@ -753,6 +754,7 @@ function AllCollectionsView({
   onOpenProduct: (p: Product) => void;
   onOpenGroup: (group: { label: string; items: string[] }) => void;
   allProducts: Product[];
+  categories: string[];
 }) {
   useBodyScrollLock(open);
   useEffect(() => {
@@ -776,22 +778,24 @@ function AllCollectionsView({
       </div>
 
       <div className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-8 md:py-10">
-        {COLLECTION_GROUPS.map((group, i) => {
-          const items = group.items.map((it) => it.toLowerCase());
-          const products = allProducts.filter((p) => items.includes(p.category.toLowerCase()));
+        {/* One section per real category, in the admin's order — the hardcoded
+            groups this used listed names that no longer matched the catalogue,
+            so most of them rendered nothing at all. */}
+        {categories.map((name, i) => {
+          const products = allProducts.filter((p) => p.category.toLowerCase() === name.toLowerCase());
           if (products.length === 0) return null;
           return (
-            <section key={group.key} className={i > 0 ? "mt-14 border-t border-border pt-14" : ""}>
+            <section key={name} className={i > 0 ? "mt-14 border-t border-border pt-14" : ""}>
               <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
                 <div>
-                  <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{group.label}</h2>
+                  <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
                   <p className="mt-1 text-xs text-foreground/50">
                     {products.length} {products.length === 1 ? "piece" : "pieces"}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => onOpenGroup(group)}
+                  onClick={() => onOpenGroup({ label: name, items: [name] })}
                   className="flex-shrink-0 whitespace-nowrap rounded-sm border border-olive-400 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-50 sm:px-5 sm:py-2.5 sm:text-xs"
                 >
                   View All
@@ -4042,7 +4046,17 @@ export default function App() {
     }
   };
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeGroup, setActiveGroup] = useState(COLLECTION_GROUPS[0].key);
+  // The Collections menu lists the same categories the storefront shows in
+  // "Shop by Category" — the admin's real list — rather than a hardcoded set
+  // whose names had drifted out of step with it.
+  const menuCategories = liveCategories
+    ? liveCategories.map((c) => c.name)
+    : COLLECTION_GROUPS.flatMap((g) => g.items);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const hoveredCategory = activeCategory ?? menuCategories[0] ?? "";
+  const hoveredCategoryProducts = allProducts.filter(
+    (p) => p.category.toLowerCase() === hoveredCategory.toLowerCase()
+  );
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const topPicksScrollRef = useRef<HTMLDivElement>(null);
   const [topPicksScrollProgress, setTopPicksScrollProgress] = useState(0);
@@ -4533,39 +4547,43 @@ export default function App() {
                   Collections <ChevronDown className="h-3.5 w-3.5" />
                 </button>
                 <div className="invisible absolute right-0 top-full z-50 flex overflow-hidden rounded-xl border border-border bg-card opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
-                  <div className="w-56 divide-y divide-border/60 border-r border-border bg-olive-50/50 py-2">
-                    {COLLECTION_GROUPS.map((g) => (
+                  <div className="max-h-[70vh] w-64 divide-y divide-border/60 overflow-y-auto border-r border-border bg-olive-50/50 py-2">
+                    {menuCategories.map((name) => (
                       <button
-                        key={g.key}
-                        onMouseEnter={() => setActiveGroup(g.key)}
-                        className={`flex w-full items-center justify-between px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide transition-colors ${
-                          activeGroup === g.key ? "bg-card text-olive-500" : "text-foreground/70 hover:bg-card/70"
+                        key={name}
+                        onMouseEnter={() => setActiveCategory(name)}
+                        onClick={() => openCategoryView(name)}
+                        className={`flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide transition-colors ${
+                          hoveredCategory === name ? "bg-card text-olive-500" : "text-foreground/70 hover:bg-card/70"
                         }`}
                       >
-                        {g.label} <ChevronRight className="h-3.5 w-3.5" />
+                        <span className="min-w-0 truncate">{name}</span>
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                       </button>
                     ))}
                   </div>
-                  <div className="w-52 p-5">
+                  <div className="max-h-[70vh] w-60 overflow-y-auto p-5">
                     <ul className="space-y-2 text-sm">
                       <li
                         className="cursor-pointer font-semibold text-olive-500 hover:text-olive-600"
-                        onClick={() => {
-                          const group = COLLECTION_GROUPS.find((g) => g.key === activeGroup);
-                          if (group) openGroupView(group);
-                        }}
+                        onClick={() => openCategoryView(hoveredCategory)}
                       >
-                        Shop All
+                        Shop All {hoveredCategoryProducts.length > 0 && `(${hoveredCategoryProducts.length})`}
                       </li>
-                      {COLLECTION_GROUPS.find((g) => g.key === activeGroup)?.items.map((l) => (
+                      {/* The pieces inside the hovered category, so the menu
+                          opens onto real products rather than more labels. */}
+                      {hoveredCategoryProducts.slice(0, 10).map((p) => (
                         <li
-                          key={l}
-                          className="cursor-pointer text-foreground/75 hover:text-olive-500"
-                          onClick={() => openCategoryView(l)}
+                          key={p.slug || p.name}
+                          className="cursor-pointer truncate text-foreground/75 hover:text-olive-500"
+                          onClick={() => openProduct(p)}
                         >
-                          {l}
+                          {p.name}
                         </li>
                       ))}
+                      {hoveredCategoryProducts.length === 0 && (
+                        <li className="text-foreground/40">No pieces in this category yet.</li>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -5632,6 +5650,7 @@ export default function App() {
     <ProfileView open={profileViewOpen} onClose={() => setProfileViewOpen(false)} />
     <AllCollectionsView
       open={allCollectionsOpen}
+      categories={menuCategories}
       onBack={() => setAllCollectionsOpen(false)}
       wishlist={wishlist}
       toggleWishlist={toggleWishlist}
