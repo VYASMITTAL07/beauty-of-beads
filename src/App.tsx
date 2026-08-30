@@ -4447,6 +4447,7 @@ export default function App() {
   const [currency, setCurrency] = useState<CurrencyOption>(CURRENCIES[0]);
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
   const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
+  const [mobileCollectionsOpen, setMobileCollectionsOpen] = useState(false);
   const currencyMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -4845,15 +4846,53 @@ export default function App() {
                 </div>
               )}
             </div>
-            <button
-              className="flex items-center justify-between py-2 text-left"
-              onClick={() => {
-                setAllCollectionsOpen(true);
-                setMenuOpen(false);
-              }}
-            >
-              Collections <ChevronRight className="h-4 w-4 text-foreground/40" />
-            </button>
+            {/* Expands in place, the way the laptop dropdown does. Tapping this
+                used to jump straight to the full Collections page, so a phone
+                never got to see the category list at all — it went from the
+                menu to a wall of products with no step in between. */}
+            <div className="py-2">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between py-2 text-left"
+                onClick={() => setMobileCollectionsOpen((v) => !v)}
+              >
+                Collections
+                <ChevronDown className={`h-4 w-4 text-foreground/40 transition-transform ${mobileCollectionsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mobileCollectionsOpen && (
+                <div className="max-h-72 overflow-y-auto rounded-sm border border-border">
+                  {menuCategories.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => {
+                        openCategoryView(name);
+                        setMenuOpen(false);
+                        setMobileCollectionsOpen(false);
+                      }}
+                      className="flex w-full items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5 text-left font-sans text-xs font-semibold uppercase tracking-wide text-foreground/75 last:border-b-0"
+                    >
+                      <span className="min-w-0 truncate">{name}</span>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/35" />
+                    </button>
+                  ))}
+                  {/* The old destination is still reachable, just no longer the
+                      only thing this button can do. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAllCollectionsOpen(true);
+                      setMenuOpen(false);
+                      setMobileCollectionsOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between gap-2 bg-olive-50 px-3 py-2.5 text-left font-sans text-xs font-semibold uppercase tracking-wide text-olive-600"
+                  >
+                    View all collections
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+                </div>
+              )}
+            </div>
             <a href="#contact" className="py-2" onClick={() => setMenuOpen(false)}>Contact Us</a>
             {ready && (
               <button
@@ -5523,9 +5562,22 @@ export default function App() {
       {/* Want to meet us in person — store visit banner */}
       <section className="relative overflow-hidden">
         <h2 className="bg-white px-6 pb-4 pt-6 text-center font-serif text-2xl text-foreground sm:hidden">Want to meet us in person?</h2>
-        <div className="relative flex aspect-[16/9] w-full items-center justify-center sm:aspect-[21/6]">
+        {/* Portrait footage in a landscape frame loses most of itself. The clip
+            here is 9:16 and the phone frame was 16:9, so cover was showing
+            roughly a third of it. 4:5 keeps the banner proportions readable on
+            a phone while showing far more of the shot. The laptop frame is
+            unchanged. */}
+        <div className="relative flex aspect-[4/5] w-full items-center justify-center sm:aspect-[21/6]">
           {storeVisitBannerImages.length > 0 ? (
-            <ImageSlideshow images={storeVisitBannerImages} alt="" intervalMs={6000} />
+            // focus and fit were never passed here, so this slot ignored the
+            // Framing and Zoom controls the Website Editor offers for it.
+            <ImageSlideshow
+              images={storeVisitBannerImages}
+              alt=""
+              intervalMs={6000}
+              focus={homepage?.focus?.storeVisitBanner}
+              fit={homepage?.fit?.storeVisitBanner}
+            />
           ) : (
             <BeadStrand colors={["#C79A3E", "#833E20", "#DDBB6E", "#F1E4D3"]} bg="linear-gradient(120deg,#3A2E22,#6B4A2E)" size={20} />
           )}
