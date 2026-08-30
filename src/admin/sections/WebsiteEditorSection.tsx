@@ -492,9 +492,11 @@ function ImageSlotEditor({
         <span className="text-xs text-foreground/45">
           {variant === "mobile"
             ? "Optional. Leave empty and phones will use the laptop images."
-            : allowsVideo
-              ? "Shown on laptops and tablets. A video works here too — it plays muted on loop."
-              : "Shown on laptops and tablets."}
+            : slot === "videos" || slot === "instagram"
+              ? "Short vertical clips, played muted on loop. Portrait footage fits these tiles best."
+              : allowsVideo
+                ? "Shown on laptops and tablets. A video works here too — it plays muted on loop."
+                : "Shown on laptops and tablets. Images only."}
         </span>
       </div>
 
