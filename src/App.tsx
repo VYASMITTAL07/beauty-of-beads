@@ -5333,10 +5333,18 @@ export default function App() {
                   >
                     {saleImage ? (
                       <img
-                        src={mediaUrl(saleImage)}
+                        src={cardImage(saleImage)}
                         alt={c.name}
                         loading="lazy"
                         decoding="async"
+                        // This row draws its own tiles rather than going
+                        // through ProductCard, so it needs the same fall back
+                        // to the full-size photo when no card copy exists.
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          const full = mediaUrl(saleImage);
+                          if (el.src !== full) el.src = full;
+                        }}
                         className="h-full w-full object-cover"
                         draggable={false}
                       />
