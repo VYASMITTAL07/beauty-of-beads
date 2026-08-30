@@ -745,6 +745,7 @@ function AllCollectionsView({
   onOpenGroup,
   allProducts,
   categories,
+  loading,
 }: {
   open: boolean;
   onBack: () => void;
@@ -756,6 +757,12 @@ function AllCollectionsView({
   onOpenGroup: (group: { label: string; items: string[] }) => void;
   allProducts: Product[];
   categories: string[];
+  /** The catalogue hasn't arrived yet. Until it does, `allProducts` is the
+   *  built-in placeholder set, whose category names predate the admin's real
+   *  ones — so every section here matched nothing and the whole page rendered
+   *  blank. On a phone that lasted seconds. Show the real category headings
+   *  with placeholder tiles instead, so the page is never empty. */
+  loading: boolean;
 }) {
   useBodyScrollLock(open);
   useEffect(() => {
@@ -782,9 +789,42 @@ function AllCollectionsView({
         {/* One section per real category, in the admin's order — the hardcoded
             groups this used listed names that no longer matched the catalogue,
             so most of them rendered nothing at all. */}
+        {categories.length === 0 && (
+          <div className="space-y-14">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="mb-8 h-6 w-52 rounded-sm bg-olive-100" />
+                <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
+                  {[0, 1, 2, 3].map((j) => (
+                    <div key={j} className="aspect-[3/4] rounded-sm bg-olive-100" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {categories.map((name, i) => {
           const products = allProducts.filter((p) => p.category.toLowerCase() === name.toLowerCase());
-          if (products.length === 0) return null;
+          // Only hide a genuinely empty category. While the catalogue is still
+          // in flight every category looks empty, and hiding them all is what
+          // produced the blank page.
+          if (products.length === 0 && !loading) return null;
+          if (products.length === 0) {
+            return (
+              <section key={name} className={i > 0 ? "mt-14 border-t border-border pt-14" : ""}>
+                <div className="mb-5 sm:mb-8">
+                  <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
+                  <p className="mt-1 text-xs text-foreground/50">Loading…</p>
+                </div>
+                <div className="grid animate-pulse grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
+                  {[0, 1, 2, 3].map((j) => (
+                    <div key={j} className="aspect-[3/4] rounded-sm bg-olive-100" />
+                  ))}
+                </div>
+              </section>
+            );
+          }
           return (
             <section key={name} className={i > 0 ? "mt-14 border-t border-border pt-14" : ""}>
               <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
@@ -2701,6 +2741,32 @@ function writeCachedHomepage(payload: HomepagePayload) {
   }
 }
 
+// The catalogue behind Collections, search and every category view. It is two
+// paged requests of ~12KB each, but on a phone those cost a couple of seconds
+// before anything can render, and until they land the Collections page had
+// nothing at all to show. Keeping the last copy means a returning visitor sees
+// the full catalogue on the first frame while the fresh one is fetched behind.
+const CATALOGUE_CACHE_KEY = "bob_catalogue_v1";
+
+function readCachedCatalogue(): Product[] | null {
+  try {
+    const raw = localStorage.getItem(CATALOGUE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Product[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCatalogue(products: Product[]) {
+  try {
+    localStorage.setItem(CATALOGUE_CACHE_KEY, JSON.stringify(products));
+  } catch {
+    // Quota exceeded or storage disabled — the page works without it.
+  }
+}
+
 function useSlotImages(desktop: string[], mobile: string[]) {
   const [isNarrow, setIsNarrow] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(max-width: 639px)").matches : false
@@ -2834,7 +2900,7 @@ function LazyReel({ src }: { src: string }) {
   }, [inView]);
 
   return (
-    <div ref={ref} className="h-full w-full">
+    <div ref={ref} className="h-full w-full bg-olive-100">
       <video
         ref={videoRef}
         src={inView ? src : undefined}
@@ -2844,7 +2910,11 @@ function LazyReel({ src }: { src: string }) {
         muted
         loop
         playsInline
-        preload={inView ? "auto" : "none"}
+        // "auto" asks the browser to pull the entire clip up front. These run
+        // to several megabytes each, so let it fetch the header and then
+        // stream the rest as it plays — the media route answers range
+        // requests, so it only ever downloads what it is about to show.
+        preload={inView ? "metadata" : "none"}
         className="h-full w-full object-cover"
       />
     </div>
@@ -2943,7 +3013,7 @@ function ImageSlideshow({
             muted
             loop
             playsInline
-            preload={shouldLoadMedia && i === index ? "auto" : "none"}
+            preload={shouldLoadMedia && i === index ? "metadata" : "none"}
             poster={posterFor(images)}
             style={
               zoomScale(fit) !== null
@@ -3903,7 +3973,7 @@ export default function App() {
   // page — and most categories looked empty. It now pages through the whole
   // list in card shape, deferred until the browser is idle so it never
   // competes with first paint.
-  const [liveProducts, setLiveProducts] = useState<Product[] | null>(null);
+  const [liveProducts, setLiveProducts] = useState<Product[] | null>(readCachedCatalogue);
   useEffect(() => {
     let cancelled = false;
 
@@ -3921,7 +3991,10 @@ export default function App() {
           // here so a bad `total` can never spin forever.
           if (page > 20) break;
         }
-        if (!cancelled && collected.length > 0) setLiveProducts(collected);
+        if (!cancelled && collected.length > 0) {
+          setLiveProducts(collected);
+          writeCachedCatalogue(collected);
+        }
       } catch {
         // no backend reachable — keep showing the placeholder catalog
       }
@@ -4782,7 +4855,11 @@ export default function App() {
 
       {/* Hero — auto-sliding */}
       <section id="top" className="relative overflow-hidden" style={{ marginTop: -topBarsHeight }}>
-        <div className="relative h-[calc(100vh-13rem)] min-h-[340px] w-full sm:h-auto sm:aspect-[21/9]">
+        {/* A brand-coloured ground under the hero. The hero clip is a video with
+            no still to use as a poster, so until the first frame decodes the
+            slot has nothing to paint — on a phone that was several seconds of
+            black at the top of the page. This costs no network at all. */}
+        <div className="relative h-[calc(100vh-13rem)] min-h-[340px] w-full bg-gradient-to-br from-olive-100 via-olive-50 to-olive-200 sm:h-auto sm:aspect-[21/9]">
           {/* Admin-uploaded hero images take over completely when present;
               the decorative bead strands are only the pre-setup fallback. */}
           {heroImages.length > 0 ? (
@@ -5714,6 +5791,7 @@ export default function App() {
       addToBag={addToBag}
       onOpenProduct={openProduct}
       allProducts={allProducts}
+      loading={liveProducts === null}
       onOpenGroup={(group) => {
         setAllCollectionsOpen(false);
         openGroupView(group);
