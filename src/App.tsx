@@ -533,7 +533,19 @@ function CartPanel({
                       className="h-16 w-16 shrink-0 overflow-hidden rounded-sm bg-olive-50"
                     >
                       {item.product_image && (
-                        <img src={mediaUrl(item.product_image)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
+                        <img
+                          src={cardImage(item.product_image)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          draggable={false}
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            const full = mediaUrl(item.product_image!);
+                            if (el.src !== full) el.src = full;
+                          }}
+                          className="h-full w-full object-cover"
+                        />
                       )}
                     </button>
                     <div className="flex flex-1 flex-col gap-1">
@@ -637,7 +649,26 @@ function WishlistPanel({
             <div className="flex flex-col gap-4">
               {items.map((item) => (
                 <div key={item.id} className="flex gap-3 border-b border-border pb-4 last:border-0">
-                  <div className="h-16 w-16 shrink-0 rounded-sm bg-olive-50" />
+                  {/* This was an empty coloured square — the saved image was
+                      being stored on the item all along and simply never
+                      rendered, so every wishlist row looked blank. */}
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-sm bg-olive-50">
+                    {item.product_image && (
+                      <img
+                        src={cardImage(item.product_image)}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          const full = mediaUrl(item.product_image!);
+                          if (el.src !== full) el.src = full;
+                        }}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <p className="text-sm font-medium text-foreground">{item.product_name}</p>
                     <p className="font-serif text-sm">{formatPrice(item.product_price, currency)}</p>
