@@ -2927,7 +2927,11 @@ function LazyReel({ src }: { src: string }) {
         // stream the rest as it plays — the media route answers range
         // requests, so it only ever downloads what it is about to show.
         preload={inView ? "metadata" : "none"}
-        poster={videoPoster(src)}
+        // Gated like the source. A poster is fetched as soon as the attribute
+        // is set, whether or not the video has a src and whether or not the
+        // element is on screen — leaving it unconditional pulled all twenty
+        // stills on first load.
+        poster={inView ? videoPoster(src) : undefined}
         className="h-full w-full object-cover"
       />
     </div>
@@ -3012,7 +3016,7 @@ function ImageSlideshow({
                 loop
                 playsInline
                 preload="none"
-                poster={videoPoster(src)}
+                poster={shouldLoadMedia ? videoPoster(src) : undefined}
                 aria-hidden="true"
                 className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl"
               />
@@ -3028,7 +3032,7 @@ function ImageSlideshow({
             loop
             playsInline
             preload={shouldLoadMedia && i === index ? "metadata" : "none"}
-            poster={posterFor(images, src)}
+            poster={shouldLoadMedia ? posterFor(images, src) : undefined}
             style={
               zoomScale(fit) !== null
                 ? // Anchored at the focal point so zooming keeps the subject in
