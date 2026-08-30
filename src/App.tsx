@@ -2879,9 +2879,21 @@ function zoomScale(fit: string): number | null {
   return 100 / pct;
 }
 
-function posterFor(images: string[]): string | undefined {
+// Every uploaded clip has a still of its own first frame stored beside it in
+// the bucket, under the same key with a .poster.webp extension. A clip is
+// megabytes and needs a chunk of itself downloaded and decoded before it can
+// show anything; the poster is ~40KB and paints almost immediately, so the
+// slot is never empty while the video starts. A slot that also holds a real
+// image prefers that.
+function posterFor(images: string[], current?: string): string | undefined {
   const still = images.find((u) => !isVideoUrl(u));
-  return still ? mediaUrl(still) : undefined;
+  if (still) return mediaUrl(still);
+  return current ? videoPoster(current) : undefined;
+}
+
+function videoPoster(src: string): string | undefined {
+  if (!isVideoUrl(src)) return undefined;
+  return mediaUrl(src.replace(/\.(mp4|webm|mov|m4v)(\?.*)?$/i, ".poster.webp"));
 }
 
 // One reel in the strip. The clips run to several megabytes each and the strip
@@ -2915,6 +2927,7 @@ function LazyReel({ src }: { src: string }) {
         // stream the rest as it plays — the media route answers range
         // requests, so it only ever downloads what it is about to show.
         preload={inView ? "metadata" : "none"}
+        poster={videoPoster(src)}
         className="h-full w-full object-cover"
       />
     </div>
@@ -2999,6 +3012,7 @@ function ImageSlideshow({
                 loop
                 playsInline
                 preload="none"
+                poster={videoPoster(src)}
                 aria-hidden="true"
                 className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl"
               />
@@ -3014,7 +3028,7 @@ function ImageSlideshow({
             loop
             playsInline
             preload={shouldLoadMedia && i === index ? "metadata" : "none"}
-            poster={posterFor(images)}
+            poster={posterFor(images, src)}
             style={
               zoomScale(fit) !== null
                 ? // Anchored at the focal point so zooming keeps the subject in
@@ -4786,7 +4800,12 @@ export default function App() {
         </div>
 
         {menuOpen && (
-          <nav className="flex flex-col gap-1 border-t border-border bg-background px-5 py-3 font-serif text-base md:hidden">
+          // header-popover exempts this panel from the .over-hero rules. While
+          // the header floats over the hero every link and button inside it is
+          // painted near-white, which is right for the bar itself — but this
+          // panel drops down onto its own cream background, so the whole menu
+          // came out white-on-white and read as blank.
+          <nav className="header-popover flex flex-col gap-1 border-t border-border bg-background px-5 py-3 font-serif text-base md:hidden">
             <a href="#top" className="py-2" onClick={() => setMenuOpen(false)}>Home</a>
             <div className="py-2">
               <button
