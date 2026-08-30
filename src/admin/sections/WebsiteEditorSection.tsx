@@ -393,9 +393,10 @@ function ImageSlotEditor({
   onChange: (images: string[], variant: ImageVariant) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // The hero and the reel strip take video; a full-bleed banner sitting behind
-  // page content is not somewhere a moving background belongs.
-  const allowsVideo = slot === "hero" || slot === "videos";
+  // Every slot that is a picture in its own right takes video too. Only the
+  // heritage banner stays stills-only — it is a designed graphic with its own
+  // baked-in text, not a place for footage.
+  const allowsVideo = slot !== "heritageBanner";
   const accept = allowsVideo ? "image/*,video/mp4,video/webm" : "image/*";
   const isVideo = (u: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(u);
   // Which set is being edited. A wide banner cannot be cropped down to a phone
