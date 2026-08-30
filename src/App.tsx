@@ -3911,6 +3911,7 @@ export default function App() {
     : SHOP_BY_TYPE.map((c) => ({ ...c, category: "", rating: 4.6 }));
   const videoStrip = homepage?.images.videos ?? [];
   const shopAllTile = useSlotImages(homepage?.images.shopAllTile ?? [], homepage?.imagesMobile?.shopAllTile ?? []);
+  const storyMedia = useSlotImages(homepage?.images.story ?? [], homepage?.imagesMobile?.story ?? []);
 
   const heroImages = useSlotImages(homepage?.images.hero ?? [], homepage?.imagesMobile?.hero ?? []);
   const heritageBannerImages = useSlotImages(
@@ -5288,14 +5289,24 @@ export default function App() {
       <section id="story" className="bg-white py-10 sm:py-16">
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-stretch gap-4 px-5 sm:gap-10 md:grid-cols-2 md:px-8">
           <div className="relative order-2 aspect-[4/3] w-full overflow-hidden shadow-xl md:order-1 md:aspect-auto md:h-full">
-            {STORY_SLIDES.map((s, i) => (
-              <div
-                key={i}
-                className={`absolute inset-0 transition-opacity duration-1000 ${i === storySlide ? "opacity-100" : "opacity-0"}`}
-              >
-                <BeadStrand colors={s.colors} bg={s.bg} size={18} />
-              </div>
-            ))}
+            {storyMedia.length > 0 ? (
+              <ImageSlideshow
+                images={storyMedia}
+                alt="Story behind Beauty of Beads"
+                intervalMs={6000}
+                focus={homepage?.focus?.story}
+                fit={homepage?.fit?.story}
+              />
+            ) : (
+              STORY_SLIDES.map((s, i) => (
+                <div
+                  key={i}
+                  className={`absolute inset-0 transition-opacity duration-1000 ${i === storySlide ? "opacity-100" : "opacity-0"}`}
+                >
+                  <BeadStrand colors={s.colors} bg={s.bg} size={18} />
+                </div>
+              ))
+            )}
           </div>
           {/* mobile: this wrapper is `contents` so the heading/paragraph inside become direct
               grid siblings of the image above, letting `order` interleave them (heading, image, paragraph).
