@@ -98,18 +98,11 @@
  * video runs behind it, but its own text has to stay readable. The inner links
  * and icons set their own colours (text-foreground/80 and friends), so
  * inheritance alone won't lift them — these rules override the descendants
- * while the header carries .over-hero, and a soft scrim underneath keeps the
- * text legible over a bright frame. Everything reverts the moment the class
- * comes off on scroll. */
+ * while a bar carries .over-hero. Legibility over a bright frame comes from a
+ * single scrim rendered behind both bars (one gradient per bar met in a
+ * visible seam). Everything reverts the moment the class comes off. */
 .over-hero {
   color: #faf6f0;
-}
-.over-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgb(0 0 0 / 0.38), rgb(0 0 0 / 0.12) 60%, transparent);
-  pointer-events: none;
 }
 .over-hero a,
 .over-hero button,

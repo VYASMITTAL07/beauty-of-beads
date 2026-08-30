@@ -4449,11 +4449,24 @@ export default function App() {
 
   return (
     <CurrencyContext.Provider value={{ currency, setCurrency }}>
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground">
       {/* Offer strip — fixed position, text cycles (no scroll/marquee) */}
+      {/* A single scrim behind both bars. Giving each bar its own gradient left
+          a visible seam where the two met. */}
+      {headerOverHero && topBarsHeight > 0 && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-30"
+          style={{
+            height: topBarsHeight,
+            background: "linear-gradient(to bottom, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.16) 65%, transparent)",
+          }}
+        />
+      )}
+
       <div
         ref={offerStripRef}
-        className={`relative flex h-9 items-center justify-center overflow-hidden px-6 text-olive-50 transition-colors duration-300 ${
+        className={`relative z-40 flex h-9 items-center justify-center overflow-hidden px-6 text-olive-50 transition-colors duration-300 ${
           headerOverHero ? "over-hero bg-transparent" : "bg-olive-600"
         }`}
       >
