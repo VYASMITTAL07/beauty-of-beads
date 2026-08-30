@@ -4546,7 +4546,10 @@ export default function App() {
                 <button className="flex items-center gap-1 text-foreground/80 transition-colors hover:text-olive-500">
                   Collections <ChevronDown className="h-3.5 w-3.5" />
                 </button>
-                <div className="invisible absolute right-0 top-full z-50 flex overflow-hidden rounded-xl border border-border bg-card opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
+                {/* header-popover keeps the over-hero text colours out of this
+                    panel — it has its own light background, so the light text
+                    meant for the video would be invisible on it. */}
+                <div className="header-popover invisible absolute right-0 top-full z-50 flex overflow-hidden rounded-xl border border-border bg-card opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
                   <div className="max-h-[70vh] w-64 divide-y divide-border/60 overflow-y-auto border-r border-border bg-olive-50/50 py-2">
                     {menuCategories.map((name) => (
                       <button
