@@ -2885,6 +2885,23 @@ function zoomScale(fit: string): number | null {
 // show anything; the poster is ~40KB and paints almost immediately, so the
 // slot is never empty while the video starts. A slot that also holds a real
 // image prefers that.
+// The card-sized copy of a product photo.
+//
+// Product images are stored at full size for the detail view — around 150KB
+// each, some over 300KB — but a card renders them about 170px wide on a phone
+// and 270px on a laptop. Scrolling the homepage pulled roughly 8MB of photos
+// that were being drawn at a fraction of their resolution. Each one has a
+// 540px WebP copy stored beside it under the same name with a .card.webp
+// extension, averaging 29KB.
+//
+// A product uploaded after those copies were generated won't have one, so the
+// card falls back to the full image on error rather than showing nothing.
+function cardImage(url: string): string {
+  const abs = mediaUrl(url);
+  if (!abs || !abs.includes("/media/images/")) return abs;
+  return abs.replace(/\.(jpe?g|png|webp)(\?.*)?$/i, ".card.webp");
+}
+
 function posterFor(images: string[], current?: string): string | undefined {
   const still = images.find((u) => !isVideoUrl(u));
   if (still) return mediaUrl(still);
@@ -3117,7 +3134,11 @@ function ProductCard({
   const isAdded = added.has(p.name);
   const { currency } = useCurrency();
   const [imgError, setImgError] = useState(false);
+  // Set once a card-sized copy turns out not to exist for this product, which
+  // switches both images over to the full-size originals.
+  const [noCardCopy, setNoCardCopy] = useState(false);
   const hasRealImage = !!p.images && p.images.length > 0 && !imgError;
+  const cardSrc = (u: string) => (noCardCopy ? mediaUrl(u) : cardImage(u));
   return (
     <div className="group relative transition-transform duration-300 hover:-translate-y-1">
       {p.tag && (
@@ -3129,21 +3150,24 @@ function ProductCard({
         {hasRealImage ? (
           <>
             <img
-              src={mediaUrl(p.images![0])}
+              src={cardSrc(p.images![0])}
               alt={p.name}
               loading="lazy"
               decoding="async"
               draggable={false}
-              onError={() => setImgError(true)}
+              // First failure means there is no card-sized copy; retry with the
+              // original. A second failure means the photo itself is gone.
+              onError={() => (noCardCopy ? setImgError(true) : setNoCardCopy(true))}
               className={`h-full w-full object-cover transition-opacity duration-500 ${p.images![1] ? "group-hover:opacity-0" : ""}`}
             />
             {p.images![1] && (
               <img
-                src={mediaUrl(p.images![1])}
+                src={cardSrc(p.images![1])}
                 alt=""
                 loading="lazy"
                 decoding="async"
                 draggable={false}
+                onError={() => setNoCardCopy(true)}
                 className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
               />
             )}
@@ -3215,7 +3239,11 @@ function SpotlightCard({
   const isAdded = added.has(p.name);
   const { currency } = useCurrency();
   const [imgError, setImgError] = useState(false);
+  // Set once a card-sized copy turns out not to exist for this product, which
+  // switches both images over to the full-size originals.
+  const [noCardCopy, setNoCardCopy] = useState(false);
   const hasRealImage = !!p.images && p.images.length > 0 && !imgError;
+  const cardSrc = (u: string) => (noCardCopy ? mediaUrl(u) : cardImage(u));
   return (
     <div className="group relative">
       {p.tag && (
@@ -3227,21 +3255,24 @@ function SpotlightCard({
         {hasRealImage ? (
           <>
             <img
-              src={mediaUrl(p.images![0])}
+              src={cardSrc(p.images![0])}
               alt={p.name}
               loading="lazy"
               decoding="async"
               draggable={false}
-              onError={() => setImgError(true)}
+              // First failure means there is no card-sized copy; retry with the
+              // original. A second failure means the photo itself is gone.
+              onError={() => (noCardCopy ? setImgError(true) : setNoCardCopy(true))}
               className={`h-full w-full object-cover transition-opacity duration-500 ${p.images![1] ? "group-hover:opacity-0" : ""}`}
             />
             {p.images![1] && (
               <img
-                src={mediaUrl(p.images![1])}
+                src={cardSrc(p.images![1])}
                 alt=""
                 loading="lazy"
                 decoding="async"
                 draggable={false}
+                onError={() => setNoCardCopy(true)}
                 className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
               />
             )}
