@@ -172,7 +172,7 @@ export type PromoCodeInput = {
 
 export type AdminCategory = { id: number; name: string; slug: string; imageUrl: string; sortOrder: number };
 export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight" | "onSale";
-export type HomepageImageSlot = "hero" | "heritageBanner" | "shopAllTile" | "story" | "videos" | "storeVisitBanner";
+export type HomepageImageSlot = "hero" | "heritageBanner" | "shopAllTile" | "story" | "instagram" | "videos" | "storeVisitBanner";
 export type ImportProductInput = {
   name: string;
   category: string;

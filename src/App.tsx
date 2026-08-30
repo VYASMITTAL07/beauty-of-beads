@@ -3959,6 +3959,7 @@ export default function App() {
   const videoStrip = homepage?.images.videos ?? [];
   const shopAllTile = useSlotImages(homepage?.images.shopAllTile ?? [], homepage?.imagesMobile?.shopAllTile ?? []);
   const storyMedia = useSlotImages(homepage?.images.story ?? [], homepage?.imagesMobile?.story ?? []);
+  const instagramStrip = homepage?.images.instagram ?? [];
 
   const heroImages = useSlotImages(homepage?.images.hero ?? [], homepage?.imagesMobile?.hero ?? []);
   const heritageBannerImages = useSlotImages(
@@ -5355,21 +5356,47 @@ export default function App() {
             ref={instaScrollRef}
             className="scrollbar-hide flex w-full gap-5 overflow-x-auto scroll-smooth sm:gap-4"
           >
-            {INSTAGRAM_PICKS.map((v) => (
-              <div
-                key={v.name}
-                className="relative flex-shrink-0 basis-[43%] sm:basis-[47%] md:basis-[calc(25%-0.75rem)]"
-                style={{ minWidth: 0 }}
-              >
-                <div
-                  onClick={() => setActiveVideo({ name: v.name, bg: v.bg })}
-                  className="relative aspect-[3/4] w-full cursor-pointer overflow-hidden"
-                >
-                  <div className="animate-video-live absolute inset-0" style={{ background: v.bg }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
-                </div>
-              </div>
-            ))}
+            {/* Real clips once the admin uploads any; the animated gradients are
+                only the pre-setup placeholder. */}
+            {instagramStrip.length > 0
+              ? instagramStrip.map((src) => (
+                  <div
+                    key={src}
+                    className="relative flex-shrink-0 basis-[43%] sm:basis-[47%] md:basis-[calc(25%-0.75rem)]"
+                    style={{ minWidth: 0 }}
+                  >
+                    <div className="relative aspect-[3/4] w-full overflow-hidden bg-black">
+                      {isVideoUrl(src) ? (
+                        <LazyReel src={mediaUrl(src)} />
+                      ) : (
+                        <img
+                          src={mediaUrl(src)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      )}
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
+                    </div>
+                  </div>
+                ))
+              : INSTAGRAM_PICKS.map((v) => (
+                  <div
+                    key={v.name}
+                    className="relative flex-shrink-0 basis-[43%] sm:basis-[47%] md:basis-[calc(25%-0.75rem)]"
+                    style={{ minWidth: 0 }}
+                  >
+                    <div
+                      onClick={() => setActiveVideo({ name: v.name, bg: v.bg })}
+                      className="relative aspect-[3/4] w-full cursor-pointer overflow-hidden"
+                    >
+                      <div className="animate-video-live absolute inset-0" style={{ background: v.bg }} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
+                    </div>
+                  </div>
+                ))}
           </div>
         </div>
       </section>
