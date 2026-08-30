@@ -448,13 +448,6 @@ function formatPrice(inrAmount: number, currency: CurrencyOption) {
   })}`;
 }
 
-const OFFERS = [
-  "Free shipping on orders above ₹3,000",
-  "100% secure prepaid checkout",
-  "Flat 10% off on orders above ₹5,000 for first-time orders",
-  "Handcrafted with love, made to order",
-];
-
 const HERO_SLIDES = [
   { colors: ["#C1653A", "#DDBB6E", "#F1E4D3", "#833E20"], bg: "linear-gradient(135deg,#F6E7D8,#E3C593)" },
   { colors: ["#6B7658", "#E4E6D9", "#C79A3E", "#F1E4D3"], bg: "linear-gradient(135deg,#E9EBDE,#D3D8C2)" },
@@ -4085,20 +4078,14 @@ export default function App() {
   // behind it. Measured rather than hardcoded because the header is shorter on
   // mobile (py-3) than on desktop (py-4), and re-measured on resize.
   const headerRef = useRef<HTMLElement>(null);
-  const offerStripRef = useRef<HTMLDivElement>(null);
   const [topBarsHeight, setTopBarsHeight] = useState(0);
   useEffect(() => {
     const header = headerRef.current;
-    const strip = offerStripRef.current;
     if (!header) return;
-    const measure = () =>
-      setTopBarsHeight(
-        header.getBoundingClientRect().height + (strip ? strip.getBoundingClientRect().height : 0)
-      );
+    const measure = () => setTopBarsHeight(header.getBoundingClientRect().height);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(header);
-    if (strip) ro.observe(strip);
     return () => ro.disconnect();
   }, []);
   const [activeVideo, setActiveVideo] = useState<{ name: string; bg: string } | null>(null);
@@ -4311,7 +4298,6 @@ export default function App() {
     };
   }, []);
 
-  const [offerIndex, setOfferIndex] = useState(0);
   const [currency, setCurrency] = useState<CurrencyOption>(CURRENCIES[0]);
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
   const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
@@ -4336,11 +4322,6 @@ export default function App() {
 
   useEffect(() => {
     const id = setInterval(() => setStorySlide((s) => (s + 1) % STORY_SLIDES.length), 3000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => setOfferIndex((i) => (i + 1) % OFFERS.length), 3200);
     return () => clearInterval(id);
   }, []);
 
@@ -4451,8 +4432,8 @@ export default function App() {
     <CurrencyContext.Provider value={{ currency, setCurrency }}>
     <div className="relative min-h-screen bg-background text-foreground">
       {/* Offer strip — fixed position, text cycles (no scroll/marquee) */}
-      {/* A single scrim behind both bars. Giving each bar its own gradient left
-          a visible seam where the two met. */}
+      {/* Scrim behind the header so its text stays readable over a bright
+          frame of the hero. */}
       {headerOverHero && topBarsHeight > 0 && (
         <div
           aria-hidden="true"
@@ -4463,17 +4444,6 @@ export default function App() {
           }}
         />
       )}
-
-      <div
-        ref={offerStripRef}
-        className={`relative z-40 flex h-9 items-center justify-center overflow-hidden px-6 text-olive-50 transition-colors duration-300 ${
-          headerOverHero ? "over-hero bg-transparent" : "bg-olive-600"
-        }`}
-      >
-        <span key={offerIndex} className="animate-offer-fade text-center text-xs font-medium tracking-wide sm:text-[13px]">
-          ✦ {OFFERS[offerIndex]}
-        </span>
-      </div>
 
       {/* Marks "still at the very top" for the header overlay above. */}
       <div ref={topSentinelRef} aria-hidden="true" className="h-px w-full" />
