@@ -449,6 +449,72 @@ function formatPrice(inrAmount: number, currency: CurrencyOption) {
   })}`;
 }
 
+// Collections is grouped rather than one flat run of every category, the way
+// the shop's other site does it. Twenty-one names in a single scrolling column
+// is a list to get through; two families and a few singles is a menu.
+//
+// Matching is by name, case-insensitively, against whatever categories the
+// admin actually has. A category the admin adds later that isn't named here
+// still appears — it falls through to the end as its own entry — so the menu
+// can never hide a category by omission.
+const CATEGORY_GROUPS: { label: string; members: string[] }[] = [
+  {
+    label: "Hair Accessories",
+    members: [
+      "HAIR PINS",
+      "HAIR BAND",
+      "HAIR VEIN",
+      "HAIR CHAINS",
+      "HAIR BROOCH",
+      "HAIR TIARA",
+      "BOW",
+      "TRADITIONAL ACCESSORIES FOR BRAID",
+      "TRADITIONAL ACCESSORIES FOR BUN",
+    ],
+  },
+  {
+    label: "Jewellery",
+    members: [
+      "RESIN JEWELLERY",
+      "EMBROIDERY JEWELLERY",
+      "FLORAL JEWELLERY",
+      "EAR CUFF'S",
+      "EARINGS",
+      "EAR CHAIN",
+      "HAATHPHUL",
+      "BRACLET",
+      "NECKLACE",
+      "PEARL BLOUSE",
+    ],
+  },
+];
+
+type CategoryMenuEntry =
+  | { kind: "group"; label: string; items: string[] }
+  | { kind: "single"; label: string };
+
+/** Arranges the admin's categories into the grouped menu, keeping their order. */
+function buildCategoryMenu(categories: string[]): CategoryMenuEntry[] {
+  const remaining = new Set(categories.map((c) => c.toLowerCase()));
+  const entries: CategoryMenuEntry[] = [];
+
+  for (const group of CATEGORY_GROUPS) {
+    const items = group.members
+      .map((m) => categories.find((c) => c.toLowerCase() === m.toLowerCase()))
+      .filter((c): c is string => !!c);
+    if (items.length === 0) continue;
+    items.forEach((c) => remaining.delete(c.toLowerCase()));
+    entries.push({ kind: "group", label: group.label, items });
+  }
+
+  // Anything the config doesn't mention — including categories added after this
+  // was written — stands on its own rather than disappearing.
+  for (const c of categories) {
+    if (remaining.has(c.toLowerCase())) entries.push({ kind: "single", label: c });
+  }
+  return entries;
+}
+
 const HERO_SLIDES = [
   { colors: ["#C1653A", "#DDBB6E", "#F1E4D3", "#833E20"], bg: "linear-gradient(135deg,#F6E7D8,#E3C593)" },
   { colors: ["#6B7658", "#E4E6D9", "#C79A3E", "#F1E4D3"], bg: "linear-gradient(135deg,#E9EBDE,#D3D8C2)" },
@@ -4471,6 +4537,8 @@ export default function App() {
   const menuCategories = liveCategories
     ? liveCategories.map((c) => c.name)
     : COLLECTION_GROUPS.flatMap((g) => g.items);
+  const categoryMenu = buildCategoryMenu(menuCategories);
+  const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const hoveredCategory = activeCategory ?? menuCategories[0] ?? "";
   const hoveredCategoryProducts = allProducts.filter(
@@ -5125,22 +5193,59 @@ export default function App() {
                 <ChevronDown className={`h-4 w-4 text-foreground/40 transition-transform ${mobileCollectionsOpen ? "rotate-180" : ""}`} />
               </button>
               {mobileCollectionsOpen && (
-                <div className="max-h-72 overflow-y-auto rounded-sm border border-border">
-                  {menuCategories.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => {
-                        openCategoryView(name);
-                        setMenuOpen(false);
-                        setMobileCollectionsOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5 text-left font-sans text-xs font-semibold uppercase tracking-wide text-foreground/75 last:border-b-0"
-                    >
-                      <span className="min-w-0 truncate">{name}</span>
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/35" />
-                    </button>
-                  ))}
+                <div className="max-h-80 overflow-y-auto rounded-sm border border-border">
+                  {categoryMenu.map((entry) =>
+                    entry.kind === "single" ? (
+                      <button
+                        key={entry.label}
+                        type="button"
+                        onClick={() => {
+                          openCategoryView(entry.label);
+                          setMenuOpen(false);
+                          setMobileCollectionsOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5 text-left font-sans text-xs font-semibold uppercase tracking-wide text-foreground/75 last:border-b-0"
+                      >
+                        <span className="min-w-0 truncate">{entry.label}</span>
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/35" />
+                      </button>
+                    ) : (
+                      <div key={entry.label} className="border-b border-border/60 last:border-b-0">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuGroup((g) => (g === entry.label ? null : entry.label))}
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left font-sans text-xs font-semibold uppercase tracking-wide text-foreground/75"
+                        >
+                          <span className="min-w-0 truncate">{entry.label}</span>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 shrink-0 text-foreground/35 transition-transform ${
+                              openMenuGroup === entry.label ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        {openMenuGroup === entry.label && (
+                          <div className="bg-olive-50/60 pb-1">
+                            {entry.items.map((name) => (
+                              <button
+                                key={name}
+                                type="button"
+                                onClick={() => {
+                                  openCategoryView(name);
+                                  setMenuOpen(false);
+                                  setMobileCollectionsOpen(false);
+                                  setOpenMenuGroup(null);
+                                }}
+                                className="flex w-full items-center justify-between gap-2 py-2 pl-6 pr-3 text-left font-sans text-[11px] uppercase tracking-wide text-foreground/70"
+                              >
+                                <span className="min-w-0 truncate">{name}</span>
+                                <ChevronRight className="h-3 w-3 shrink-0 text-foreground/30" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
                   {/* The old destination is still reachable, just no longer the
                       only thing this button can do. */}
                   <button
