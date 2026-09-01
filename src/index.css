@@ -4,24 +4,28 @@
 
 @layer base {
   :root {
-    --background: 36 45% 95%;
+    /* Blush ground taken from beautyofbeadsbykhushi.com, where the whole page
+       sits on #FFEFED. Cards are plain white so they lift off it — on the old
+       site white is used sparingly, for surfaces rather than sections. */
+    --background: 7 100% 96.5%;   /* #FFEFED */
     --foreground: 23 27% 12%;
-    --card: 40 60% 99%;
+    --card: 0 0% 100%;
     --card-foreground: 23 27% 12%;
-    --popover: 40 60% 99%;
+    --popover: 0 0% 100%;
     --popover-foreground: 23 27% 12%;
     --primary: 18 52% 49%;
     --primary-foreground: 30 60% 98%;
     --secondary: 66 20% 88%;
     --secondary-foreground: 78 15% 20%;
-    --muted: 30 45% 89%;
-    --muted-foreground: 30 17% 40%;
+    --muted: 9 55% 93%;
+    --muted-foreground: 12 14% 42%;
     --accent: 41 54% 50%;
     --accent-foreground: 23 27% 12%;
     --destructive: 0 74% 42%;
     --destructive-foreground: 0 0% 98%;
-    --border: 33 40% 83%;
-    --input: 33 40% 83%;
+    /* Warmed towards the blush so hairlines don't read as a leftover beige. */
+    --border: 9 38% 88%;
+    --input: 9 38% 88%;
     --ring: 18 52% 49%;
     --radius: 0.6rem;
   }
