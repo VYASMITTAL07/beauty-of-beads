@@ -20,13 +20,17 @@ module.exports = {
           500: "#A34F2B",
           600: "#833E20",
         },
+        // Espresso brown, kept under the "olive" name so the ~280 class uses
+        // across the app don't all have to be renamed. Each step sits at the
+        // lightness of the green it replaces, so every contrast relationship
+        // the layout already relied on still holds.
         olive: {
-          50: "#F4F5EE",
-          100: "#E4E6D9",
-          200: "#B9C2A3",
-          400: "#6B7658",
-          500: "#5A6549",
-          600: "#4B5540",
+          50: "#FAF3EE",
+          100: "#EFE3DB",
+          200: "#C9B2A2",
+          400: "#6B4C3C",
+          500: "#52392E",
+          600: "#3E2B23",
         },
         gold: {
           300: "#DDBB6E",
