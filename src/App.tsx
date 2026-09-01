@@ -4916,18 +4916,21 @@ export default function App() {
     toggleWishlist(item.product_name);
   };
 
-  // There was an effect here clamping overflow-x to "clip" on html and body, to
-  // stop the page scrolling sideways. Measured across the page, nothing needs
-  // it: every element that extends past the viewport — the category strip, the
-  // product rows, the reels — sits inside its own horizontal scroller and is
-  // clipped by that. With the clamp removed the document's scroll width still
-  // equals the viewport, at every width.
-  //
-  // It was worth removing rather than leaving as a harmless belt-and-braces:
-  // overflow: clip on the root element, together with position: sticky, is a
-  // known source of compositing artifacts in Chromium — the whole page painting
-  // twice, offset sideways, sticky header and all. Which is exactly what was
-  // being reported.
+  useEffect(() => {
+    // Guards against page-wide horizontal overflow at the html/body level. Using
+    // overflow-x: clip (not hidden) avoids a CSS quirk where setting only one of
+    // overflow-x/overflow-y forces the other to compute as "auto" — which would
+    // turn html/body into a distinct scroll container and break `position: sticky`
+    // on the header. `clip` doesn't establish a scrollable box, so it's exempt.
+    //
+    // This was briefly removed on the theory that it caused a double-painting
+    // artifact, on the strength of a measurement showing nothing overflowed. That
+    // measurement was taken at 360px and wider. Below about 300px the header's
+    // icon row does overflow — 33px at 279px wide — so the guard has a job after
+    // all, and removing it neither fixed the artifact nor was free.
+    document.documentElement.style.overflowX = "clip";
+    document.body.style.overflowX = "clip";
+  }, []);
 
   return (
     <CurrencyContext.Provider value={{ currency, setCurrency }}>
