@@ -758,6 +758,12 @@ function WishlistPanel({
   );
 }
 
+// The four full-screen overlays all carry [contain:paint]. Each is a fixed,
+// independently scrolling surface holding dozens of images over the top of a
+// page that is still laid out underneath, and without the hint the browser is
+// free to repaint them as part of the page behind — which is where the ghosted,
+// double-drawn frames during a window resize come from. Containment gives each
+// its own paint area, and makes scrolling a list of this size cheaper besides.
 function AllProductsView({
   title,
   products,
@@ -784,7 +790,7 @@ function AllProductsView({
   useBodyScrollLock();
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans">
+    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
         <button
           type="button"
@@ -883,7 +889,7 @@ function AllCollectionsView({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans">
+    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
         <button
           type="button"
@@ -1137,7 +1143,7 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
     "mt-1 w-full rounded-sm bg-olive-600 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-50 transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-45";
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans">
+    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:px-8">
         <button
           type="button"
@@ -1522,7 +1528,7 @@ function LegalView({ type, onBack }: { type: LegalType; onBack: () => void }) {
   const page = LEGAL_PAGES[type];
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans">
+    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
         <button
           type="button"
