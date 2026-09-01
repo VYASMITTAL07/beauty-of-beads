@@ -70,16 +70,6 @@
   animation: marquee 22s linear infinite;
 }
 
-@keyframes offer-fade {
-  0% { opacity: 0; transform: translateY(4px); }
-  12% { opacity: 1; transform: translateY(0); }
-  88% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-4px); }
-}
-.animate-offer-fade {
-  animation: offer-fade 3.2s ease-in-out infinite;
-}
-
 @keyframes video-live {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
