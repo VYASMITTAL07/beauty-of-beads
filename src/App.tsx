@@ -4990,11 +4990,15 @@ export default function App() {
 
       {/* Hero — auto-sliding */}
       <section id="top" className="relative overflow-hidden" style={{ marginTop: -topBarsHeight }}>
-        {/* A brand-coloured ground under the hero. The hero clip is a video with
-            no still to use as a poster, so until the first frame decodes the
-            slot has nothing to paint — on a phone that was several seconds of
-            black at the top of the page. This costs no network at all. */}
-        <div className="relative h-[calc(100vh-13rem)] min-h-[340px] w-full bg-gradient-to-br from-olive-100 via-olive-50 to-olive-200 sm:h-auto sm:aspect-[21/9]">
+        {/* A brand-coloured ground under the hero, so nothing has to paint black
+            while media loads. Costs no network at all.
+
+            The phone frame is 4:3 because that is the shape of the artwork in
+            it — a near-full-height portrait box was cropping the sides off,
+            taking the ornamental border and the ends of the set type with them.
+            At 4:3 the artwork fills the frame exactly, edge to edge, with
+            nothing lost and no letterboxing. The laptop band is unchanged. */}
+        <div className="relative aspect-[4/3] w-full bg-gradient-to-br from-olive-100 via-olive-50 to-olive-200 sm:aspect-[21/9]">
           {/* Admin-uploaded hero images take over completely when present;
               the decorative bead strands are only the pre-setup fallback. */}
           {heroImages.length > 0 ? (
@@ -5033,7 +5037,11 @@ export default function App() {
               </button>
             </>
           )}
-          <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-2 px-6">
+          {/* On a phone the whole artwork is now visible, headline and all, and
+              a button laid over it landed straight on that type. It sits under
+              the image there and stays overlaid on the laptop band, where the
+              crop takes the type out anyway. */}
+          <div className="absolute inset-x-0 bottom-4 hidden flex-col items-center gap-2 px-6 sm:flex">
             <a
               href="#top-picks"
               className="inline-flex items-center gap-2 rounded-sm border border-olive-50 bg-transparent px-7 py-3 text-sm font-medium text-olive-50 transition-colors hover:border-black hover:bg-black"
@@ -5053,6 +5061,14 @@ export default function App() {
               </div>
             )}
           </div>
+        </div>
+        <div className="flex justify-center px-6 pt-5 sm:hidden">
+          <a
+            href="#top-picks"
+            className="inline-flex items-center gap-2 rounded-sm border border-olive-600 px-8 py-3 text-sm font-medium text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
+          >
+            Shop <ArrowRight className="h-4 w-4" />
+          </a>
         </div>
       </section>
 
