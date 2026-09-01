@@ -886,20 +886,87 @@ function AllCollectionsView({
     if (open) window.scrollTo(0, 0);
   }, [open]);
 
+  // The category strip under the header. Twenty-one sections is a long way to
+  // scroll to reach the last one, so the strip is both a shortcut to each and a
+  // marker of where you currently are.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const chipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const shownCategories = categories.filter(
+    (name) => loading || allProducts.some((p) => p.category.toLowerCase() === name.toLowerCase())
+  );
+
+  // Which section is at the top of the view. Watched against the overlay's own
+  // scrolling box, not the page, since that is what actually scrolls here.
+  useEffect(() => {
+    if (!open) return;
+    const root = scrollerRef.current;
+    if (!root || typeof IntersectionObserver === "undefined") return;
+    // The observer is only the trigger; the answer is worked out from all the
+    // sections. Reading it off the intersecting entries alone left the strip
+    // stuck whenever a scroll jumped far enough that the callback arrived with
+    // nothing intersecting.
+    const recompute = () => {
+      const barBottom = 130;
+      let current: string | null = null;
+      for (const name of shownCategories) {
+        const el = sectionRefs.current[name];
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= barBottom) current = name;
+      }
+      setActiveCategory(current ?? shownCategories[0] ?? null);
+    };
+    const io = new IntersectionObserver(recompute, { root, threshold: [0, 0.01] });
+    Object.values(sectionRefs.current).forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, [open, shownCategories.join("|")]);
+
+  // Keep the active chip in sight as the page scrolls past its section.
+  useEffect(() => {
+    if (!activeCategory) return;
+    chipRefs.current[activeCategory]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeCategory]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-olive-50"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <h1 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">Collections</h1>
+    <div ref={scrollerRef} className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
+      <div className="sticky top-0 z-10 border-b border-border bg-background">
+        <div className="flex items-center gap-3 px-5 pb-2 pt-4 md:px-8">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-olive-50"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <h1 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">Collections</h1>
+        </div>
+
+        {shownCategories.length > 0 && (
+          <div className="scrollbar-hide flex gap-2 overflow-x-auto px-5 pb-3 md:px-8">
+            {shownCategories.map((name) => (
+              <button
+                key={name}
+                ref={(el) => { chipRefs.current[name] = el; }}
+                type="button"
+                onClick={() =>
+                  sectionRefs.current[name]?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                  activeCategory === name
+                    ? "border-olive-600 bg-olive-600 text-olive-50"
+                    : "border-border text-foreground/70 hover:border-olive-400 hover:text-olive-600"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 md:px-8 md:py-10">
@@ -932,7 +999,12 @@ function AllCollectionsView({
               /* No rule between categories — the headings and the space already
                separate them, and a line across every one made the page read as
                a stack of boxes. */
-            <section key={name} className={i > 0 ? "mt-16" : ""}>
+            <section
+                key={name}
+                data-category={name}
+                ref={(el) => { sectionRefs.current[name] = el; }}
+                className={`scroll-mt-32 ${i > 0 ? "mt-16" : ""}`}
+              >
                 <div className="mb-5 sm:mb-8">
                   <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
                   <p className="mt-1 text-xs text-foreground/50">Loading…</p>
@@ -946,7 +1018,12 @@ function AllCollectionsView({
             );
           }
           return (
-            <section key={name} className={i > 0 ? "mt-16" : ""}>
+            <section
+              key={name}
+              data-category={name}
+              ref={(el) => { sectionRefs.current[name] = el; }}
+              className={`scroll-mt-32 ${i > 0 ? "mt-16" : ""}`}
+            >
               <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
                 <div>
                   <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
