@@ -923,7 +923,10 @@ function AllCollectionsView({
           if (products.length === 0 && !loading) return null;
           if (products.length === 0) {
             return (
-              <section key={name} className={i > 0 ? "mt-14 border-t border-border pt-14" : ""}>
+              /* No rule between categories — the headings and the space already
+               separate them, and a line across every one made the page read as
+               a stack of boxes. */
+            <section key={name} className={i > 0 ? "mt-16" : ""}>
                 <div className="mb-5 sm:mb-8">
                   <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
                   <p className="mt-1 text-xs text-foreground/50">Loading…</p>
@@ -937,7 +940,7 @@ function AllCollectionsView({
             );
           }
           return (
-            <section key={name} className={i > 0 ? "mt-14 border-t border-border pt-14" : ""}>
+            <section key={name} className={i > 0 ? "mt-16" : ""}>
               <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
                 <div>
                   <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
