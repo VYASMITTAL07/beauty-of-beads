@@ -4,10 +4,12 @@
 
 @layer base {
   :root {
-    /* Blush ground taken from beautyofbeadsbykhushi.com, where the whole page
-       sits on #FFEFED. Cards are plain white so they lift off it — on the old
-       site white is used sparingly, for surfaces rather than sections. */
-    --background: 7 100% 96.5%;   /* #FFEFED */
+    /* Blush ground, started from beautyofbeadsbykhushi.com's #FFEFED and then
+       taken a shade pinker: that one carries a faint orange cast (G239/B237),
+       this sits at a clean pink (G234/B234) and a hair deeper. Cards are plain
+       white so they lift off it — on that site white is used sparingly, for
+       surfaces rather than whole sections. */
+    --background: 2 100% 95.8%;   /* #FFEAEA */
     --foreground: 23 27% 12%;
     --card: 0 0% 100%;
     --card-foreground: 23 27% 12%;
@@ -17,15 +19,15 @@
     --primary-foreground: 30 60% 98%;
     --secondary: 66 20% 88%;
     --secondary-foreground: 78 15% 20%;
-    --muted: 9 55% 93%;
-    --muted-foreground: 12 14% 42%;
+    --muted: 4 58% 93%;
+    --muted-foreground: 8 14% 42%;
     --accent: 41 54% 50%;
     --accent-foreground: 23 27% 12%;
     --destructive: 0 74% 42%;
     --destructive-foreground: 0 0% 98%;
     /* Warmed towards the blush so hairlines don't read as a leftover beige. */
-    --border: 9 38% 88%;
-    --input: 9 38% 88%;
+    --border: 4 40% 88%;
+    --input: 4 40% 88%;
     --ring: 18 52% 49%;
     --radius: 0.6rem;
   }
