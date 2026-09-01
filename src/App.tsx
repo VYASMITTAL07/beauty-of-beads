@@ -3758,7 +3758,14 @@ function ProductDetailView({
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <h1 className="line-clamp-1 flex-1 font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{product.name}</h1>
+        {/* The category, not the name — the name is already the heading a few
+            centimetres below, and printing it twice told the reader nothing the
+            second time. Up here it says which part of the shop you are in, the
+            same as the category view's own header. Products without a category
+            fall back to the name so the bar is never blank. */}
+        <p className="line-clamp-2 flex-1 font-serif text-sm uppercase leading-tight tracking-wide text-olive-600 sm:line-clamp-1 sm:text-xl md:text-2xl">
+          {product.category || product.name}
+        </p>
         <button
           type="button"
           aria-label="Cart"
@@ -3877,8 +3884,9 @@ function ProductDetailView({
           <div>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{product.category}</p>
-                <h2 className="mt-1.5 font-serif text-2xl leading-snug text-foreground md:text-3xl">{product.name}</h2>
+                {/* No category line here: the bar above now carries it, and
+                    printing it twice is the same repetition this replaced. */}
+                <h1 className="font-serif text-2xl leading-snug text-foreground md:text-3xl">{product.name}</h1>
               </div>
               <button
                 onClick={() => {
