@@ -764,6 +764,29 @@ function WishlistPanel({
 // free to repaint them as part of the page behind — which is where the ghosted,
 // double-drawn frames during a window resize come from. Containment gives each
 // its own paint area, and makes scrolling a list of this size cheaper besides.
+// Scrolls a container with our own animation.
+//
+// The browser's own smooth scrolling does nothing inside the full-screen
+// overlays — scrollIntoView({behavior:"smooth"}) and scrollTo({behavior:
+// "smooth"}) both leave scrollTop exactly where it was, while "auto" moves it
+// immediately, and prefers-reduced-motion is off. So every jump from the
+// category strip silently did nothing. Driving it frame by frame sidesteps
+// whatever is dropping those requests.
+function animateScrollTop(container: HTMLElement, to: number, duration = 420) {
+  const start = container.scrollTop;
+  const delta = to - start;
+  if (Math.abs(delta) < 2) return;
+  const t0 = performance.now();
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / duration);
+    // ease-in-out
+    const eased = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+    container.scrollTop = start + delta * eased;
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function AllProductsView({
   title,
   products,
@@ -892,7 +915,40 @@ function AllCollectionsView({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const chipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const stripRef = useRef<HTMLDivElement>(null);
+  const reaimTimers = useRef<number[]>([]);
+
+  // Jumping to a section looks it up in the DOM by name rather than through a
+  // ref map. The map went stale: a category in the second family would not
+  // scroll at all, because React had detached and reattached its ref callback
+  // (a new closure every render) and the entry was left null. An attribute
+  // can't fall out of step with what is on screen.
+  // Offset so a section lands under the sticky bar rather than behind it.
+  const BAR_OFFSET = 118;
+  const goTo = (selector: string) => {
+    const root = scrollerRef.current;
+    const el = root?.querySelector<HTMLElement>(selector);
+    if (!root || !el) return;
+    const jump = () => {
+      const target = root.scrollTop + el.getBoundingClientRect().top - root.getBoundingClientRect().top - BAR_OFFSET;
+      animateScrollTop(root, Math.max(0, target));
+    };
+    // Any correction still pending belongs to the previous destination. Left to
+    // run it drags the page back to where you were going before, which looks
+    // exactly like the jump not working.
+    reaimTimers.current.forEach(clearTimeout);
+    reaimTimers.current = [];
+    jump();
+    // Images above the destination load while we are travelling and change the
+    // height of everything between, so where we aimed is no longer where the
+    // section is. Re-aim twice after landing; each call is a no-op once the
+    // section is already in place.
+    reaimTimers.current = [window.setTimeout(jump, 520), window.setTimeout(jump, 1150)];
+  };
+  const goToCategory = (name: string) => goTo(`[data-cat="${CSS.escape(name)}"]`);
+  const goToFamily = (label: string) => goTo(`[data-category="${CSS.escape(label)}"]`);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [openChip, setOpenChip] = useState<string | null>(null);
 
   const shownCategories = categories.filter(
     (name) => loading || allProducts.some((p) => p.category.toLowerCase() === name.toLowerCase())
@@ -929,10 +985,37 @@ function AllCollectionsView({
   }, [open, anchors.join("|")]);
 
   // Keep the active chip in sight as the page scrolls past its section.
+  //
+  // Deliberately scrolls the strip itself rather than calling scrollIntoView on
+  // the chip. scrollIntoView walks up and adjusts every scrollable ancestor,
+  // and the nearest one here is the overlay — so it cancelled the page's own
+  // smooth scroll the moment the active chip changed. Tapping a category in a
+  // chip's menu appeared to do nothing at all: the jump started, the chip
+  // updated, and the competing scroll killed it.
   useEffect(() => {
     if (!activeCategory) return;
-    chipRefs.current[activeCategory]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    const strip = stripRef.current;
+    const chip = chipRefs.current[activeCategory];
+    if (!strip || !chip) return;
+    const target = chip.offsetLeft - (strip.clientWidth - chip.offsetWidth) / 2;
+    strip.scrollLeft = Math.max(0, target);
   }, [activeCategory]);
+
+  // A chip's menu shouldn't hang around once you've moved on.
+  useEffect(() => {
+    if (!openChip) return;
+    const root = scrollerRef.current;
+    if (!root) return;
+    const close = () => setOpenChip(null);
+    root.addEventListener("scroll", close, { passive: true, once: true });
+    return () => root.removeEventListener("scroll", close);
+  }, [openChip]);
+
+  useEffect(() => {
+    if (!open) setOpenChip(null);
+  }, [open]);
+
+  useEffect(() => () => { reaimTimers.current.forEach(clearTimeout); }, []);
 
   if (!open) return null;
 
@@ -952,24 +1035,69 @@ function AllCollectionsView({
         </div>
 
         {anchors.length > 0 && (
-          <div className="scrollbar-hide flex gap-2 overflow-x-auto px-5 pb-3 md:px-8">
-            {anchors.map((name) => (
-              <button
-                key={name}
-                ref={(el) => { chipRefs.current[name] = el; }}
-                type="button"
-                onClick={() =>
-                  sectionRefs.current[name]?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-                className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-                  activeCategory === name
-                    ? "border-olive-600 bg-olive-600 text-olive-50"
-                    : "border-border text-foreground/70 hover:border-olive-400 hover:text-olive-600"
-                }`}
-              >
-                {name}
-              </button>
-            ))}
+          <div className="relative">
+            <div ref={stripRef} className="scrollbar-hide flex gap-2 overflow-x-auto px-5 pb-3 md:px-8">
+              {pageGroups.map((entry) => {
+                const isOpen = openChip === entry.label;
+                const isActive = activeCategory === entry.label;
+                return (
+                  <button
+                    key={entry.label}
+                    ref={(el) => { chipRefs.current[entry.label] = el; }}
+                    type="button"
+                    onClick={() => {
+                      // A family opens its list; a lone category just goes there.
+                      if (entry.kind === "group") {
+                        setOpenChip(isOpen ? null : entry.label);
+                      } else {
+                        setOpenChip(null);
+                        goToFamily(entry.label);
+                      }
+                    }}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                      isActive || isOpen
+                        ? "border-olive-600 bg-olive-600 text-olive-50"
+                        : "border-border text-foreground/70 hover:border-olive-400 hover:text-olive-600"
+                    }`}
+                  >
+                    {entry.label}
+                    {entry.kind === "group" && (
+                      <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* The open family's categories, over the page rather than pushing
+                it down — the strip stays put while you pick. */}
+            {openChip && (
+              <>
+                <div className="fixed inset-0 z-0" onClick={() => setOpenChip(null)} aria-hidden="true" />
+                <div className="absolute inset-x-3 top-full z-10 max-h-72 overflow-y-auto rounded-md border border-border bg-card shadow-xl md:inset-x-6">
+                  {(pageGroups.find((g) => g.label === openChip) as { kind: "group"; items: string[] } | undefined)?.items.map((name) => {
+                    const count = allProducts.filter((p) => p.category.toLowerCase() === name.toLowerCase()).length;
+                    if (count === 0 && !loading) return null;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => {
+                          setOpenChip(null);
+                          goToCategory(name);
+                        }}
+                        className="flex w-full items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-foreground/75 transition-colors last:border-b-0 hover:bg-olive-50 hover:text-olive-600"
+                      >
+                        <span className="min-w-0 truncate">{name}</span>
+                        <span className="shrink-0 text-[10px] font-normal normal-case tracking-normal text-foreground/40">
+                          {count} {count === 1 ? "piece" : "pieces"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1011,7 +1139,7 @@ function AllCollectionsView({
 
             if (products.length === 0) {
               return (
-                <section key={name} className={first ? "" : "mt-12"}>
+                <section key={name} data-cat={name} className={`scroll-mt-32 ${first ? "" : "mt-12"}`}>
                   <div className="mb-5 sm:mb-8">
                     {heading}
                     <p className="mt-1 text-xs text-foreground/50">Loading…</p>
@@ -1026,7 +1154,7 @@ function AllCollectionsView({
             }
 
             return (
-              <section key={name} className={first ? "" : "mt-12"}>
+              <section key={name} data-cat={name} className={`scroll-mt-32 ${first ? "" : "mt-12"}`}>
                 <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
                   <div>
                     {heading}
