@@ -701,6 +701,8 @@ function AllProductsView({
   addToBag,
   onOpenProduct,
   onBack,
+  cartCount,
+  onOpenCart,
 }: {
   title: string;
   products: Product[];
@@ -710,6 +712,8 @@ function AllProductsView({
   addToBag: (n: string) => void;
   onOpenProduct: (p: Product) => void;
   onBack: () => void;
+  cartCount: number;
+  onOpenCart: () => void;
 }) {
   useBodyScrollLock();
 
@@ -724,10 +728,27 @@ function AllProductsView({
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <h1 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{title}</h1>
-        <span className="ml-auto text-xs text-foreground/50">
+        <h1 className="min-w-0 truncate font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{title}</h1>
+        <span className="ml-auto hidden text-xs text-foreground/50 sm:block">
           {products.length} {products.length === 1 ? "item" : "items"}
         </span>
+        {/* This view covers the whole screen, so without its own cart button a
+            visitor could add piece after piece from a category and have no way
+            to reach the bag except by backing out of the category first. The
+            product page already carries one; this matches it. */}
+        <button
+          type="button"
+          aria-label="Cart"
+          onClick={onOpenCart}
+          className="relative ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-olive-50 hover:text-olive-500 sm:ml-4"
+        >
+          <ShoppingCart className="h-[18px] w-[18px]" />
+          {cartCount > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-olive-500 text-[10px] text-white">
+              {cartCount}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="mx-auto w-full max-w-6xl flex-1 px-5 py-6 md:px-8 md:py-8">
@@ -6132,6 +6153,8 @@ export default function App() {
         addToBag={addToBag}
         onOpenProduct={openProduct}
         onBack={() => setProductListView(null)}
+        cartCount={cartCount}
+        onOpenCart={() => setCartPanelOpen(true)}
       />
     )}
     <SearchOverlay
