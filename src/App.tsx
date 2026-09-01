@@ -449,13 +449,6 @@ function formatPrice(inrAmount: number, currency: CurrencyOption) {
   })}`;
 }
 
-const OFFERS = [
-  "Free shipping on orders above ₹3,000",
-  "100% secure prepaid checkout",
-  "Flat 10% off on orders above ₹5,000 for first-time orders",
-  "Handcrafted with love, made to order",
-];
-
 const HERO_SLIDES = [
   { colors: ["#C1653A", "#DDBB6E", "#F1E4D3", "#833E20"], bg: "linear-gradient(135deg,#F6E7D8,#E3C593)" },
   { colors: ["#6B7658", "#E4E6D9", "#C79A3E", "#F1E4D3"], bg: "linear-gradient(135deg,#E9EBDE,#D3D8C2)" },
@@ -4307,11 +4300,6 @@ export default function App() {
   // The header sits over the hero until the page is scrolled, so the video
   // runs behind it; past the threshold its own background comes back.
   const [headerOverHero, setHeaderOverHero] = useState(true);
-  const [offerIndex, setOfferIndex] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setOfferIndex((i) => (i + 1) % OFFERS.length), 3200);
-    return () => clearInterval(id);
-  }, []);
   // Watched with an IntersectionObserver on a sentinel rather than a scroll
   // listener: the observer reports against the actual scrolling box, so it
   // keeps working regardless of which element ends up scrolling, and it
@@ -4682,17 +4670,8 @@ export default function App() {
       {/* Marks "still at the very top" for the overlay behaviour above. */}
       <div ref={topSentinelRef} aria-hidden="true" className="h-px w-full" />
 
-      {/* Strip and header travel together so both stay pinned once the page is
-          scrolled. The strip is only part of that bar away from the top — over
-          the hero it would just be a second band across the video. */}
+      {/* The header pins on its own now that the offer strip is gone. */}
       <div className="sticky top-0 z-40">
-        {!headerOverHero && (
-          <div className="flex h-9 items-center justify-center overflow-hidden bg-olive-600 px-6 text-olive-50">
-            <span key={offerIndex} className="animate-offer-fade text-center text-xs font-medium tracking-wide sm:text-[13px]">
-              ✦ {OFFERS[offerIndex]}
-            </span>
-          </div>
-        )}
 
       {/* Header */}
       <header
