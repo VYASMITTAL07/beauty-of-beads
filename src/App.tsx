@@ -897,6 +897,11 @@ function AllCollectionsView({
   const shownCategories = categories.filter(
     (name) => loading || allProducts.some((p) => p.category.toLowerCase() === name.toLowerCase())
   );
+  // Same shape as the Collections menu: two families and a few singles, rather
+  // than twenty-one headings in a row. The strip lists exactly what the menu's
+  // top level lists, so the two read as the same thing.
+  const pageGroups = buildCategoryMenu(shownCategories);
+  const anchors = pageGroups.map((g) => g.label);
 
   // Which section is at the top of the view. Watched against the overlay's own
   // scrolling box, not the page, since that is what actually scrolls here.
@@ -911,17 +916,17 @@ function AllCollectionsView({
     const recompute = () => {
       const barBottom = 130;
       let current: string | null = null;
-      for (const name of shownCategories) {
+      for (const name of anchors) {
         const el = sectionRefs.current[name];
         if (!el) continue;
         if (el.getBoundingClientRect().top <= barBottom) current = name;
       }
-      setActiveCategory(current ?? shownCategories[0] ?? null);
+      setActiveCategory(current ?? anchors[0] ?? null);
     };
     const io = new IntersectionObserver(recompute, { root, threshold: [0, 0.01] });
     Object.values(sectionRefs.current).forEach((el) => el && io.observe(el));
     return () => io.disconnect();
-  }, [open, shownCategories.join("|")]);
+  }, [open, anchors.join("|")]);
 
   // Keep the active chip in sight as the page scrolls past its section.
   useEffect(() => {
@@ -946,9 +951,9 @@ function AllCollectionsView({
           <h1 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">Collections</h1>
         </div>
 
-        {shownCategories.length > 0 && (
+        {anchors.length > 0 && (
           <div className="scrollbar-hide flex gap-2 overflow-x-auto px-5 pb-3 md:px-8">
-            {shownCategories.map((name) => (
+            {anchors.map((name) => (
               <button
                 key={name}
                 ref={(el) => { chipRefs.current[name] = el; }}
@@ -988,63 +993,84 @@ function AllCollectionsView({
           </div>
         )}
 
-        {categories.map((name, i) => {
-          const products = allProducts.filter((p) => p.category.toLowerCase() === name.toLowerCase());
-          // Only hide a genuinely empty category. While the catalogue is still
-          // in flight every category looks empty, and hiding them all is what
-          // produced the blank page.
-          if (products.length === 0 && !loading) return null;
-          if (products.length === 0) {
+        {/* A family, then its categories under it — the same two levels the
+            Collections menu has. A category that belongs to neither family
+            stands on its own, exactly as it does there. */}
+        {pageGroups.map((entry, gi) => {
+          const members = entry.kind === "group" ? entry.items : [entry.label];
+
+          const renderCategory = (name: string, first: boolean) => {
+            const products = allProducts.filter((p) => p.category.toLowerCase() === name.toLowerCase());
+            if (products.length === 0 && !loading) return null;
+            const heading =
+              entry.kind === "group" ? (
+                <h3 className="font-serif text-lg uppercase tracking-wide text-foreground md:text-xl">{name}</h3>
+              ) : (
+                <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
+              );
+
+            if (products.length === 0) {
+              return (
+                <section key={name} className={first ? "" : "mt-12"}>
+                  <div className="mb-5 sm:mb-8">
+                    {heading}
+                    <p className="mt-1 text-xs text-foreground/50">Loading…</p>
+                  </div>
+                  <div className="grid animate-pulse grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
+                    {[0, 1, 2, 3].map((j) => (
+                      <div key={j} className="aspect-[3/4] rounded-sm bg-olive-100" />
+                    ))}
+                  </div>
+                </section>
+              );
+            }
+
             return (
-              /* No rule between categories — the headings and the space already
-               separate them, and a line across every one made the page read as
-               a stack of boxes. */
-            <section
-                key={name}
-                data-category={name}
-                ref={(el) => { sectionRefs.current[name] = el; }}
-                className={`scroll-mt-32 ${i > 0 ? "mt-16" : ""}`}
-              >
-                <div className="mb-5 sm:mb-8">
-                  <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
-                  <p className="mt-1 text-xs text-foreground/50">Loading…</p>
+              <section key={name} className={first ? "" : "mt-12"}>
+                <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
+                  <div>
+                    {heading}
+                    <p className="mt-1 text-xs text-foreground/50">
+                      {products.length} {products.length === 1 ? "piece" : "pieces"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenGroup({ label: name, items: [name] })}
+                    className="flex-shrink-0 whitespace-nowrap rounded-sm border border-olive-400 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-50 sm:px-5 sm:py-2.5 sm:text-xs"
+                  >
+                    View All
+                  </button>
                 </div>
-                <div className="grid animate-pulse grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
-                  {[0, 1, 2, 3].map((j) => (
-                    <div key={j} className="aspect-[3/4] rounded-sm bg-olive-100" />
+                <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
+                  {products.slice(0, 4).map((p) => (
+                    <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
                   ))}
                 </div>
               </section>
             );
-          }
+          };
+
+          const rendered = members.map((name, mi) => renderCategory(name, mi === 0)).filter(Boolean);
+          if (rendered.length === 0) return null;
+
           return (
-            <section
-              key={name}
-              data-category={name}
-              ref={(el) => { sectionRefs.current[name] = el; }}
-              className={`scroll-mt-32 ${i > 0 ? "mt-16" : ""}`}
+            <div
+              key={entry.label}
+              data-category={entry.label}
+              ref={(el) => { sectionRefs.current[entry.label] = el; }}
+              className={`scroll-mt-32 ${gi > 0 ? "mt-16" : ""}`}
             >
-              <div className="mb-5 flex items-end justify-between gap-4 sm:mb-8">
-                <div>
-                  <h2 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{name}</h2>
-                  <p className="mt-1 text-xs text-foreground/50">
-                    {products.length} {products.length === 1 ? "piece" : "pieces"}
-                  </p>
+              {entry.kind === "group" && (
+                <div className="mb-7 flex items-center gap-3">
+                  <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">
+                    {entry.label}
+                  </h2>
+                  <span className="h-px flex-1 bg-olive-200" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenGroup({ label: name, items: [name] })}
-                  className="flex-shrink-0 whitespace-nowrap rounded-sm border border-olive-400 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-50 sm:px-5 sm:py-2.5 sm:text-xs"
-                >
-                  View All
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
-                {products.slice(0, 4).map((p) => (
-                  <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
-                ))}
-              </div>
-            </section>
+              )}
+              {rendered}
+            </div>
           );
         })}
       </div>
