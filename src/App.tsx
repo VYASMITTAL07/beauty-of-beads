@@ -5146,7 +5146,7 @@ export default function App() {
       </section>
 
       {/* Best Sellers */}
-      <section id="top-picks" className="bg-olive-50 pb-8 pt-1 sm:pb-16">
+      <section id="top-picks" className="pb-8 pt-1 sm:pb-16">
         <div className="mx-auto max-w-6xl">
           <div className="relative mb-3 flex items-center justify-center px-5 sm:mb-8 md:px-8">
             <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Best Sellers</h2>
@@ -5277,7 +5277,7 @@ export default function App() {
       </section>
 
       {/* New Arrivals */}
-      <section id="new-arrivals" className="bg-olive-50 pb-16 pt-4">
+      <section id="new-arrivals" className="pb-16 pt-4">
         <div className="mx-auto max-w-6xl">
           <div className="relative mb-8 flex items-center justify-center px-5 md:px-8">
             <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">New Arrivals</h2>
@@ -5371,7 +5371,7 @@ export default function App() {
       </section>
 
       {/* Currently on Sale */}
-      <section id="sale" className="bg-white pb-6 pt-8">
+      <section id="sale" className="pb-6 pt-8">
         <div className="mx-auto max-w-6xl px-5 md:px-8">
           <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Currently on Sale</h2>
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
@@ -5439,7 +5439,7 @@ export default function App() {
       </section>
 
       {/* Your Next Obsession — edge-to-edge video strip */}
-      <section className="relative overflow-hidden bg-white pb-16 pt-6">
+      <section className="relative overflow-hidden pb-16 pt-6">
         <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Your Next Obsession</h2>
         <div className="relative">
           <button
@@ -5536,7 +5536,7 @@ export default function App() {
       </section>
 
       {/* Story Behind Beauty of Beads */}
-      <section id="story" className="bg-white py-10 sm:py-16">
+      <section id="story" className="py-10 sm:py-16">
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-stretch gap-4 px-5 sm:gap-10 md:grid-cols-2 md:px-8">
           <div className="relative order-2 aspect-[4/3] w-full overflow-hidden shadow-xl md:order-1 md:aspect-auto md:h-full">
             {storyMedia.length > 0 ? (
@@ -5576,7 +5576,7 @@ export default function App() {
       </section>
 
       {/* Follow us on Instagram — same tile size/style as Your Next Obsession, centered, max 4 at a time */}
-      <section className="bg-white pb-10 pt-4 sm:pb-16 sm:pt-6">
+      <section className="pb-10 pt-4 sm:pb-16 sm:pt-6">
         <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Follow us on Instagram</h2>
         <div className="relative mx-auto max-w-5xl px-0 sm:px-5 md:px-8">
           <button
@@ -5636,7 +5636,7 @@ export default function App() {
       </section>
 
       {/* Where's Your Order */}
-      <section className="bg-white py-6 text-center sm:py-10">
+      <section className="py-6 text-center sm:py-10">
         <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Where's Your Order?</h2>
         <p className="mt-3 text-base text-foreground/70">
           {user ? (
@@ -5743,7 +5743,7 @@ export default function App() {
       </section>
 
       {/* FAQs */}
-      <section id="faqs" className="bg-white pb-16 pt-8">
+      <section id="faqs" className="pb-16 pt-8">
         <div className="mx-auto max-w-3xl px-5 md:px-8">
           <h2 className="mb-8 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">FAQs</h2>
           <div className="divide-y divide-border">
