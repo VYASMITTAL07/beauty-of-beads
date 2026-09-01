@@ -1235,6 +1235,12 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
   );
 }
 
+// The order value above which shipping is free. It was written out by hand in
+// four places, which is how three of them ended up saying one number and the
+// policy another. Change it here.
+const FREE_SHIPPING_ABOVE = 6000;
+const FREE_SHIPPING_ABOVE_TEXT = `₹${FREE_SHIPPING_ABOVE.toLocaleString("en-IN")}`;
+
 type LegalType = "privacy" | "terms" | "returns";
 
 // The three policies as published on beautyofbeadsbykhushi.com, carried over
@@ -1363,7 +1369,7 @@ const LEGAL_PAGES: Record<
       {
         heading: "Shipping charges",
         points: [
-          "Flat shipping charges of INR 100/- apply on all domestic orders. We offer free shipping on orders above or up to 5000/-.",
+          `Flat shipping charges of INR 100/- apply on all domestic orders. We offer free shipping on orders above ${FREE_SHIPPING_ABOVE_TEXT}.`,
         ],
       },
       {
@@ -3992,7 +3998,7 @@ function ProductDetailView({
               <div className="rounded-sm border border-dashed border-olive-400 bg-olive-50/60 px-3.5 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-olive-700">Free Shipping</p>
                 <p className="mt-1 text-[11px] leading-snug text-foreground/60">
-                  On orders above ₹3,000. Applied automatically at checkout.
+                  On orders above {FREE_SHIPPING_ABOVE_TEXT}. Applied automatically at checkout.
                 </p>
               </div>
               <div className="rounded-sm border border-dashed border-olive-400 bg-olive-50/60 px-3.5 py-3">
@@ -4007,7 +4013,7 @@ function ProductDetailView({
             <div className="mt-7 grid grid-cols-2 gap-y-5 border-y border-border py-6 text-center sm:grid-cols-4 sm:gap-3">
               <div className="flex flex-col items-center gap-1.5">
                 <Truck className="h-5 w-5 text-foreground/60" />
-                <p className="text-[10.5px] leading-tight text-foreground/60">Free shipping above ₹3,000</p>
+                <p className="text-[10.5px] leading-tight text-foreground/60">Free shipping above {FREE_SHIPPING_ABOVE_TEXT}</p>
               </div>
               <div className="flex flex-col items-center gap-1.5">
                 <Award className="h-5 w-5 text-foreground/60" />
@@ -6018,7 +6024,7 @@ export default function App() {
 
           <div className="mt-12 grid grid-cols-2 gap-6 border-t border-background/10 pt-8 text-center sm:grid-cols-3 md:grid-cols-6">
             {[
-              { Icon: Truck, label: "Free Shipping", sub: "On all orders above ₹3,000" },
+              { Icon: Truck, label: "Free Shipping", sub: `On all orders above ${FREE_SHIPPING_ABOVE_TEXT}` },
               { Icon: ShieldCheck, label: "Secure Payment", sub: "100% safe & trusted checkout" },
               { Icon: Award, label: "Premium Quality", sub: "Handpicked beads & materials" },
               { Icon: Heart, label: "Handcrafted", sub: "Each piece made with love" },
