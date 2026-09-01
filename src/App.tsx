@@ -3595,14 +3595,7 @@ function ProductDetailView({
           {/* ---------- Image gallery ---------- */}
           <div>
             <div
-              // A square frame cropping to fill was cutting the pieces off: the
-              // photos are portrait, and across the catalogue a square showed
-              // only about 72% of each one. The median photo is 0.743 — 3:4 —
-              // so that is the frame, and the image is contained rather than
-              // cropped so a whole piece is always visible. At the median it
-              // fills the frame edge to edge; a taller or squarer photo sits on
-              // the light ground instead of losing its ends.
-              className={`relative aspect-[3/4] w-full touch-pan-y select-none overflow-hidden rounded-sm bg-olive-50 shadow-xl ${
+              className={`relative aspect-square w-full touch-pan-y select-none overflow-hidden rounded-sm shadow-xl ${
                 dragStartX !== null ? "cursor-grabbing" : "cursor-zoom-in"
               }`}
               onPointerDown={handleGalleryPointerDown}
@@ -3627,7 +3620,7 @@ function ProductDetailView({
                   <img
                     src={mediaUrl(gallery[activeImage] as string)}
                     alt={product.name}
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-cover"
                     draggable={false}
                   />
                 ) : (
@@ -3680,7 +3673,7 @@ function ProductDetailView({
                   }`}
                 >
                   {hasRealImages ? (
-                    <img src={cardImage(deg as string)} alt="" className="h-full w-full bg-olive-50 object-contain" draggable={false} onError={(e) => { const el = e.currentTarget; const full = mediaUrl(deg as string); if (el.src !== full) el.src = full; }} />
+                    <img src={mediaUrl(deg as string)} alt="" className="h-full w-full object-cover" draggable={false} />
                   ) : (
                     <BeadStrand colors={product.colors} bg={product.bg} size={20} rotateDeg={deg as number} />
                   )}
