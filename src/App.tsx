@@ -5037,10 +5037,9 @@ export default function App() {
               </button>
             </>
           )}
-          {/* On a phone the whole artwork is now visible, headline and all, and
-              a button laid over it landed straight on that type. It sits under
-              the image there and stays overlaid on the laptop band, where the
-              crop takes the type out anyway. */}
+          {/* Laptop only. On a phone the whole artwork is visible, headline and
+              call to action included, so a button of ours would land on that
+              type and repeat what the picture already says. */}
           <div className="absolute inset-x-0 bottom-4 hidden flex-col items-center gap-2 px-6 sm:flex">
             <a
               href="#top-picks"
@@ -5061,14 +5060,6 @@ export default function App() {
               </div>
             )}
           </div>
-        </div>
-        <div className="flex justify-center px-6 pt-5 sm:hidden">
-          <a
-            href="#top-picks"
-            className="inline-flex items-center gap-2 rounded-sm border border-olive-600 px-8 py-3 text-sm font-medium text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
-          >
-            Shop <ArrowRight className="h-4 w-4" />
-          </a>
         </div>
       </section>
 
