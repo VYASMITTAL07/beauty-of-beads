@@ -1235,8 +1235,195 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
   );
 }
 
-function LegalView({ type, onBack }: { type: "privacy" | "terms"; onBack: () => void }) {
+type LegalType = "privacy" | "terms" | "returns";
+
+// The three policies as published on beautyofbeadsbykhushi.com, carried over
+// word for word. This is the shop's own legal text, so it is reproduced rather
+// than paraphrased — including the parts that need their attention.
+const LEGAL_PAGES: Record<
+  LegalType,
+  { title: string; updated?: string; intro: string; sections: { heading: string; points: string[] }[] }
+> = {
+  privacy: {
+    title: "Privacy Policy",
+    intro:
+      "We are committed to protecting the privacy and security of our customers' personal information. This privacy policy outlines how we collect, use, and protect your information while you shop with us. By using our website, you consent to the terms of this policy.",
+    sections: [
+      {
+        heading: "Collection of information",
+        points: [
+          "We collect personal information such as your name, email address, phone number, and shipping address when you place an order with us.",
+          "We also collect information about your device, browser, and IP address for analytical and security purposes.",
+        ],
+      },
+      {
+        heading: "Use of information",
+        points: [
+          "We use your personal information to fulfill your orders, communicate with you about your order status, and provide customer support.",
+          "We may also use your information to send you promotional offers and marketing materials, unless you opt out of receiving such communications.",
+          "We use analytical tools to understand how our customers interact with our website and improve our services.",
+        ],
+      },
+      {
+        heading: "Protection of information",
+        points: [
+          "We implement reasonable security measures to protect your personal information from unauthorised access, disclosure, or misuse.",
+          "We do not store your credit card information on our servers.",
+        ],
+      },
+      {
+        heading: "Sharing of information",
+        points: [
+          "We do not sell or rent your personal information to third parties.",
+          "We may share your information with our service providers, such as shipping companies and payment processors, to fulfill your orders.",
+          "We may also share your information with law enforcement or regulatory authorities if required by law.",
+        ],
+      },
+      {
+        heading: "Third-party services",
+        points: [
+          "We may use third-party services for analytics, payment gateways and social media. Such providers have their own terms and privacy policies. For these providers, we recommend that you read their privacy policies so you can understand the manner in which your personal information will be handled by these providers.",
+        ],
+      },
+      {
+        heading: "Cookies",
+        points: [
+          "We use cookies to personalize your experience on our website, remember your preferences, and analyze how you interact with our website.",
+          "You can disable cookies on your browser, but this may affect your ability to use our website.",
+        ],
+      },
+      {
+        heading: "Changes to policy",
+        points: [
+          "We may update this privacy policy from time to time to reflect changes in our business practices or legal requirements.",
+          "We will notify you of any material changes to the policy by posting a notice on our website.",
+        ],
+      },
+    ],
+  },
+
+  terms: {
+    title: "Terms & Conditions",
+    updated: "17 August 2024",
+    intro:
+      "Welcome to BEAUTY OF BEADS by KHUSHI DEMBRA. These terms and conditions govern your use of this website and any services provided through it. By accessing or using the website, you agree to be bound by these Terms.",
+    sections: [
+      {
+        heading: "1. Use of website",
+        points: [
+          "You must be at least 18 years old to use the website. If you are under 18, you may only use the website with the supervision of a parent or guardian.",
+          "You agree to use the website for lawful purposes only and will not engage in any activity that harms the website or its content.",
+        ],
+      },
+      {
+        heading: "2. Account registration",
+        points: [
+          "You may need to register an account to make purchases on the website. Registration is free and requires providing accurate information.",
+          "You are responsible for maintaining the confidentiality of your account login credentials and restricting access to your account.",
+        ],
+      },
+      {
+        heading: "3. Product availability and pricing",
+        points: [
+          "We strive to accurately display product availability and pricing on the website, but availability and prices may change without notice.",
+          "All prices are listed in Indian Rupees and are inclusive of applicable taxes.",
+        ],
+      },
+      {
+        heading: "4. Returns and refunds",
+        points: [
+          "Please refer to our Return & Cancellations policy for information on returning products and obtaining refunds.",
+        ],
+      },
+      {
+        heading: "5. Intellectual property",
+        points: [
+          "All trademarks, logos, and content on the website are the property of Meraki Trends and may not be used without permission.",
+        ],
+      },
+      {
+        heading: "6. Limitation of liability",
+        points: [
+          "We are not liable for any direct, indirect, or consequential damages arising from the use of the website or products purchased through it.",
+          "Our liability is limited to the extent permitted by law.",
+        ],
+      },
+      {
+        heading: "7. Governing law",
+        points: [
+          "These Terms are governed by the laws of India, and any disputes shall be resolved in the courts of India.",
+        ],
+      },
+      {
+        heading: "8. Changes to terms",
+        points: [
+          "We reserve the right to modify these Terms at any time. Any changes will be effective immediately upon posting on the website.",
+        ],
+      },
+      {
+        heading: "Shipping charges",
+        points: [
+          "Flat shipping charges of INR 100/- apply on all domestic orders. We offer free shipping on orders above or up to 5000/-.",
+        ],
+      },
+      {
+        heading: "Shipping policy",
+        points: [
+          "Dispatch time: our goal is to provide prompt service by delivering your order within 7-12 days after it has been dispatched.",
+          "Sometimes, unexpected circumstances, like natural disasters or unforeseen events in remote areas, may cause delays beyond our control. We apologize for any inconvenience these situations may cause.",
+          "The responsibility for any delays due to our delivery partner rests with them, as it is beyond our direct control. Nonetheless, we will make every effort to liaise with them on your behalf.",
+          "We recognize the significance of personalized items to you. Given the meticulous customization process involved, these items may take up to 15 days to ensure meticulous care and attention to detail.",
+        ],
+      },
+      {
+        heading: "International shipping",
+        points: [
+          "Shipping charges may vary based on the destination country.",
+          "Prices listed are exclusive of custom duties; please be aware that custom duties are not included in the prices.",
+          "Shipping charges and transit time will vary depending on the location.",
+          "Transit times apply from Monday to Saturday.",
+          "Please ensure that contact details are accurately entered, including the country code and zip code.",
+          "If the shipping pin code falls within a remote area, shipping charges may vary.",
+        ],
+      },
+      {
+        heading: "Need help?",
+        points: [
+          "We value your understanding and patience, and we are dedicated to ensuring you have a positive and satisfying shopping experience. If you have any more questions or concerns, please feel free to contact us anytime - Khushi Dembra, 9545856028.",
+        ],
+      },
+    ],
+  },
+
+  returns: {
+    title: "Return & Cancellations",
+    intro:
+      "At Beauty of Beads we understand the importance of ensuring your complete satisfaction with your purchase. Here is a brief overview of our refund and return policy:",
+    sections: [
+      {
+        heading: "Return policy",
+        points: [
+          "No refunds will be accepted. Only product exchanges are available, exclusively for cases where a product is found to be defective or an incorrect item has been delivered.",
+          "Please refer to the exchange policy below for the same.",
+        ],
+      },
+      {
+        heading: "Exchange policy",
+        points: [
+          "We kindly inform our valued customers that product exchanges are available exclusively for cases where a product is found to be defective or an incorrect item has been delivered.",
+          "If you wish to exchange a product, please notify us within 2 days of receiving the order.",
+          "To initiate the exchange process, please send us a video while unboxing the product to help us better understand the issue.",
+          "We will arrange for a pick-up of the product within 2 days of the exchange request.",
+          "Once we receive the product, we will initiate the exchange process and dispatch the replacement product as soon as possible.",
+        ],
+      },
+    ],
+  },
+};
+
+function LegalView({ type, onBack }: { type: LegalType; onBack: () => void }) {
   useBodyScrollLock();
+  const page = LEGAL_PAGES[type];
 
   return (
     <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans">
@@ -1249,59 +1436,29 @@ function LegalView({ type, onBack }: { type: "privacy" | "terms"; onBack: () => 
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <h1 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">
-          {type === "privacy" ? "Privacy Policy" : "Terms & Conditions"}
-        </h1>
+        <h1 className="font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">{page.title}</h1>
       </div>
 
-      <div className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8 text-sm leading-relaxed text-foreground/80 md:px-8">
-        {type === "privacy" ? (
-          <>
-            <p className="text-xs text-foreground/50">Last updated: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
-            <p>At Beauty of Beads, we respect your privacy and are committed to protecting the personal information you share with us.</p>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Information we collect</h2>
-              <p>When you sign in with Google, create an order, or subscribe to our newsletter, we collect your name, email address, and — for orders — your shipping details. We do not collect or store passwords, since sign-in is handled entirely through Google.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">How we use it</h2>
-              <p>Your information is used only to process and deliver your orders, keep you signed in, save your cart and wishlist, send order updates, and — if you've opted in — share news about new collections and offers. We never sell your information to third parties.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Data storage</h2>
-              <p>Your data is stored securely and is only accessible to you (via your account) and to us, for the purpose of fulfilling your orders and providing support.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Your choices</h2>
-              <p>You can unsubscribe from our newsletter at any time, and you can reach out to us via WhatsApp if you'd like your account data reviewed, updated, or deleted.</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-xs text-foreground/50">Last updated: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
-            <p>Welcome to Beauty of Beads. By placing an order or using this site, you agree to the following terms.</p>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Products</h2>
-              <p>All our pieces are handmade, so minor variations in colour, size, and finish compared to photos are normal and part of the charm of handcrafted work.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Orders &amp; payment</h2>
-              <p>Orders are confirmed once payment is completed. We currently do not offer Cash on Delivery. Please double-check your shipping address before placing an order, as we begin preparing your piece soon after confirmation.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Shipping</h2>
-              <p>Dispatch and delivery timelines are shared on the product and FAQ pages. We ship across India and, in select cases, internationally.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Returns &amp; exchanges</h2>
-              <p>As each piece is made to order, we currently do not accept returns. If an item arrives damaged or incorrect, please contact us within 48 hours of delivery with photos and we'll make it right.</p>
-            </div>
-            <div>
-              <h2 className="mb-1.5 font-serif text-base text-foreground">Contact</h2>
-              <p>For any questions about these terms, reach out to us via WhatsApp from the Contact Us link in the footer.</p>
-            </div>
-          </>
-        )}
+      <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-5 py-8 text-sm leading-relaxed text-foreground/80 md:px-8">
+        {/* Only a real date, never today's. The previous version stamped the
+            current date on every render, so the policy claimed to have been
+            updated the moment you opened it. */}
+        {page.updated && <p className="text-xs text-foreground/50">Last updated: {page.updated}</p>}
+        <p>{page.intro}</p>
+        {page.sections.map((section) => (
+          <div key={section.heading}>
+            <h2 className="mb-2 font-serif text-base text-foreground">{section.heading}</h2>
+            {section.points.length === 1 ? (
+              <p>{section.points[0]}</p>
+            ) : (
+              <ul className="list-disc space-y-1.5 pl-5">
+                {section.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -4179,7 +4336,7 @@ export default function App() {
       products: allProducts.filter((p) => items.includes(p.category.toLowerCase())),
     });
   };
-  const [legalView, setLegalView] = useState<"privacy" | "terms" | null>(null);
+  const [legalView, setLegalView] = useState<LegalType | null>(null);
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [allCollectionsOpen, setAllCollectionsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -5809,6 +5966,7 @@ export default function App() {
                   <li className="cursor-pointer hover:text-background" onClick={openOrdersView}>Track Your Order</li>
                   <li className="cursor-pointer hover:text-background" onClick={() => setLegalView("privacy")}>Privacy Policy</li>
                   <li className="cursor-pointer hover:text-background" onClick={() => setLegalView("terms")}>Terms and Conditions</li>
+                  <li className="cursor-pointer hover:text-background" onClick={() => setLegalView("returns")}>Return &amp; Cancellations</li>
                   <li><a href="#faqs" className="transition-colors hover:text-background">FAQs</a></li>
                   <li>
                     <a
