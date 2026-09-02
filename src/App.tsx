@@ -541,6 +541,11 @@ function buildCategoryMenu(categories: string[]): CategoryMenuEntry[] {
   return entries;
 }
 
+// The shop's Instagram, as linked from the social row on
+// beautyofbeadsbykhushi.com — the other handle that appears there sits only in
+// old SEO metadata and isn't the one they use.
+const INSTAGRAM_URL = "https://www.instagram.com/beauty_of_beads_official";
+
 const HERO_SLIDES = [
   { colors: ["#C1653A", "#DDBB6E", "#F1E4D3", "#833E20"], bg: "linear-gradient(135deg,#F6E7D8,#E3C593)" },
   { colors: ["#6B7658", "#E4E6D9", "#C79A3E", "#F1E4D3"], bg: "linear-gradient(135deg,#E9EBDE,#D3D8C2)" },
@@ -3024,6 +3029,27 @@ function OrdersView({
                 )}
               </div>
 
+              {/* The point at which customisation is actually arranged. It sits
+                  above the tracker because it is the thing to do next, and it
+                  goes straight to Instagram, where the karigar answers. */}
+              {selected.order.status !== "cancelled" && (
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between gap-4 rounded-sm border border-olive-300 bg-olive-50/70 p-5 transition-colors hover:border-olive-500 md:p-6"
+                >
+                  <div>
+                    <p className="font-serif text-base text-olive-600">Need customisation?</p>
+                    <p className="mt-1 text-sm leading-relaxed text-foreground/70">
+                      Connect with our karigar and tell them what you'd like changed — colour, size, or the pieces in
+                      the set.
+                    </p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 shrink-0 text-olive-600 transition-transform group-hover:translate-x-0.5" />
+                </a>
+              )}
+
               {selected.order.status === "awaiting_payment" ? (
                 <CustomOrderConfirmCard order={selected.order} onConfirmed={() => loadOrder(selected.order.order_number)} />
               ) : (
@@ -4323,6 +4349,19 @@ function ProductDetailView({
             <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
 
             <p className="mt-5 max-w-md text-sm leading-relaxed text-foreground/75">{description}</p>
+
+            {/* Customisation is arranged with the maker directly, not through
+                the basket — so this says plainly, before anyone orders, that
+                the option comes after the order rather than during it. */}
+            <div className="mt-5 max-w-md rounded-sm border border-olive-300 bg-olive-50/70 px-4 py-3">
+              <p className="font-serif text-base leading-snug text-olive-600">
+                Want it customised?
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground/75">
+                Place your order first — you'll then get the option to connect with our karigar and tell them exactly
+                what you want.
+              </p>
+            </div>
 
             {/* Product videos — kept out of the photo gallery, shown alongside the description instead */}
             {product.videos && product.videos.length > 0 && (
