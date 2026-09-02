@@ -123,17 +123,22 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
       )
     )
       return;
+    // The server works to a subrequest budget and says where it stopped, so
+    // this walks position by position rather than page by page — a page of
+    // twenty products can need far more fetches than one request is allowed.
     let page = 1;
+    let offset = 0;
     let updated = 0;
     try {
-      for (;;) {
+      for (let call = 0; call < 200; call++) {
         setImportingVariants({ page, totalPages: 0, updated });
-        const r = await adminApi.products.importVariants(page);
+        const r = await adminApi.products.importVariants(page, offset);
         updated += r.updated;
         setImportingVariants({ page, totalPages: r.totalPages, updated });
-        if (r.remaining <= 0) break;
-        page += 1;
-        if (page > 40) break; // the catalogue is five pages; this is only a stop
+        if (r.done) break;
+        page = r.nextPage;
+        offset = r.nextOffset;
+        if (r.totalPages && page > r.totalPages) break;
       }
       onSuccess(updated === 0 ? "No products needed options." : `${updated} product(s) now have their options.`);
       load();

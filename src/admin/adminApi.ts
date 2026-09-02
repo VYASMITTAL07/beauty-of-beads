@@ -266,11 +266,16 @@ export const adminApi = {
     // batch per call. Repeat until `remaining` is 0.
     // Pulls the option groups off the old site onto matching products, a page
     // at a time. Repeat until `remaining` is 0.
-    importVariants: (page: number) =>
-      request<{ page: number; totalPages: number; total: number; matched: number; updated: number; unmatched: string[]; remaining: number }>(
-        "/api/admin/products/import-variants",
-        { method: "POST", body: JSON.stringify({ page }) }
-      ),
+    importVariants: (page: number, offset: number) =>
+      request<{
+        page: number;
+        totalPages: number;
+        matched: number;
+        updated: number;
+        nextPage: number;
+        nextOffset: number;
+        done: boolean;
+      }>("/api/admin/products/import-variants", { method: "POST", body: JSON.stringify({ page, offset }) }),
     migrateImages: () =>
       request<{ migrated: number; remaining: number; total: number; failed: number; failures: string[] }>(
         "/api/admin/products/migrate-images",
