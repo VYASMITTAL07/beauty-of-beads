@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,6 +70,8 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   const [migrating, setMigrating] = useState<{ done: number; total: number } | null>(null);
   const [hotlinked, setHotlinked] = useState(0);
   const [hidden, setHidden] = useState(0);
+  const [deduping, setDeduping] = useState<{ done: number; total: number } | null>(null);
+  const [showDuplicates, setShowDuplicates] = useState(false);
   const [showingAll, setShowingAll] = useState(false);
 
   useEffect(() => {
@@ -77,6 +79,71 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
     setHotlinked(products.filter((p) => p.images.some((u) => u.includes("beautyofbeadsbykhushi.com"))).length);
     setHidden(products.filter((p) => !p.active).length);
   }, [products]);
+
+  // Products that exist twice under the same name, from an import that ran a
+  // second time. Both copies show in their category, in search and on the
+  // homepage, so a category of 36 pieces reads as 47.
+  //
+  // The one to keep is the one that was there first — the lower id. The later
+  // copy is the accident, and it is the later copy that carries the odd
+  // category spelling ("Hair Pins" against the real "HAIR PINS"), which is how
+  // a few of them ended up in no category at all.
+  const duplicates = useMemo(() => {
+    if (!products) return [];
+    const byName = new Map<string, AdminProduct[]>();
+    for (const p of products) {
+      const key = p.name.trim().toLowerCase();
+      const list = byName.get(key);
+      if (list) list.push(p);
+      else byName.set(key, [p]);
+    }
+    const extras: { keep: AdminProduct; remove: AdminProduct }[] = [];
+    for (const list of byName.values()) {
+      if (list.length < 2) continue;
+      const sorted = [...list].sort((a, b) => a.id - b.id);
+      const keep = sorted[0];
+      for (const remove of sorted.slice(1)) extras.push({ keep, remove });
+    }
+    return extras;
+  }, [products]);
+
+  // Deleting is not undoable from here, so it goes one at a time with the count
+  // reported from what actually succeeded rather than what was attempted.
+  const removeDuplicates = async () => {
+    if (duplicates.length === 0) return;
+    if (
+      !confirm(
+        `Delete ${duplicates.length} duplicate product(s)?\n\n` +
+          `Each one is a second copy of a product that stays. The original is kept in every case. ` +
+          `This cannot be undone from here.`
+      )
+    )
+      return;
+
+    setDeduping({ done: 0, total: duplicates.length });
+    let deleted = 0;
+    const failures: string[] = [];
+    try {
+      for (let i = 0; i < duplicates.length; i++) {
+        setDeduping({ done: i, total: duplicates.length });
+        try {
+          await adminApi.products.remove(duplicates[i].remove.id, true);
+          deleted += 1;
+        } catch (e) {
+          failures.push(`${duplicates[i].remove.name}: ${e instanceof AdminApiError ? e.message : "failed"}`);
+        }
+      }
+      onSuccess(
+        deleted === 0
+          ? "Nothing was deleted."
+          : `${deleted} duplicate(s) removed. Every original was kept.`
+      );
+      if (failures.length) onError(`${failures.length} couldn't be deleted: ${failures.slice(0, 3).join("; ")}`);
+      load();
+    } finally {
+      setDeduping(null);
+    }
+  };
 
   // A hidden product is invisible to the storefront, so a catalogue that is
   // mostly hidden looks like one that is mostly missing.
@@ -213,6 +280,48 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
           <Button onClick={showAll} disabled={showingAll} className="mt-3 bg-olive-600 hover:bg-black">
             {showingAll ? "Updating…" : "Make them all visible"}
           </Button>
+        </div>
+      )}
+
+      {duplicates.length > 0 && (
+        <div className="mt-5 rounded-md border border-clay-300 bg-clay-50/60 p-4 sm:p-5">
+          <p className="font-serif text-base text-clay-600">
+            {duplicates.length} product(s) are in the catalogue twice
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground/65">
+            An import appears to have run twice. Both copies show up in their category, in search and on the homepage —
+            which is why a category of 36 pieces reads as 47. Removing the second copy of each leaves every original
+            untouched.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button onClick={removeDuplicates} disabled={!!deduping} className="bg-olive-600 hover:bg-black">
+              {deduping ? `Removing ${deduping.done + 1} of ${deduping.total}…` : `Remove ${duplicates.length} duplicate(s)`}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setShowDuplicates((v) => !v)}
+              className="text-xs font-semibold uppercase tracking-wide text-olive-600 underline underline-offset-2"
+            >
+              {showDuplicates ? "Hide the list" : "Show me which ones"}
+            </button>
+          </div>
+
+          {showDuplicates && (
+            <div className="mt-4 max-h-72 overflow-y-auto rounded-sm border border-border bg-card">
+              {duplicates.map(({ keep, remove }) => (
+                <div
+                  key={remove.id}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border/60 px-3 py-2 text-xs last:border-b-0"
+                >
+                  <span className="font-medium text-foreground">{remove.name}</span>
+                  <span className="text-foreground/55">
+                    keeping #{keep.id} ({keep.category || "no category"}) · deleting #{remove.id} (
+                    {remove.category || "no category"})
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
