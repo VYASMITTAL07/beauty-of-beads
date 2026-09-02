@@ -949,6 +949,10 @@ function AllCollectionsView({
   const goToFamily = (label: string) => goTo(`[data-category="${CSS.escape(label)}"]`);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [openChip, setOpenChip] = useState<string | null>(null);
+  // Where to put the panel. On a phone it simply fills the width; on a laptop
+  // it sits under the chip that opened it, because a list of ten short names
+  // stretched across 1200px looks like a mistake.
+  const [chipLeft, setChipLeft] = useState(0);
 
   const shownCategories = categories.filter(
     (name) => loading || allProducts.some((p) => p.category.toLowerCase() === name.toLowerCase())
@@ -1048,6 +1052,9 @@ function AllCollectionsView({
                     onClick={() => {
                       // A family opens its list; a lone category just goes there.
                       if (entry.kind === "group") {
+                        const strip = stripRef.current;
+                        const chip = chipRefs.current[entry.label];
+                        if (strip && chip) setChipLeft(Math.max(0, chip.offsetLeft - strip.scrollLeft - 20));
                         setOpenChip(isOpen ? null : entry.label);
                       } else {
                         setOpenChip(null);
@@ -1074,7 +1081,10 @@ function AllCollectionsView({
             {openChip && (
               <>
                 <div className="fixed inset-0 z-0" onClick={() => setOpenChip(null)} aria-hidden="true" />
-                <div className="absolute inset-x-3 top-full z-10 max-h-72 overflow-y-auto rounded-md border border-border bg-card shadow-xl md:inset-x-6">
+                <div
+                  className="absolute right-3 top-full z-10 max-h-72 overflow-y-auto rounded-md border border-border bg-card shadow-xl max-md:left-3 md:right-auto md:w-72"
+                  style={{ left: window.innerWidth >= 768 ? chipLeft + 12 : undefined }}
+                >
                   {(pageGroups.find((g) => g.label === openChip) as { kind: "group"; items: string[] } | undefined)?.items.map((name) => {
                     const count = allProducts.filter((p) => p.category.toLowerCase() === name.toLowerCase()).length;
                     if (count === 0 && !loading) return null;
@@ -5250,20 +5260,42 @@ export default function App() {
                     panel — it has its own light background, so the light text
                     meant for the video would be invisible on it. */}
                 <div className="header-popover invisible absolute right-0 top-full z-50 flex overflow-hidden rounded-xl border border-border bg-card opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
-                  <div className="max-h-[70vh] w-64 divide-y divide-border/60 overflow-y-auto border-r border-border bg-olive-50/50 py-2">
-                    {menuCategories.map((name) => (
-                      <button
-                        key={name}
-                        onMouseEnter={() => setActiveCategory(name)}
-                        onClick={() => openCategoryView(name)}
-                        className={`flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide transition-colors ${
-                          hoveredCategory === name ? "bg-card text-olive-500" : "text-foreground/70 hover:bg-card/70"
-                        }`}
-                      >
-                        <span className="min-w-0 truncate">{name}</span>
-                        <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                      </button>
+                  {/* Grouped into families, the same as the phone menu and the
+                      Collections page — a flat run of twenty-one names here was
+                      the same wall of text it was there. Hovering a category
+                      still previews its pieces in the pane beside. */}
+                  <div className="max-h-[70vh] w-64 overflow-y-auto border-r border-border bg-olive-50/50 py-2">
+                    {categoryMenu.map((entry) => (
+                      <div key={entry.label}>
+                        {entry.kind === "group" && (
+                          <p className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-olive-600/70">
+                            {entry.label}
+                          </p>
+                        )}
+                        {(entry.kind === "group" ? entry.items : [entry.label]).map((name) => (
+                          <button
+                            key={name}
+                            onMouseEnter={() => setActiveCategory(name)}
+                            onClick={() => openCategoryView(name)}
+                            className={`flex w-full items-center justify-between gap-2 py-2.5 pr-5 text-left text-xs font-semibold uppercase tracking-wide transition-colors ${
+                              entry.kind === "group" ? "pl-7" : "pl-5"
+                            } ${hoveredCategory === name ? "bg-card text-olive-500" : "text-foreground/70 hover:bg-card/70"}`}
+                          >
+                            <span className="min-w-0 truncate">{name}</span>
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
                     ))}
+                    {/* The full Collections page had no way in from a laptop at
+                        all — it was only reachable from the phone menu. */}
+                    <button
+                      onClick={() => setAllCollectionsOpen(true)}
+                      className="mt-2 flex w-full items-center justify-between gap-2 border-t border-border/60 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-card"
+                    >
+                      View all collections
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    </button>
                   </div>
                   <div className="max-h-[70vh] w-60 overflow-y-auto p-5">
                     <ul className="space-y-2 text-sm">
