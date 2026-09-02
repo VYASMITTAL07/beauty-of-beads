@@ -6212,8 +6212,8 @@ export default function App() {
       </section>
 
       {/* Reviews */}
-      <section id="reviews" className="relative overflow-hidden bg-olive-400 pb-4 pt-6">
-        <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-white md:text-3xl">Reviews</h2>
+      <section id="reviews" className="relative overflow-hidden bg-olive-400 pb-5 pt-5">
+        <h2 className="mb-4 text-center font-serif text-2xl uppercase tracking-wide text-white md:text-3xl">Reviews</h2>
         <button
           aria-label="Next review"
           onClick={() => scrollRow(reviewScrollRef, 1)}
@@ -6228,7 +6228,7 @@ export default function App() {
           {[...homepageReviews, ...homepageReviews].map((r, idx) => (
             <div
               key={`${r.name}-${idx}`}
-              className="flex-shrink-0 basis-[calc((100%-2rem)/2)] text-center sm:basis-[30%] md:basis-[18%]"
+              className="flex-shrink-0 basis-[calc((100%-2rem)/2)] text-center sm:basis-[38%] md:basis-[26%] lg:basis-[22%]"
               style={{ minWidth: 0 }}
             >
               <p className="text-xs font-semibold text-white sm:text-sm">{r.name}</p>
@@ -6240,7 +6240,7 @@ export default function App() {
                   />
                 ))}
               </div>
-              <p className="mx-auto mt-2 max-w-xs text-xs leading-snug text-white/80 sm:mt-3 sm:text-sm sm:leading-relaxed">
+              <p className="mx-auto mt-2 line-clamp-4 max-w-xs text-xs leading-snug text-white/80 sm:mt-3 sm:text-sm sm:leading-relaxed">
                 {r.text}
               </p>
             </div>
