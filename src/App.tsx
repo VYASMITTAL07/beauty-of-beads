@@ -1606,7 +1606,7 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
 // The order value above which shipping is free. It was written out by hand in
 // four places, which is how three of them ended up saying one number and the
 // policy another. Change it here.
-const FREE_SHIPPING_ABOVE = 6000;
+const FREE_SHIPPING_ABOVE = 2500;
 const FREE_SHIPPING_ABOVE_TEXT = `₹${FREE_SHIPPING_ABOVE.toLocaleString("en-IN")}`;
 
 type LegalType = "privacy" | "terms" | "returns";
