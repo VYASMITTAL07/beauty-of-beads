@@ -3911,23 +3911,23 @@ function SpotlightCard({
         <Heart className={`h-4 w-4 ${wishlist.has(p.name) ? "fill-olive-500 text-olive-500" : "text-foreground/60"}`} />
       </button>
       <div className="pt-2 sm:pt-3">
-        <p className="text-[9px] uppercase tracking-wide text-foreground/55 sm:text-[11px]">{p.category}</p>
+        <p className="text-[9px] uppercase tracking-wide text-olive-50/70 sm:text-[11px]">{p.category}</p>
         <button type="button" onClick={() => onOpen(p)} className="text-left">
-          <h3 className="mt-0.5 line-clamp-2 font-serif text-[12px] leading-snug text-foreground hover:text-olive-600 sm:mt-1 sm:text-[15px]">{p.name}</h3>
+          <h3 className="mt-0.5 line-clamp-2 font-serif text-[12px] leading-snug text-olive-50 hover:text-gold-300 sm:mt-1 sm:text-[15px]">{p.name}</h3>
         </button>
-        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-foreground/60 sm:mt-1.5 sm:text-[12px]">
-          <Star className="h-2.5 w-2.5 fill-gold-400 text-gold-400 sm:h-3 sm:w-3" />
+        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-olive-50/70 sm:mt-1.5 sm:text-[12px]">
+          <Star className="h-2.5 w-2.5 fill-gold-300 text-gold-300 sm:h-3 sm:w-3" />
           {p.rating}
         </div>
         <div className="mt-0 flex items-baseline gap-1.5 sm:mt-2 sm:gap-2">
-          <span className="font-serif text-sm text-foreground sm:text-lg">{formatPrice(p.price, currency)}</span>
-          <span className="text-[10px] text-muted-foreground line-through sm:text-xs">{formatPrice(p.mrp, currency)}</span>
-          <span className="text-[10px] font-medium text-olive-600 sm:text-xs">{discount}% off</span>
+          <span className="font-serif text-sm text-olive-50 sm:text-lg">{formatPrice(p.price, currency)}</span>
+          <span className="text-[10px] text-olive-50/50 line-through sm:text-xs">{formatPrice(p.mrp, currency)}</span>
+          <span className="text-[10px] font-medium text-gold-300 sm:text-xs">{discount}% off</span>
         </div>
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-1.5 w-full rounded-sm py-1.5 text-xs font-medium transition-colors sm:mt-3 sm:py-2 sm:text-sm ${
-            isAdded ? "bg-olive-400 text-olive-50" : "bg-olive-600 text-olive-50 hover:bg-black"
+            isAdded ? "bg-olive-600 text-olive-50" : "bg-olive-50 text-foreground hover:bg-black hover:text-white"
           }`}
         >
           {isAdded ? "Added ✓" : "Add to Bag"}
@@ -6032,9 +6032,9 @@ export default function App() {
       </section>
 
       {/* Perfect Match — spotlight carousel */}
-      <section id="spotlight" className="relative overflow-hidden pb-2 pt-6 sm:pb-4">
+      <section id="spotlight" className="relative overflow-hidden bg-olive-400 pb-2 pt-6 sm:pb-4">
         <div className="relative mb-2 flex items-center justify-center px-5 text-center sm:mb-8 md:px-8">
-          <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">
+          <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-50 md:text-3xl">
             <span className="sm:hidden">Our </span>
             <span className="hidden sm:inline">Beauty of Beads </span>
             <span className="text-gold-400">Spotlight</span>
@@ -6043,14 +6043,14 @@ export default function App() {
         <button
           aria-label="Previous spotlight item"
           onClick={() => setSpotlightActive((i) => (i - 1 + spotlightPicks.length) % spotlightPicks.length)}
-          className="absolute left-2 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-olive-100 text-olive-600 backdrop-blur-sm transition-colors hover:bg-olive-200 md:left-4"
+          className="absolute left-2 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-olive-50 backdrop-blur-sm transition-colors hover:bg-white/20 md:left-4"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
         <button
           aria-label="Next spotlight item"
           onClick={() => setSpotlightActive((i) => (i + 1) % spotlightPicks.length)}
-          className="absolute right-2 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-olive-100 text-olive-600 backdrop-blur-sm transition-colors hover:bg-olive-200 md:right-4"
+          className="absolute right-2 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-olive-50 backdrop-blur-sm transition-colors hover:bg-white/20 md:right-4"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -6071,7 +6071,7 @@ export default function App() {
                   className={`relative origin-center cursor-pointer transition-all duration-500 ease-out will-change-transform ${isCenter ? "z-10 scale-[1.015] sm:scale-110" : "z-0 scale-90 opacity-70"}`}
                 >
                   {isCenter && (
-                    <span className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-1/2 scale-[0.909] whitespace-nowrap rounded-sm bg-olive-600 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-olive-50 shadow-sm">
+                    <span className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-1/2 scale-[0.909] whitespace-nowrap rounded-sm bg-black px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-olive-50 shadow-sm">
                       Trending
                     </span>
                   )}
@@ -6212,12 +6212,12 @@ export default function App() {
       </section>
 
       {/* Reviews */}
-      <section id="reviews" className="relative overflow-hidden pb-4 pt-6">
-        <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Reviews</h2>
+      <section id="reviews" className="relative overflow-hidden bg-olive-400 pb-4 pt-6">
+        <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-white md:text-3xl">Reviews</h2>
         <button
           aria-label="Next review"
           onClick={() => scrollRow(reviewScrollRef, 1)}
-          className="absolute right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-olive-100 text-olive-600 backdrop-blur-sm transition-colors hover:bg-olive-200 sm:flex md:right-4"
+          className="absolute right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:flex md:right-4"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -6231,16 +6231,16 @@ export default function App() {
               className="flex-shrink-0 basis-[calc((100%-2rem)/2)] text-center sm:basis-[30%] md:basis-[18%]"
               style={{ minWidth: 0 }}
             >
-              <p className="text-xs font-semibold text-olive-600 sm:text-sm">{r.name}</p>
+              <p className="text-xs font-semibold text-white sm:text-sm">{r.name}</p>
               <div className="mt-1.5 flex items-center justify-center gap-0.5 sm:mt-2">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${i < r.rating ? "fill-gold-400 text-gold-400" : "fill-olive-200 text-olive-200"}`}
+                    className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${i < r.rating ? "fill-gold-400 text-gold-400" : "fill-white/20 text-white/20"}`}
                   />
                 ))}
               </div>
-              <p className="mx-auto mt-2 max-w-xs text-xs leading-snug text-foreground/70 sm:mt-3 sm:text-sm sm:leading-relaxed">
+              <p className="mx-auto mt-2 max-w-xs text-xs leading-snug text-white/80 sm:mt-3 sm:text-sm sm:leading-relaxed">
                 {r.text}
               </p>
             </div>
@@ -6379,7 +6379,7 @@ export default function App() {
         neither is fighting the other. Copy is deliberately about the pieces —
         no address or opening hours are invented here.
       */}
-      <section className=" text-olive-600">
+      <section className="bg-olive-600 text-background">
         <div className="grid md:grid-cols-[1.1fr_1fr] md:items-stretch">
           <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-auto md:min-h-[560px]">
             {storeVisitBannerImages.length > 0 ? (
@@ -6409,34 +6409,34 @@ export default function App() {
             <div>
               <div className="flex items-center gap-3">
                 <span className="h-px w-10 bg-gold-300/70" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.32em] text-olive-600">Visit Us</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-300">Visit Us</span>
               </div>
-              <h2 className="mt-5 font-serif text-3xl leading-tight text-olive-600 md:text-[1.85rem] lg:text-[2.6rem]">
+              <h2 className="mt-5 font-serif text-3xl leading-tight text-background md:text-[1.85rem] lg:text-[2.6rem]">
                 Want to meet us in person?
               </h2>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-foreground/70 md:text-[15px]">
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-background/70 md:text-[15px]">
                 See the pieces up close — the weight of the beads, the shine of the thread, and the
                 small details a photograph can never quite carry.
               </p>
             </div>
 
-            <div className="h-px w-full bg-olive-100" />
+            <div className="h-px w-full bg-background/15" />
 
             <ul className="flex flex-col gap-4">
               <li className="flex items-start gap-3.5">
-                <Sparkles className="mt-0.5 h-[18px] w-[18px] shrink-0 text-olive-600" />
-                <span className="text-sm text-foreground/70">Handmade, and made to order</span>
+                <Sparkles className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gold-300" />
+                <span className="text-sm text-background/75">Handmade, and made to order</span>
               </li>
               <li className="flex items-start gap-3.5">
-                <MessageCircle className="mt-0.5 h-[18px] w-[18px] shrink-0 text-olive-600" />
-                <span className="text-sm text-foreground/70">Message us and we'll arrange a time</span>
+                <MessageCircle className="mt-0.5 h-[18px] w-[18px] shrink-0 text-gold-300" />
+                <span className="text-sm text-background/75">Message us and we'll arrange a time</span>
               </li>
             </ul>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center md:flex-col md:items-start lg:flex-row lg:items-center">
               <a
                 href="#contact"
-                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm bg-olive-600 px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-olive-50 transition-colors hover:bg-black hover:text-olive-50"
+                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm bg-background px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-gold-300 hover:text-olive-600"
               >
                 Visit Our Store
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -6445,7 +6445,7 @@ export default function App() {
                 href="https://wa.me/919999999999"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border border-olive-300 px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:border-gold-300 hover:text-gold-300"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border border-background/35 px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-background transition-colors hover:border-gold-300 hover:text-gold-300"
               >
                 <MessageCircle className="h-4 w-4" />
                 WhatsApp
