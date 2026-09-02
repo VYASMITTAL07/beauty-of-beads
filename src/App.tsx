@@ -28,6 +28,7 @@ import {
   type ProductCardDto,
   type HomepagePayload,
   type HomepageSectionKey,
+  type ProductVariantGroup,
 } from "@/lib/api";
 import { SCRAPED_PRODUCTS } from "@/data/scrapedProducts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -202,7 +203,31 @@ type Product = {
   // (falls back to decorative hex swatches for the BeadStrand placeholder graphic)
   // and must never be shown to a shopper as if it were a real colour option.
   colorOptions?: string[];
+  /** Option groups the buyer picks from, e.g. which piece of a set they want
+   *  and whether they want it in a custom colour. A choice carrying a price
+   *  replaces the product's price while it is selected. */
+  variants?: ProductVariantGroup[];
 };
+
+/** The price to charge given the current selections: the priced choice if one
+ *  is selected, otherwise the product's own price. */
+function priceForSelection(p: Product, selected: Record<string, string>): number {
+  for (const group of p.variants || []) {
+    const choice = group.choices.find((c) => c.label === selected[group.name]);
+    if (choice && typeof choice.price === "number") return choice.price;
+  }
+  return p.price;
+}
+
+/** The span a listing covers when its choices are priced differently, so a card
+ *  can say "₹800 – ₹8,000" instead of picking one of them to show. */
+function priceRange(p: Product): { min: number; max: number } | null {
+  const priced = (p.variants || []).flatMap((g) => g.choices.map((c) => c.price).filter((v): v is number => typeof v === "number"));
+  if (priced.length < 2) return null;
+  const min = Math.min(...priced);
+  const max = Math.max(...priced);
+  return max > min ? { min, max } : null;
+}
 
 // Converts the backend's card shape into the shape the storefront has always
 // used internally, deriving `tag` and the `bg`/`colors` fallbacks the same way
@@ -224,6 +249,7 @@ function cardDtoToProduct(d: ProductCardDto): Product {
     isFeatured: d.isFeatured,
     isSpotlight: d.isSpotlight,
     colorOptions: d.colors.length ? d.colors : undefined,
+    variants: d.variants?.length ? d.variants : undefined,
   };
 }
 
@@ -3751,11 +3777,22 @@ function ProductCard({
           <Star className="h-3 w-3 fill-gold-400 text-gold-400" />
           {p.rating}
         </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="font-serif text-lg">{formatPrice(p.price, currency)}</span>
-          <span className="text-xs text-muted-foreground line-through">{formatPrice(p.mrp, currency)}</span>
-          <span className="text-xs font-medium text-olive-600">{discount}% off</span>
-        </div>
+        {/* A set sold as one listing prices each piece differently, so the card
+            shows what it spans rather than one figure that is wrong for most of
+            the choices. */}
+        {priceRange(p) ? (
+          <div className="mt-2">
+            <span className="font-serif text-lg">
+              {formatPrice(priceRange(p)!.min, currency)} – {formatPrice(priceRange(p)!.max, currency)}
+            </span>
+          </div>
+        ) : (
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="font-serif text-lg">{formatPrice(p.price, currency)}</span>
+            <span className="text-xs text-muted-foreground line-through">{formatPrice(p.mrp, currency)}</span>
+            <span className="text-xs font-medium text-olive-600">{discount}% off</span>
+          </div>
+        )}
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-3 w-full rounded-sm py-2 text-sm font-medium transition-colors ${
@@ -3983,7 +4020,6 @@ function ProductDetailView({
     };
   }, [product.name]);
 
-  const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const isWishlisted = wishlist.has(product.name);
   const { currency } = useCurrency();
   const related = (() => {
@@ -4033,6 +4069,21 @@ function ProductDetailView({
     else if (delta < -SWIPE_THRESHOLD) goToImage(1);
     setDragStartX(null);
   };
+  // One selection per option group, defaulting to the first choice so the page
+  // always shows a real price rather than asking before it will say anything.
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() =>
+    Object.fromEntries((product.variants || []).map((g) => [g.name, g.choices[0]?.label ?? ""]))
+  );
+  useEffect(() => {
+    setSelectedOptions(Object.fromEntries((product.variants || []).map((g) => [g.name, g.choices[0]?.label ?? ""])));
+  }, [product.slug, product.variants]);
+
+  const unitPrice = priceForSelection(product, selectedOptions);
+  // Keep the discount honest when a choice sets its own price: the listing's
+  // mrp belongs to its base price, so scale it rather than showing a saving
+  // that was never offered on this choice.
+  const unitMrp = unitPrice === product.price ? product.mrp : Math.round(unitPrice * (product.mrp / (product.price || 1)));
+
   const description =
     product.description ||
     PRODUCT_DESCRIPTIONS[product.category] ||
@@ -4052,10 +4103,16 @@ function ProductDetailView({
   // When a colour is selected, fold it into the cart line's product name (there's no
   // backend field for "selected colour on an order item" yet) so it shows up
   // distinctly in the cart/order — e.g. "Rose Gold Hair Pin - Rose Gold".
-  const cartProduct: Product =
-    selectedColor && product.colorOptions && product.colorOptions.length > 0
-      ? { ...product, name: `${product.name} - ${selectedColor}` }
-      : product;
+  // The order has no field for "which option was picked", so the choices go
+  // into the line's name — the same way the colour already did — and the price
+  // goes with them, or a set would be charged at its cheapest piece.
+  const chosenSuffix = [
+    ...(product.variants || []).map((g) => selectedOptions[g.name]).filter(Boolean),
+    ...(selectedColor && product.colorOptions?.length ? [selectedColor] : []),
+  ];
+  const cartProduct: Product = chosenSuffix.length
+    ? { ...product, name: `${product.name} - ${chosenSuffix.join(", ")}`, price: unitPrice, mrp: unitMrp }
+    : product;
 
   const handleAddToBag = () => {
     addProductWithQuantity(cartProduct, quantity);
@@ -4238,9 +4295,15 @@ function ProductDetailView({
             </div>
 
             <div className="mt-4 flex items-baseline gap-3">
-              <span className="font-serif text-3xl text-foreground">{formatPrice(product.price, currency)}</span>
-              <span className="text-base text-muted-foreground line-through">{formatPrice(product.mrp, currency)}</span>
-              <span className="text-sm font-medium text-olive-600">{discount}% off</span>
+              <span className="font-serif text-3xl text-foreground">{formatPrice(unitPrice, currency)}</span>
+              {unitMrp > unitPrice && (
+                <>
+                  <span className="text-base text-muted-foreground line-through">{formatPrice(unitMrp, currency)}</span>
+                  <span className="text-sm font-medium text-olive-600">
+                    {Math.round(((unitMrp - unitPrice) / unitMrp) * 100)}% off
+                  </span>
+                </>
+              )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
 
@@ -4265,6 +4328,33 @@ function ProductDetailView({
                 </div>
               </div>
             )}
+
+            {/* Option groups — which piece of a set, and whether it's wanted in a
+                custom colour. A set is sold as one listing, so the choice of
+                piece is what sets the price; the price above follows it. */}
+            {(product.variants || []).map((group) => (
+              <div key={group.name} className="mt-6">
+                <label
+                  htmlFor={`opt-${group.name}`}
+                  className="text-xs font-semibold uppercase tracking-wide text-foreground/60"
+                >
+                  {group.name}
+                </label>
+                <select
+                  id={`opt-${group.name}`}
+                  value={selectedOptions[group.name] ?? ""}
+                  onChange={(e) => setSelectedOptions((prev) => ({ ...prev, [group.name]: e.target.value }))}
+                  className="mt-2 block w-full max-w-xs rounded-sm border border-border bg-card px-3 py-2.5 text-sm text-foreground"
+                >
+                  {group.choices.map((choice) => (
+                    <option key={choice.label} value={choice.label}>
+                      {choice.label}
+                      {typeof choice.price === "number" ? ` — ${formatPrice(choice.price, currency)}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
 
             {/* Colour variants — plain text labels the admin entered; no colour swatch
                 data exists on the order, so this is tracked purely in local state. */}
@@ -4717,6 +4807,7 @@ export default function App() {
                 materialsCare: d.materialsCare || undefined,
                 shippingReturns: d.shippingReturns || undefined,
                 colorOptions: d.colors.length ? d.colors : current.colorOptions,
+                variants: d.variants?.length ? d.variants : current.variants,
                 colors: d.colors.length ? d.colors : current.colors,
               }
             : current

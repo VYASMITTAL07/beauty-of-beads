@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { adminApi, AdminApiError, mediaUrl, IMAGE_CAPS, type AdminCategory, type AdminProduct, type ImportProductInput } from "../adminApi";
+import { adminApi, AdminApiError, mediaUrl, IMAGE_CAPS, type AdminCategory, type AdminProduct, type ImportProductInput, type ProductVariantGroup } from "../adminApi";
 
 type FormState = {
   name: string;
@@ -17,6 +17,7 @@ type FormState = {
   images: string[];
   videos: string[];
   colors: string[];
+  variants: ProductVariantGroup[];
   isBestseller: boolean;
   isNewArrival: boolean;
   isFeatured: boolean;
@@ -35,6 +36,7 @@ const emptyForm: FormState = {
   images: [],
   videos: [],
   colors: [],
+  variants: [],
   isBestseller: false,
   isNewArrival: false,
   isFeatured: false,
@@ -54,6 +56,7 @@ function productToForm(p: AdminProduct): FormState {
     images: p.images,
     videos: p.videos,
     colors: p.colors || [],
+    variants: p.variants || [],
     isBestseller: p.isBestseller,
     isNewArrival: p.isNewArrival,
     isFeatured: p.isFeatured,
@@ -72,6 +75,7 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   const [hidden, setHidden] = useState(0);
   const [deduping, setDeduping] = useState<{ done: number; total: number } | null>(null);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [importingVariants, setImportingVariants] = useState<{ page: number; totalPages: number; updated: number } | null>(null);
   const [showingAll, setShowingAll] = useState(false);
 
   useEffect(() => {
@@ -106,6 +110,39 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
     }
     return extras;
   }, [products]);
+
+  // The old site sells sets as one listing with the piece chosen at checkout —
+  // Necklace, Earrings, Fullset — and prices each piece separately. None of
+  // that came across in the original import. This walks its catalogue a page at
+  // a time and copies those groups onto products that match by name.
+  const importVariants = async () => {
+    if (
+      !confirm(
+        "Copy the buyer's options — which piece, which colour — from your old site onto matching products? " +
+          "Products that already have options will be overwritten with what the old site says."
+      )
+    )
+      return;
+    let page = 1;
+    let updated = 0;
+    try {
+      for (;;) {
+        setImportingVariants({ page, totalPages: 0, updated });
+        const r = await adminApi.products.importVariants(page);
+        updated += r.updated;
+        setImportingVariants({ page, totalPages: r.totalPages, updated });
+        if (r.remaining <= 0) break;
+        page += 1;
+        if (page > 40) break; // the catalogue is five pages; this is only a stop
+      }
+      onSuccess(updated === 0 ? "No products needed options." : `${updated} product(s) now have their options.`);
+      load();
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't copy the options");
+    } finally {
+      setImportingVariants(null);
+    }
+  };
 
   // Deleting is not undoable from here, so it goes one at a time with the count
   // reported from what actually succeeded rather than what was attempted.
@@ -325,6 +362,20 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
         </div>
       )}
 
+      <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
+        <p className="font-serif text-base text-olive-600">Buyer options from your old site</p>
+        <p className="mt-1 text-sm leading-relaxed text-foreground/65">
+          Your old site sells a set as one listing and lets the buyer pick the piece — Necklace, Earrings, Haathphul,
+          Fullset — each at its own price, plus whether they want the same colour or a custom one. 228 of its products
+          work that way. This copies those options onto the products here that match by name.
+        </p>
+        <Button onClick={importVariants} disabled={!!importingVariants} className="mt-3 bg-olive-600 hover:bg-black">
+          {importingVariants
+            ? `Reading page ${importingVariants.page}${importingVariants.totalPages ? ` of ${importingVariants.totalPages}` : ""} — ${importingVariants.updated} done…`
+            : "Copy the options across"}
+        </Button>
+      </div>
+
       {hotlinked > 0 && (
         <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
           <p className="font-serif text-base text-olive-600">{hotlinked} product images still load from your old site</p>
@@ -539,6 +590,7 @@ function ProductFormModal({
       images: form.images,
       videos: form.videos,
       colors: form.colors,
+      variants: form.variants,
       isBestseller: form.isBestseller,
       isNewArrival: form.isNewArrival,
       isFeatured: form.isFeatured,
@@ -749,6 +801,122 @@ function ProductFormModal({
               </div>
             </div>
           )}
+        </div>
+
+
+        {/* Options the buyer picks. A set sold as one listing — Necklace,
+            Earrings, Fullset — is one product here, with the price attached to
+            each choice rather than split across five products. Leave a choice's
+            price blank and it charges the product's own price, which is what a
+            plain colour choice wants. */}
+        <div className="mt-6 rounded-md border border-border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-serif text-sm text-foreground">Options the buyer picks</p>
+              <p className="mt-0.5 text-xs text-foreground/55">
+                For a set: one group called Product, with a choice per piece and its own price. Add a second group for
+                colour if a custom one can be asked for.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() =>
+                setForm((f) => ({ ...f, variants: [...f.variants, { name: "Product", choices: [{ label: "" }] }] }))
+              }
+              className="bg-olive-600 hover:bg-black"
+            >
+              + Add a group
+            </Button>
+          </div>
+
+          {form.variants.map((group, gi) => (
+            <div key={gi} className="mt-4 rounded-sm border border-border/70 bg-olive-50/40 p-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={group.name}
+                  placeholder="Group name, e.g. Product or Colour"
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const variants = [...f.variants];
+                      variants[gi] = { ...variants[gi], name: e.target.value };
+                      return { ...f, variants };
+                    })
+                  }
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== gi) }))}
+                  className="shrink-0 text-xs font-semibold uppercase tracking-wide text-clay-500"
+                >
+                  Remove group
+                </button>
+              </div>
+
+              {group.choices.map((choice, ci) => (
+                <div key={ci} className="mt-2 flex items-center gap-2">
+                  <Input
+                    value={choice.label}
+                    placeholder="Choice, e.g. Necklace"
+                    onChange={(e) =>
+                      setForm((f) => {
+                        const variants = [...f.variants];
+                        const choices = [...variants[gi].choices];
+                        choices[ci] = { ...choices[ci], label: e.target.value };
+                        variants[gi] = { ...variants[gi], choices };
+                        return { ...f, variants };
+                      })
+                    }
+                    className="flex-1"
+                  />
+                  <Input
+                    value={choice.price === undefined ? "" : String(choice.price)}
+                    placeholder="Price (blank = same)"
+                    inputMode="numeric"
+                    onChange={(e) =>
+                      setForm((f) => {
+                        const variants = [...f.variants];
+                        const choices = [...variants[gi].choices];
+                        const raw = e.target.value.trim();
+                        choices[ci] =
+                          raw === "" ? { label: choices[ci].label } : { label: choices[ci].label, price: Number(raw) || 0 };
+                        variants[gi] = { ...variants[gi], choices };
+                        return { ...f, variants };
+                      })
+                    }
+                    className="w-40 shrink-0"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((f) => {
+                        const variants = [...f.variants];
+                        variants[gi] = { ...variants[gi], choices: variants[gi].choices.filter((_, i) => i !== ci) };
+                        return { ...f, variants };
+                      })
+                    }
+                    className="shrink-0 text-xs text-foreground/50 hover:text-clay-500"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((f) => {
+                    const variants = [...f.variants];
+                    variants[gi] = { ...variants[gi], choices: [...variants[gi].choices, { label: "" }] };
+                    return { ...f, variants };
+                  })
+                }
+                className="mt-2 text-xs font-semibold uppercase tracking-wide text-olive-600"
+              >
+                + Add a choice
+              </button>
+            </div>
+          ))}
         </div>
 
         <div className="mt-5 flex flex-wrap gap-6">
