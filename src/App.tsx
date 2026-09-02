@@ -338,11 +338,26 @@ const INSTAGRAM_PICKS = [
 ];
 
 const FAQS = [
-  { q: "How long does shipping take?", a: "Orders are dispatched within 1-2 business days and typically arrive within 4-7 business days across India." },
-  { q: "Do you offer Cash on Delivery?", a: "No, we currently do not offer Cash on Delivery. All orders are prepaid — you can pay securely via UPI, cards, or net banking at checkout." },
-  { q: "Can I return or exchange a product?", a: "As every piece is handmade and made-to-order, we do not accept returns or exchanges. Please check the product details carefully before placing your order." },
-  { q: "How do I take care of my jewellery?", a: "Keep your pieces away from water, perfume, and direct sunlight. Store them in a dry pouch when not in use to keep the beads and finish looking new." },
-  { q: "Do you offer customisation?", a: "Yes! Many of our pieces, like initial hair pins and name pins, can be personalised. Message us with your requirements before placing an order." },
+  {
+    q: "How long does shipping take?",
+    a: "Orders are usually delivered within 7-8 days. Customised orders take longer to make, so those take 15-20 days. If you need something urgently, let us know when you place the order and we'll do our best.",
+  },
+  {
+    q: "Do you offer Cash on Delivery?",
+    a: "No, we currently do not offer Cash on Delivery. All orders are prepaid — you can pay securely via UPI, cards, or net banking at checkout.",
+  },
+  {
+    q: "Can I return or exchange a product?",
+    a: "We don't accept returns. If a piece arrives damaged or broken, we'll exchange it — send us a photo and we'll sort it out.",
+  },
+  {
+    q: "How do I take care of my jewellery?",
+    a: "Keep your pieces away from water, perfume, and direct sunlight. Store them in a dry pouch when not in use to keep the beads and finish looking new.",
+  },
+  {
+    q: "Do you offer customisation?",
+    a: "Yes — anything can be customised. If you want a change to a piece on the site, place that order and you'll get a \u201ctalk to our karigar\u201d option at the end, where you can tell them exactly what you'd like. If what you have in mind isn't on the site at all, message us on Instagram.",
+  },
 ];
 
 const REVIEWS = [
