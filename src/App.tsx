@@ -4035,8 +4035,18 @@ function ProductDetailView({
     el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
   };
   const reviewCount = reviewCountFor(product.name);
-  const hasRealImages = !!product.images && product.images.length > 0;
-  const gallery: (number | string)[] = hasRealImages ? product.images! : [0, 90, 180, 270];
+  // Photos that turn out not to be there. A few products still point at images
+  // that have since been deleted from the old site, and the browser draws its
+  // own broken-image box for those — in the gallery and again in the
+  // thumbnails. Dropping one when it fails means the product simply shows the
+  // photos it does have.
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setBrokenImages(new Set());
+  }, [product.slug]);
+  const liveImages = (product.images || []).filter((u) => !brokenImages.has(u));
+  const hasRealImages = liveImages.length > 0;
+  const gallery: (number | string)[] = hasRealImages ? liveImages : [0, 90, 180, 270];
   const [dragStartX, setDragStartX] = useState<number | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
@@ -4193,6 +4203,11 @@ function ProductDetailView({
                     alt={product.name}
                     className="h-full w-full object-contain"
                     draggable={false}
+                    onError={() => {
+                      const dead = gallery[activeImage] as string;
+                      setBrokenImages((prev) => new Set(prev).add(dead));
+                      setActiveImage(0);
+                    }}
                   />
                 ) : (
                   <BeadStrand colors={product.colors} bg={product.bg} size={26} rotateDeg={gallery[activeImage] as number} />
