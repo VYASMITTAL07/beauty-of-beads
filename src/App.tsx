@@ -561,6 +561,28 @@ function buildCategoryMenu(categories: string[]): CategoryMenuEntry[] {
 // old SEO metadata and isn't the one they use.
 const INSTAGRAM_URL = "https://www.instagram.com/beauty_of_beads_official";
 
+// lucide stopped shipping brand marks, so this one is drawn here. It takes the
+// same className the lucide icons around it take, so it sizes and colours with
+// them.
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 const HERO_SLIDES = [
   { colors: ["#C1653A", "#DDBB6E", "#F1E4D3", "#833E20"], bg: "linear-gradient(135deg,#F6E7D8,#E3C593)" },
   { colors: ["#6B7658", "#E4E6D9", "#C79A3E", "#F1E4D3"], bg: "linear-gradient(135deg,#E9EBDE,#D3D8C2)" },
@@ -6457,13 +6479,13 @@ export default function App() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </a>
               <a
-                href="https://wa.me/919999999999"
+                href={INSTAGRAM_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border border-background/35 px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-background transition-colors hover:border-gold-300 hover:text-gold-300"
               >
-                <MessageCircle className="h-4 w-4" />
-                WhatsApp
+                <InstagramIcon className="h-4 w-4" />
+                Instagram
               </a>
             </div>
           </div>
@@ -6521,8 +6543,8 @@ export default function App() {
                 <a href="#reviews" aria-label="See reviews">
                   <ThumbsUp className="h-4 w-4 cursor-pointer hover:text-olive-600" />
                 </a>
-                <a href="https://wa.me/919999999999" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp">
-                  <MessageCircle className="h-4 w-4 cursor-pointer hover:text-olive-600" />
+                <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" aria-label="Beauty of Beads on Instagram">
+                  <InstagramIcon className="h-4 w-4 cursor-pointer hover:text-olive-600" />
                 </a>
               </div>
             </div>
@@ -6548,7 +6570,7 @@ export default function App() {
                   <li><a href="#faqs" className="transition-colors hover:text-olive-600">FAQs</a></li>
                   <li>
                     <a
-                      href="https://wa.me/919999999999"
+                      href={INSTAGRAM_URL}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="transition-colors hover:text-olive-600"
