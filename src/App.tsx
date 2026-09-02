@@ -561,6 +561,10 @@ function buildCategoryMenu(categories: string[]): CategoryMenuEntry[] {
 // old SEO metadata and isn't the one they use.
 const INSTAGRAM_URL = "https://www.instagram.com/beauty_of_beads_official";
 
+// The shop on Google Maps. Its own short link, which resolves to
+// Beautyofbeadsbykhushi, Ring Road, behind Kings Kitchen, Nari Village, Nagpur.
+const STORE_MAP_URL = "https://maps.app.goo.gl/RK8DzhJVXxjZruau6";
+
 // lucide stopped shipping brand marks, so this one is drawn here. It takes the
 // same className the lucide icons around it take, so it sizes and colours with
 // them.
@@ -6472,7 +6476,9 @@ export default function App() {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center md:flex-col md:items-start lg:flex-row lg:items-center">
               <a
-                href="#contact"
+                href={STORE_MAP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm bg-background px-7 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-gold-300 hover:text-olive-600"
               >
                 Visit Our Store
