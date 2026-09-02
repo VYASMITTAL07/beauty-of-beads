@@ -284,6 +284,9 @@ export type OrderDto = OrderSummaryDto & {
 export type OrderItemDto = { product_name: string; product_price: number; quantity: number; product_image?: string | null };
 export type OrderHistoryDto = { status: string; note: string | null; created_at: string };
 export type ReviewDto = { id: number; rating: number; comment: string; reviewer_name: string; created_at: string };
+export type ProductVariantChoice = { label: string; price?: number };
+export type ProductVariantGroup = { name: string; choices: ProductVariantChoice[] };
+
 export type ProductDto = {
   id: number;
   slug: string;
@@ -298,6 +301,10 @@ export type ProductDto = {
   images: string[];
   videos: string[];
   colors: string[];
+  /** Option groups the buyer picks from. A choice with a price replaces the
+   *  product's price while it is selected — a set sold as one listing with
+   *  "Necklace 800 / Fullset 8000" is one product, not five. */
+  variants?: ProductVariantGroup[];
   bg: string;
   isBestseller: boolean;
   isNewArrival: boolean;
@@ -352,7 +359,7 @@ export type AddressInput = {
 // the full product when a card is opened.
 export type ProductCardDto = Pick<
   ProductDto,
-  "id" | "slug" | "name" | "category" | "price" | "mrp" | "rating" | "images" | "colors" | "bg" | "isBestseller" | "isNewArrival" | "isFeatured" | "isSpotlight" | "stock"
+  "id" | "slug" | "name" | "category" | "price" | "mrp" | "rating" | "images" | "colors" | "bg" | "isBestseller" | "isNewArrival" | "isFeatured" | "isSpotlight" | "stock" | "variants"
 >;
 export type HomepageSectionKey = "topPicks" | "shopByTrend" | "newArrivals" | "spotlight" | "onSale";
 export type HomepageImageSlot = "hero" | "heritageBanner" | "shopAllTile" | "story" | "instagram" | "videos" | "storeVisitBanner";

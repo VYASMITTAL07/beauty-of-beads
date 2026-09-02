@@ -64,6 +64,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export type AdminUser = { id: number; name: string; email: string };
 
+export type ProductVariantChoice = { label: string; price?: number };
+export type ProductVariantGroup = { name: string; choices: ProductVariantChoice[] };
+
 export type AdminProduct = {
   id: number;
   slug: string;
@@ -78,6 +81,10 @@ export type AdminProduct = {
   images: string[];
   videos: string[];
   colors: string[];
+  /** Option groups the buyer picks from. A choice with a price replaces the
+   *  product's price while it is selected — a set sold as one listing with
+   *  "Necklace 800 / Fullset 8000" is one product, not five. */
+  variants?: ProductVariantGroup[];
   bg: string;
   isBestseller: boolean;
   isNewArrival: boolean;
@@ -257,6 +264,13 @@ export const adminApi = {
     showAll: () => request<{ shown: number; total: number }>("/api/admin/products/show-all", { method: "POST" }),
     // Copies product images off the old WordPress site into our own R2, a
     // batch per call. Repeat until `remaining` is 0.
+    // Pulls the option groups off the old site onto matching products, a page
+    // at a time. Repeat until `remaining` is 0.
+    importVariants: (page: number) =>
+      request<{ page: number; totalPages: number; total: number; matched: number; updated: number; unmatched: string[]; remaining: number }>(
+        "/api/admin/products/import-variants",
+        { method: "POST", body: JSON.stringify({ page }) }
+      ),
     migrateImages: () =>
       request<{ migrated: number; remaining: number; total: number; failed: number; failures: string[] }>(
         "/api/admin/products/migrate-images",
