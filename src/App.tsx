@@ -5378,8 +5378,8 @@ export default function App() {
             </nav>
           </div>
 
-          <a href="#top" className="select-none whitespace-nowrap text-center font-serif italic tracking-tight text-olive-600 md:justify-self-center">
-            <span className="block text-lg sm:text-xl md:text-3xl">Beauty of Beads</span>
+          <a href="#top" className="select-none whitespace-nowrap text-center font-script leading-[1.5] text-olive-600 md:justify-self-center">
+            <span className="block text-lg sm:text-xl md:text-[28px]">Beauty of Beads</span>
           </a>
 
           <div className="flex items-center justify-end gap-4 sm:gap-6">
