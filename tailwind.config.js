@@ -32,6 +32,12 @@ module.exports = {
           500: "#52392E",
           600: "#3E2B23",
         },
+        // A deeper shade of the page's own blush, for accents that have to be
+        // read. The background pink itself (#FFEAEA) is 1.15:1 on white —
+        // invisible as text — so the family needs a readable member.
+        rose: {
+          500: "#BC4E69",
+        },
         gold: {
           300: "#DDBB6E",
           400: "#C79A3E",

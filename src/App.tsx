@@ -6078,7 +6078,7 @@ export default function App() {
           <h2 className="font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">
             <span className="sm:hidden">Our </span>
             <span className="hidden sm:inline">Beauty of Beads </span>
-            <span className="text-gold-400">Spotlight</span>
+            <span className="text-rose-500">Spotlight</span>
           </h2>
         </div>
         <button
