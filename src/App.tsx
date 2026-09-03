@@ -5880,7 +5880,7 @@ export default function App() {
                       <BeadStrand colors={TILE_PALETTE[i % TILE_PALETTE.length].colors} bg={TILE_PALETTE[i % TILE_PALETTE.length].bg} size={8} />
                     )}
                   </div>
-                  <span className="font-serif text-[11px] leading-tight sm:text-[12px]">{c.name}</span>
+                  <span className="font-serif text-[9px] leading-tight sm:text-[10px]">{c.name}</span>
                 </button>
               ))
             : FEATURED_TILES.map((t) => (
@@ -5893,7 +5893,7 @@ export default function App() {
                   <div className="aspect-square w-full max-w-[7.5rem] overflow-hidden rounded-full ring-1 ring-border transition-transform duration-300 lg:group-hover:scale-105">
                     <BeadStrand colors={t.colors} bg={t.bg} size={8} />
                   </div>
-                  <span className="font-serif text-[11px] leading-tight sm:text-[12px]">{t.name}</span>
+                  <span className="font-serif text-[9px] leading-tight sm:text-[10px]">{t.name}</span>
                 </button>
               ))}
         </div>
