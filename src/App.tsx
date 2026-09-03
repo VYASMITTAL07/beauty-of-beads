@@ -862,8 +862,6 @@ function animateScrollTop(container: HTMLElement, to: number, duration = 420) {
 function AllProductsView({
   title,
   products,
-  wishlist,
-  toggleWishlist,
   added,
   addToBag,
   onOpenProduct,
@@ -873,8 +871,6 @@ function AllProductsView({
 }: {
   title: string;
   products: Product[];
-  wishlist: Set<string>;
-  toggleWishlist: (n: string) => void;
   added: Set<string>;
   addToBag: (n: string) => void;
   onOpenProduct: (p: Product) => void;
@@ -934,7 +930,7 @@ function AllProductsView({
         ) : (
           <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4">
             {products.map((p) => (
-              <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
+              <ProductCard key={p.slug || p.name} p={p} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
             ))}
           </div>
         )}
@@ -949,8 +945,6 @@ function AllProductsView({
 function AllCollectionsView({
   open,
   onBack,
-  wishlist,
-  toggleWishlist,
   added,
   addToBag,
   onOpenProduct,
@@ -961,8 +955,6 @@ function AllCollectionsView({
 }: {
   open: boolean;
   onBack: () => void;
-  wishlist: Set<string>;
-  toggleWishlist: (n: string) => void;
   added: Set<string>;
   addToBag: (n: string) => void;
   onOpenProduct: (p: Product) => void;
@@ -1254,7 +1246,7 @@ function AllCollectionsView({
                 </div>
                 <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-4">
                   {products.slice(0, 4).map((p) => (
-                    <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
+                    <ProductCard key={p.slug || p.name} p={p} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
                   ))}
                 </div>
               </section>
@@ -1884,8 +1876,6 @@ const SEARCH_SUGGESTIONS = ["Hair Pins", "Hair Chains", "Resin Jewellery", "Trad
 function SearchOverlay({
   open,
   onClose,
-  wishlist,
-  toggleWishlist,
   added,
   addToBag,
   onOpenProduct,
@@ -1893,8 +1883,6 @@ function SearchOverlay({
 }: {
   open: boolean;
   onClose: () => void;
-  wishlist: Set<string>;
-  toggleWishlist: (n: string) => void;
   added: Set<string>;
   addToBag: (n: string) => void;
   onOpenProduct: (p: Product) => void;
@@ -1974,7 +1962,7 @@ function SearchOverlay({
             </p>
             <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4">
               {results.map((p) => (
-                <ProductCard key={p.slug || p.name} p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
+                <ProductCard key={p.slug || p.name} p={p} added={added} addToBag={addToBag} onOpen={onOpenProduct} />
               ))}
             </div>
           </>
@@ -3759,20 +3747,15 @@ function ImageSlideshow({
 
 function ProductCard({
   p,
-  wishlist,
-  toggleWishlist,
   added,
   addToBag,
   onOpen,
 }: {
   p: Product;
-  wishlist: Set<string>;
-  toggleWishlist: (n: string) => void;
   added: Set<string>;
   addToBag: (n: string) => void;
   onOpen: (p: Product) => void;
 }) {
-  const discount = Math.round(((p.mrp - p.price) / p.mrp) * 100);
   const isAdded = added.has(p.name);
   const { currency } = useCurrency();
   const [imgError, setImgError] = useState(false);
@@ -3788,7 +3771,7 @@ function ProductCard({
           {p.tag}
         </span>
       )}
-      <button type="button" onClick={() => onOpen(p)} aria-label={`View ${p.name}`} className="relative block aspect-square w-full overflow-hidden shadow-xl">
+      <button type="button" onClick={() => onOpen(p)} aria-label={`View ${p.name}`} className="relative block aspect-[3/4] w-full overflow-hidden">
         {hasRealImage ? (
           <>
             <img
@@ -3800,7 +3783,7 @@ function ProductCard({
               // First failure means there is no card-sized copy; retry with the
               // original. A second failure means the photo itself is gone.
               onError={() => (noCardCopy ? setImgError(true) : setNoCardCopy(true))}
-              className={`h-full w-full object-cover transition-opacity duration-500 ${p.images![1] ? "group-hover:opacity-0" : ""}`}
+              className={`h-full w-full object-contain transition-opacity duration-500 ${p.images![1] ? "group-hover:opacity-0" : ""}`}
             />
             {p.images![1] && (
               <img
@@ -3810,7 +3793,7 @@ function ProductCard({
                 decoding="async"
                 draggable={false}
                 onError={() => setNoCardCopy(true)}
-                className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
               />
             )}
           </>
@@ -3825,44 +3808,28 @@ function ProductCard({
           </>
         )}
       </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleWishlist(p.name);
-        }}
-        aria-label="Wishlist"
-        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110"
-      >
-        <Heart className={`h-4 w-4 ${wishlist.has(p.name) ? "fill-olive-500 text-olive-500" : "text-foreground/60"}`} />
-      </button>
-      <div className="pt-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{p.category}</p>
+      <div className="pt-2">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{p.category}</p>
         <button type="button" onClick={() => onOpen(p)} className="text-left">
-          <h3 className="mt-1 font-serif text-[15px] leading-snug hover:text-olive-600">{p.name}</h3>
+          <h3 className="mt-0.5 line-clamp-2 min-h-[2.75em] font-serif text-[13px] leading-snug hover:text-olive-600">{p.name}</h3>
         </button>
-        <div className="mt-1.5 flex items-center gap-1 text-[12px] text-muted-foreground">
-          <Star className="h-3 w-3 fill-gold-400 text-gold-400" />
-          {p.rating}
-        </div>
         {/* A set sold as one listing prices each piece differently, so the card
             shows what it spans rather than one figure that is wrong for most of
             the choices. */}
         {priceRange(p) ? (
-          <div className="mt-2">
-            <span className="font-serif text-lg">
+          <div className="mt-1">
+            <span className="font-serif text-[13px]">
               {formatPrice(priceRange(p)!.min, currency)} – {formatPrice(priceRange(p)!.max, currency)}
             </span>
           </div>
         ) : (
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-serif text-lg">{formatPrice(p.price, currency)}</span>
-            <span className="text-xs text-muted-foreground line-through">{formatPrice(p.mrp, currency)}</span>
-            <span className="text-xs font-medium text-olive-600">{discount}% off</span>
+          <div className="mt-1">
+            <span className="font-serif text-base">{formatPrice(p.price, currency)}</span>
           </div>
         )}
         <button
           onClick={() => addToBag(p.name)}
-          className={`mt-3 w-full rounded-sm py-2 text-sm font-medium transition-colors ${
+          className={`mt-2 w-full rounded-sm py-1.5 text-xs font-medium transition-colors ${
             isAdded ? "bg-olive-400 text-white" : "border border-olive-600 bg-white text-olive-600 hover:bg-olive-600 hover:text-olive-50"
           }`}
         >
@@ -3875,20 +3842,15 @@ function ProductCard({
 
 function SpotlightCard({
   p,
-  wishlist,
-  toggleWishlist,
   added,
   addToBag,
   onOpen,
 }: {
   p: Product;
-  wishlist: Set<string>;
-  toggleWishlist: (n: string) => void;
   added: Set<string>;
   addToBag: (n: string) => void;
   onOpen: (p: Product) => void;
 }) {
-  const discount = Math.round(((p.mrp - p.price) / p.mrp) * 100);
   const isAdded = added.has(p.name);
   const { currency } = useCurrency();
   const [imgError, setImgError] = useState(false);
@@ -3904,7 +3866,7 @@ function SpotlightCard({
           {p.tag}
         </span>
       )}
-      <button type="button" onClick={() => onOpen(p)} aria-label={`View ${p.name}`} className="relative block aspect-[12/17] w-full overflow-hidden sm:aspect-square">
+      <button type="button" onClick={() => onOpen(p)} aria-label={`View ${p.name}`} className="relative block aspect-[3/4] w-full overflow-hidden">
         {hasRealImage ? (
           <>
             <img
@@ -3916,7 +3878,7 @@ function SpotlightCard({
               // First failure means there is no card-sized copy; retry with the
               // original. A second failure means the photo itself is gone.
               onError={() => (noCardCopy ? setImgError(true) : setNoCardCopy(true))}
-              className={`h-full w-full object-cover transition-opacity duration-500 ${p.images![1] ? "group-hover:opacity-0" : ""}`}
+              className={`h-full w-full object-contain transition-opacity duration-500 ${p.images![1] ? "group-hover:opacity-0" : ""}`}
             />
             {p.images![1] && (
               <img
@@ -3926,7 +3888,7 @@ function SpotlightCard({
                 decoding="async"
                 draggable={false}
                 onError={() => setNoCardCopy(true)}
-                className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
               />
             )}
           </>
@@ -3941,29 +3903,13 @@ function SpotlightCard({
           </>
         )}
       </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleWishlist(p.name);
-        }}
-        aria-label="Wishlist"
-        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110"
-      >
-        <Heart className={`h-4 w-4 ${wishlist.has(p.name) ? "fill-olive-500 text-olive-500" : "text-foreground/60"}`} />
-      </button>
       <div className="pt-2 sm:pt-3">
         <p className="text-[9px] uppercase tracking-wide text-foreground/55 sm:text-[11px]">{p.category}</p>
         <button type="button" onClick={() => onOpen(p)} className="text-left">
-          <h3 className="mt-0.5 line-clamp-2 font-serif text-[12px] leading-snug text-foreground hover:text-olive-600 sm:mt-1 sm:text-[15px]">{p.name}</h3>
+          <h3 className="mt-0.5 line-clamp-2 min-h-[2.75em] font-serif text-[12px] leading-snug text-foreground hover:text-olive-600 sm:mt-1 sm:text-[13px]">{p.name}</h3>
         </button>
-        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-foreground/60 sm:mt-1.5 sm:text-[12px]">
-          <Star className="h-2.5 w-2.5 fill-gold-400 text-gold-400 sm:h-3 sm:w-3" />
-          {p.rating}
-        </div>
-        <div className="mt-0 flex items-baseline gap-1.5 sm:mt-2 sm:gap-2">
-          <span className="font-serif text-sm text-foreground sm:text-lg">{formatPrice(p.price, currency)}</span>
-          <span className="text-[10px] text-muted-foreground line-through sm:text-xs">{formatPrice(p.mrp, currency)}</span>
-          <span className="text-[10px] font-medium text-olive-600 sm:text-xs">{discount}% off</span>
+        <div className="mt-0 sm:mt-1.5">
+          <span className="font-serif text-sm text-foreground sm:text-base">{formatPrice(p.price, currency)}</span>
         </div>
         <button
           onClick={() => addToBag(p.name)}
@@ -4243,7 +4189,7 @@ function ProductDetailView({
               // cropped so a whole piece is always visible. At the median it
               // fills the frame edge to edge; a taller or squarer photo sits on
               // the light ground instead of losing its ends.
-              className={`relative aspect-[3/4] w-full touch-pan-y select-none overflow-hidden rounded-sm bg-olive-50 shadow-xl ${
+              className={`relative aspect-[3/4] w-full touch-pan-y select-none overflow-hidden rounded-sm ${
                 dragStartX !== null ? "cursor-grabbing" : "cursor-zoom-in"
               }`}
               onPointerDown={handleGalleryPointerDown}
@@ -4326,7 +4272,7 @@ function ProductDetailView({
                   }`}
                 >
                   {hasRealImages ? (
-                    <img src={cardImage(deg as string)} alt="" className="h-full w-full bg-olive-50 object-contain" draggable={false} onError={(e) => { const el = e.currentTarget; const full = mediaUrl(deg as string); if (el.src !== full) el.src = full; }} />
+                    <img src={cardImage(deg as string)} alt="" className="h-full w-full object-contain" draggable={false} onError={(e) => { const el = e.currentTarget; const full = mediaUrl(deg as string); if (el.src !== full) el.src = full; }} />
                   ) : (
                     <BeadStrand colors={product.colors} bg={product.bg} size={20} rotateDeg={deg as number} />
                   )}
@@ -4676,7 +4622,7 @@ function ProductDetailView({
                   className="basis-[calc((100%-1.25rem)/2)] flex-shrink-0 md:basis-[calc((100%-2.5rem)/3)] lg:basis-[calc((100%-3.75rem)/4)]"
                   style={{ minWidth: 0 }}
                 >
-                  <ProductCard p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={onOpen} />
+                  <ProductCard p={p} added={added} addToBag={addToBag} onOpen={onOpen} />
                 </div>
               ))}
             </div>
@@ -5936,7 +5882,7 @@ export default function App() {
                 className="basis-[calc((100%-1.25rem)/2)] flex-shrink-0 md:basis-[calc((100%-2.5rem)/3)] lg:basis-[calc((100%-3.75rem)/4)]"
                 style={{ minWidth: 0 }}
               >
-                <ProductCard p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={openProduct} />
+                <ProductCard p={p} added={added} addToBag={addToBag} onOpen={openProduct} />
               </div>
             ))}
           </div>
@@ -6008,7 +5954,7 @@ export default function App() {
                 className="basis-[calc((100%-1.25rem)/2)] flex-shrink-0 md:basis-[calc((100%-2.5rem)/3)] lg:basis-[calc((100%-3.75rem)/4)]"
                 style={{ minWidth: 0 }}
               >
-                <ProductCard p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={openProduct} />
+                <ProductCard p={p} added={added} addToBag={addToBag} onOpen={openProduct} />
               </div>
             ))}
           </div>
@@ -6042,7 +5988,7 @@ export default function App() {
                 <span className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-olive-600 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-olive-50 shadow-sm">
                   New Arrival
                 </span>
-                <ProductCard p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={openProduct} />
+                <ProductCard p={p} added={added} addToBag={addToBag} onOpen={openProduct} />
               </div>
             ))}
             <button
@@ -6116,7 +6062,7 @@ export default function App() {
                       Trending
                     </span>
                   )}
-                  <SpotlightCard p={p} wishlist={wishlist} toggleWishlist={toggleWishlist} added={added} addToBag={addToBag} onOpen={openProduct} />
+                  <SpotlightCard p={p} added={added} addToBag={addToBag} onOpen={openProduct} />
                 </div>
               </div>
             );
@@ -6130,7 +6076,6 @@ export default function App() {
           <h2 className="mb-6 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">Currently on Sale</h2>
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             {saleRow.map((c) => {
-              const discount = c.mrp > 0 ? Math.round(((c.mrp - c.price) / c.mrp) * 100) : 0;
               const isAdded = added.has(c.name);
               const saleImage = c.images && c.images.length > 0 ? c.images[0] : null;
               return (
@@ -6139,7 +6084,7 @@ export default function App() {
                     type="button"
                     onClick={() => openProduct(c)}
                     aria-label={`View ${c.name}`}
-                    className="relative block aspect-[3/4] w-full overflow-hidden shadow-xl"
+                    className="relative block aspect-[3/4] w-full overflow-hidden"
                   >
                     {saleImage ? (
                       <img
@@ -6155,7 +6100,7 @@ export default function App() {
                           const full = mediaUrl(saleImage);
                           if (el.src !== full) el.src = full;
                         }}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                         draggable={false}
                       />
                     ) : (
@@ -6169,16 +6114,20 @@ export default function App() {
                       </>
                     )}
                   </button>
-                  <div className="mt-3">
-                    <h3 className="font-serif text-[15px] leading-snug">{c.name}</h3>
+                  <div className="mt-2">
+                    <h3 className="line-clamp-2 min-h-[2.75em] font-serif text-[13px] leading-snug">{c.name}</h3>
                     <div className="mt-1.5 flex items-baseline gap-2">
-                      <span className="font-serif text-lg">{formatPrice(c.price, currency)}</span>
-                      <span className="text-xs text-muted-foreground line-through">{formatPrice(c.mrp, currency)}</span>
-                      <span className="text-xs font-medium text-olive-600">{discount}% off</span>
+                      <span className="font-serif text-base">{formatPrice(c.price, currency)}</span>
+                      {/* Most of the catalogue carries an MRP equal to the
+                          price, and "₹699 ₹699" reads as a bug rather than a
+                          saving — so it only appears when there is one. */}
+                      {c.mrp > c.price && (
+                        <span className="text-[11px] text-muted-foreground line-through">{formatPrice(c.mrp, currency)}</span>
+                      )}
                     </div>
                     <button
                       onClick={() => addToBag(c.name)}
-                      className={`mt-3 w-full rounded-sm py-2 text-sm font-medium transition-colors ${
+                      className={`mt-2 w-full rounded-sm py-1.5 text-xs font-medium transition-colors ${
                         isAdded ? "bg-olive-400 text-white" : "border border-olive-600 bg-white text-olive-600 hover:bg-olive-600 hover:text-olive-50"
                       }`}
                     >
@@ -6726,8 +6675,6 @@ export default function App() {
       <AllProductsView
         title={productListView.title}
         products={productListView.products}
-        wishlist={wishlist}
-        toggleWishlist={toggleWishlist}
         added={added}
         addToBag={addToBag}
         onOpenProduct={openProduct}
@@ -6739,8 +6686,6 @@ export default function App() {
     <SearchOverlay
       open={searchOpen}
       onClose={() => setSearchOpen(false)}
-      wishlist={wishlist}
-      toggleWishlist={toggleWishlist}
       added={added}
       addToBag={addToBag}
       onOpenProduct={openProduct}
@@ -6767,8 +6712,6 @@ export default function App() {
       open={allCollectionsOpen}
       categories={menuCategories}
       onBack={() => setAllCollectionsOpen(false)}
-      wishlist={wishlist}
-      toggleWishlist={toggleWishlist}
       added={added}
       addToBag={addToBag}
       onOpenProduct={openProduct}

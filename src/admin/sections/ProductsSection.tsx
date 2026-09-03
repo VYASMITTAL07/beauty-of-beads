@@ -686,7 +686,10 @@ function ProductFormModal({
           <div className="mt-2 flex flex-wrap gap-2">
             {form.images.map((url, i) => (
               <div key={url} className="relative h-16 w-16 overflow-hidden rounded-sm border border-border">
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                {/* Contained, not cropped — the storefront cards show the whole
+                    photo now, so the thumbnail here has to show what will
+                    actually appear. */}
+                <img src={url} alt="" className="h-full w-full object-contain" />
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }))}
