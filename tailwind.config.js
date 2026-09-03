@@ -9,6 +9,8 @@ module.exports = {
     extend: {
       fontFamily: {
         serif: ["Georgia", "Cambria", "ui-serif", "serif"],
+        // The brush script of the printed logo, for the wordmark alone.
+        script: ['"Kaushan Script"', "Segoe Script", "cursive"],
         sans: ["Segoe UI", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
