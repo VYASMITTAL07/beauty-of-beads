@@ -3995,7 +3995,7 @@ function ProductDetailView({
 
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [openSection, setOpenSection] = useState<"description" | "care" | "shipping" | null>("description");
+  const [openSection, setOpenSection] = useState<"care" | "shipping" | null>(null);
   const [justAdded, setJustAdded] = useState(false);
   // Colour-variant selector (task 1) — purely local UI state; there's no backend
   // field for "selected colour on an order item" yet, so the choice is folded into
@@ -4335,41 +4335,6 @@ function ProductDetailView({
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
 
-            <p className="mt-5 max-w-md text-sm leading-relaxed text-foreground/75">{description}</p>
-
-            {/* Customisation is arranged with the maker directly, not through
-                the basket — so this says plainly, before anyone orders, that
-                the option comes after the order rather than during it. */}
-            <div className="mt-5 max-w-md rounded-sm border border-olive-300 bg-olive-50/70 px-4 py-3">
-              <p className="font-serif text-base leading-snug text-olive-600">
-                Want it customised?
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-foreground/75">
-                Place your order first — you'll then get the option to connect with our karigar and tell them exactly
-                what you want.
-              </p>
-            </div>
-
-            {/* Product videos — kept out of the photo gallery, shown alongside the description instead */}
-            {product.videos && product.videos.length > 0 && (
-              <div className="mt-4 max-w-md">
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  {product.videos.length > 1 ? "Videos" : "Video"}
-                </span>
-                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {product.videos.map((v, i) => (
-                    <video
-                      key={i}
-                      src={v}
-                      controls
-                      playsInline
-                      className="aspect-[9/16] w-full rounded-sm bg-black object-cover shadow-sm"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Option groups — which piece of a set, and whether it's wanted in a
                 custom colour. A set is sold as one listing, so the choice of
                 piece is what sets the price; the price above follows it. */}
@@ -4505,11 +4470,45 @@ function ProductDetailView({
               </div>
             </div>
 
+            {/* Customisation is arranged with the maker directly, not through
+                the basket — so this says plainly, before anyone orders, that
+                the option comes after the order rather than during it. */}
+            <div className="mt-5 max-w-md rounded-sm border border-olive-300 bg-olive-50/70 px-4 py-3">
+              <p className="font-serif text-base leading-snug text-olive-600">
+                Want it customised?
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground/75">
+                Place your order first — you'll then get the option to connect with our karigar and tell them exactly
+                what you want.
+              </p>
+            </div>
+
+            <p className="mt-5 max-w-md text-sm leading-relaxed text-foreground/75">{description}</p>
+
+            {/* Product videos — kept out of the photo gallery, shown alongside the description instead */}
+            {product.videos && product.videos.length > 0 && (
+              <div className="mt-4 max-w-md">
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  {product.videos.length > 1 ? "Videos" : "Video"}
+                </span>
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {product.videos.map((v, i) => (
+                    <video
+                      key={i}
+                      src={v}
+                      controls
+                      playsInline
+                      className="aspect-[9/16] w-full rounded-sm bg-black object-cover shadow-sm"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Accordion: description / care / shipping */}
             <div className="mt-2 divide-y divide-border">
               {(
                 [
-                  { key: "description" as const, label: "Description", body: description },
                   {
                     key: "care" as const,
                     label: "Materials & Care",
