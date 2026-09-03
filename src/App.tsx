@@ -729,7 +729,7 @@ function CartPanel({
               <button
                 type="button"
                 onClick={onCheckout}
-                className="w-full rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black"
+                className="w-full rounded-sm border border-olive-600 bg-white py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
               >
                 Checkout
               </button>
@@ -807,7 +807,7 @@ function WishlistPanel({
                       <button
                         type="button"
                         onClick={() => onMoveToCart(item)}
-                        className="rounded-sm bg-olive-600 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-olive-50 hover:bg-black"
+                        className="rounded-sm border border-olive-600 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-olive-600 hover:bg-olive-600 hover:text-olive-50"
                       >
                         Add to Bag
                       </button>
@@ -926,7 +926,7 @@ function AllProductsView({
             <button
               type="button"
               onClick={onBack}
-              className="mt-3 rounded-sm bg-olive-600 px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black"
+              className="mt-3 rounded-sm border border-olive-600 bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
             >
               Continue Shopping
             </button>
@@ -1453,7 +1453,7 @@ function ProfileView({ open, onClose }: { open: boolean; onClose: () => void }) 
   const labelClass = "text-[11px] font-semibold uppercase tracking-wide text-foreground/55";
   const cardClass = "rounded-sm border border-olive-200/70 bg-card p-5 md:p-6";
   const submitClass =
-    "mt-1 w-full rounded-sm bg-olive-600 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-50 transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-45";
+    "mt-1 w-full rounded-sm border border-olive-600 bg-white py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:cursor-not-allowed disabled:opacity-45";
 
   return (
     <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
@@ -2192,7 +2192,7 @@ function CheckoutModal({
           <button
             type="submit"
             disabled={loading || items.length === 0}
-            className="mt-1 w-full rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black disabled:opacity-60"
+            className="mt-1 w-full rounded-sm border border-olive-600 bg-white py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-60"
           >
             {loading ? "Placing Order…" : "Place Order"}
           </button>
@@ -2295,7 +2295,7 @@ function ReviewComposer({
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black disabled:opacity-60"
+            className="w-full rounded-sm border border-olive-600 bg-white py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-60"
           >
             {loading ? "Submitting…" : "Submit Review"}
           </button>
@@ -2547,7 +2547,7 @@ function ComplaintComposer({
             <button
               type="submit"
               disabled={loading || uploading}
-              className="w-full rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-sm border border-olive-600 bg-white py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Submitting…" : "Submit Complaint"}
             </button>
@@ -2623,7 +2623,7 @@ function CustomOrderConfirmCard({
         <button
           type="button"
           onClick={() => setFormOpen(true)}
-          className="mt-4 rounded-sm bg-olive-600 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black"
+          className="mt-4 rounded-sm border border-olive-600 bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
         >
           Confirm &amp; Add Shipping Details
         </button>
@@ -2712,7 +2712,7 @@ function CustomOrderConfirmCard({
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 rounded-sm bg-olive-600 py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black disabled:opacity-60"
+              className="flex-1 rounded-sm border border-olive-600 bg-white py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-60"
             >
               {loading ? "Confirming…" : "Confirm Order"}
             </button>
@@ -3863,7 +3863,7 @@ function ProductCard({
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-3 w-full rounded-sm py-2 text-sm font-medium transition-colors ${
-            isAdded ? "bg-olive-400 text-white" : "bg-olive-600 text-background hover:bg-black"
+            isAdded ? "bg-olive-400 text-white" : "border border-olive-600 bg-white text-olive-600 hover:bg-olive-600 hover:text-olive-50"
           }`}
         >
           {isAdded ? "Added ✓" : "Add to Bag"}
@@ -3968,7 +3968,7 @@ function SpotlightCard({
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-1.5 w-full rounded-sm py-1.5 text-xs font-medium transition-colors sm:mt-3 sm:py-2 sm:text-sm ${
-            isAdded ? "bg-olive-400 text-olive-50" : "bg-olive-600 text-olive-50 hover:bg-black"
+            isAdded ? "bg-olive-400 text-olive-50" : "border border-olive-600 bg-white text-olive-600 hover:bg-olive-600 hover:text-olive-50"
           }`}
         >
           {isAdded ? "Added ✓" : "Add to Bag"}
@@ -4503,7 +4503,7 @@ function ProductDetailView({
               <button
                 onClick={handleAddToBag}
                 className={`flex-1 rounded-sm py-3.5 text-sm font-semibold uppercase tracking-wide transition-colors ${
-                  justAdded ? "bg-olive-400 text-white" : "bg-olive-600 text-background hover:bg-black"
+                  justAdded ? "bg-olive-400 text-white" : "border border-olive-600 bg-white text-olive-600 hover:bg-olive-600 hover:text-olive-50"
                 }`}
               >
                 {justAdded ? "Added to Bag ✓" : "Add to Bag"}
@@ -4690,7 +4690,7 @@ function ProductDetailView({
               <button
                 type="button"
                 onClick={() => onViewAllRelated("You May Also Like", related)}
-                className="rounded-sm bg-olive-600 px-5 py-2 text-xs font-medium uppercase tracking-wide text-background transition-colors hover:bg-black sm:px-8 sm:py-3 sm:text-sm"
+                className="rounded-sm border border-olive-600 bg-white px-5 py-2 text-xs font-medium uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 sm:px-8 sm:py-3 sm:text-sm"
               >
                 View All
               </button>
@@ -5950,7 +5950,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setProductListView({ title: "Best Sellers", products: topPicks })}
-              className="rounded-sm bg-olive-600 px-5 py-2 text-xs font-medium uppercase tracking-wide text-background transition-colors hover:bg-black sm:px-8 sm:py-3 sm:text-sm"
+              className="rounded-sm border border-olive-600 bg-white px-5 py-2 text-xs font-medium uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 sm:px-8 sm:py-3 sm:text-sm"
             >
               View All
             </button>
@@ -6022,7 +6022,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setProductListView({ title: "Shop by Trend", products: featuredProducts })}
-              className="rounded-sm bg-olive-600 px-5 py-2 text-xs font-medium uppercase tracking-wide text-background transition-colors hover:bg-black sm:px-8 sm:py-3 sm:text-sm"
+              className="rounded-sm border border-olive-600 bg-white px-5 py-2 text-xs font-medium uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 sm:px-8 sm:py-3 sm:text-sm"
             >
               View All
             </button>
@@ -6179,7 +6179,7 @@ export default function App() {
                     <button
                       onClick={() => addToBag(c.name)}
                       className={`mt-3 w-full rounded-sm py-2 text-sm font-medium transition-colors ${
-                        isAdded ? "bg-olive-400 text-white" : "bg-olive-600 text-background hover:bg-black"
+                        isAdded ? "bg-olive-400 text-white" : "border border-olive-600 bg-white text-olive-600 hover:bg-olive-600 hover:text-olive-50"
                       }`}
                     >
                       {isAdded ? "Added ✓" : "Add to Bag"}
@@ -6612,7 +6612,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={newsletterStatus === "loading"}
-                  className="mt-3 w-full rounded-sm bg-olive-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-olive-50 transition-colors hover:bg-black hover:text-white disabled:opacity-60"
+                  className="mt-3 w-full rounded-sm border border-olive-600 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-60"
                 >
                   {newsletterStatus === "loading" ? "Joining…" : "Join Our Community"}
                 </button>
