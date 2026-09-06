@@ -2114,6 +2114,14 @@ function CheckoutPage({
       setError(`Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`);
       return;
     }
+    if (!isValidPostalCode(postalCode, country)) {
+      setError(
+        country.trim().toLowerCase() === "india"
+          ? "Enter a valid 6-digit PIN code."
+          : "Enter a valid postal / ZIP code."
+      );
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.orders.place({
@@ -2124,10 +2132,10 @@ function CheckoutPage({
           name,
           phone,
           line1,
-          line2: line2 || undefined,
+          line2,
           city,
-          state: state || undefined,
-          postalCode: postalCode || undefined,
+          state,
+          postalCode,
           country,
         },
       });
@@ -2204,9 +2212,10 @@ function CheckoutPage({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="ship-line2" className={labelClass}>Address line 2 (optional)</label>
+                  <label htmlFor="ship-line2" className={labelClass}>Address line 2</label>
                   <input
                     id="ship-line2"
+                    required
                     value={line2}
                     onChange={(e) => setLine2(e.target.value)}
                     placeholder="Landmark, apartment"
@@ -2221,6 +2230,7 @@ function CheckoutPage({
                   fieldClass={fieldClass}
                   labelClass={labelClass}
                   idPrefix="ship"
+                  stateRequired
                 />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
@@ -2231,6 +2241,7 @@ function CheckoutPage({
                     <label htmlFor="ship-postal" className={labelClass}>{postalLabel(country)}</label>
                     <input
                       id="ship-postal"
+                      required
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
                       placeholder={postalPlaceholder(country)}
