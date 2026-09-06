@@ -195,10 +195,17 @@ export const api = {
     // Confirms a custom order an admin built for this customer (status
     // 'awaiting_payment') — the customer supplies/confirms shipping details
     // here and it becomes a normal order, same as a self-service checkout.
-    confirm: (orderNumber: string, shipping: ShippingInput) =>
-      request<{ ok: true; orderNumber: string }>(`/api/orders/${encodeURIComponent(orderNumber)}/confirm`, {
+    confirm: (orderNumber: string, shipping: ShippingInput, deliverySpeed?: "normal" | "urgent") =>
+      request<{
+        ok: true;
+        orderNumber: string;
+        totalAmount?: number;
+        shippingAmount?: number;
+        taxAmount?: number;
+        paymentRequired?: boolean;
+      }>(`/api/orders/${encodeURIComponent(orderNumber)}/confirm`, {
         method: "POST",
-        body: JSON.stringify({ shipping }),
+        body: JSON.stringify({ shipping, deliverySpeed }),
       }),
   },
   // Saved shipping addresses. Backs the Profile page's address form and

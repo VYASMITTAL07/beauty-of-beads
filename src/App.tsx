@@ -2101,6 +2101,66 @@ function loadRazorpay(): Promise<void> {
   return razorpayScript;
 }
 
+// One Razorpay launch, shared by the checkout and by confirming an
+// admin-built order. Both end in the same place: an order that becomes real
+// only once the Worker has verified the signature.
+async function payWithRazorpay({
+  orderNumber,
+  name,
+  phone,
+  method,
+  onPaid,
+  onFail,
+  onDismiss,
+}: {
+  orderNumber: string;
+  name: string;
+  phone: string;
+  method?: string;
+  onPaid: (orderNumber: string) => void;
+  onFail: (message: string) => void;
+  onDismiss: (orderNumber: string) => void;
+}) {
+  const pay = await api.orders.startPayment(orderNumber);
+  await loadRazorpay();
+  const Razorpay = window.Razorpay;
+  if (!Razorpay) throw new Error("Couldn't reach the payment provider.");
+
+  const checkout = new Razorpay({
+    key: pay.keyId,
+    amount: pay.amount,
+    currency: pay.currency,
+    order_id: pay.razorpayOrderId,
+    name: "Beauty of Beads",
+    description: `Order ${pay.orderNumber}`,
+    prefill: { name: pay.name || name, contact: pay.phone || phone, method },
+    notes: { order_number: pay.orderNumber },
+    theme: { color: "#3E2B23" },
+    handler: async (result: RazorpayResult) => {
+      try {
+        await api.orders.verifyPayment({
+          orderNumber: pay.orderNumber,
+          razorpayOrderId: result.razorpay_order_id,
+          razorpayPaymentId: result.razorpay_payment_id,
+          razorpaySignature: result.razorpay_signature,
+          method,
+        });
+        onPaid(pay.orderNumber);
+      } catch (err) {
+        // The money may well have left — the webhook records it either way, so
+        // this must never read as "your payment failed".
+        onFail(
+          err instanceof ApiError
+            ? err.message
+            : `We couldn't confirm the payment on this screen. If it left your account, order ${pay.orderNumber} is safe — check My Orders in a minute or send us the payment reference.`
+        );
+      }
+    },
+    modal: { ondismiss: () => onDismiss(pay.orderNumber) },
+  });
+  checkout.open();
+}
+
 // A page rather than a dialog. The dialog was a form taller than the phone
 // screen scrolling inside the page's own scroll, with nowhere to show what you
 // are buying, no room for payment methods, and no way to check the total
@@ -2227,51 +2287,24 @@ function CheckoutPage({
         return;
       }
 
-      const pay = await api.orders.startPayment(res.orderNumber);
-      await loadRazorpay();
-      const Razorpay = window.Razorpay;
-      if (!Razorpay) throw new Error("Couldn't reach the payment provider.");
-
-      const checkout = new Razorpay({
-        key: pay.keyId,
-        amount: pay.amount,
-        currency: pay.currency,
-        order_id: pay.razorpayOrderId,
-        name: "Beauty of Beads",
-        description: `Order ${pay.orderNumber}`,
-        prefill: { name: pay.name || name, contact: pay.phone || phone, method },
-        notes: { order_number: pay.orderNumber },
-        theme: { color: "#3E2B23" },
-        handler: async (result: RazorpayResult) => {
-          try {
-            await api.orders.verifyPayment({
-              orderNumber: pay.orderNumber,
-              razorpayOrderId: result.razorpay_order_id,
-              razorpayPaymentId: result.razorpay_payment_id,
-              razorpaySignature: result.razorpay_signature,
-              method,
-            });
-            onPlaced(pay.orderNumber);
-          } catch (err) {
-            // The money may well have left — the webhook records it either way,
-            // so this must never read as "your payment failed".
-            setError(
-              err instanceof ApiError
-                ? err.message
-                : `We couldn't confirm the payment on this screen. If it left your account, order ${pay.orderNumber} is safe — check My Orders in a minute or send us the payment reference.`
-            );
-          } finally {
-            setLoading(false);
-          }
+      await payWithRazorpay({
+        orderNumber: res.orderNumber,
+        name,
+        phone,
+        method,
+        onPaid: (n) => {
+          setLoading(false);
+          onPlaced(n);
         },
-        modal: {
-          ondismiss: () => {
-            setLoading(false);
-            setError(`Payment cancelled. Order ${pay.orderNumber} is held for you — press Pay again to finish it.`);
-          },
+        onFail: (message) => {
+          setLoading(false);
+          setError(message);
+        },
+        onDismiss: (n) => {
+          setLoading(false);
+          setError(`Payment cancelled. Order ${n} is held for you — press Pay again to finish it.`);
         },
       });
-      checkout.open();
       return;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't place your order. Please check your connection and try again.");
@@ -2917,6 +2950,7 @@ function CustomOrderConfirmCard({
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [speed, setSpeed] = useState<(typeof INDIA_DELIVERY)[number]["id"]>("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2943,12 +2977,33 @@ function CustomOrderConfirmCard({
         postalCode: postalCode || undefined,
         country,
       };
-      await api.orders.confirm(order.order_number, shipping);
-      setFormOpen(false);
-      onConfirmed();
+      const res = await api.orders.confirm(order.order_number, shipping, speed);
+      if (!res.paymentRequired) {
+        setFormOpen(false);
+        setLoading(false);
+        onConfirmed();
+        return;
+      }
+      await payWithRazorpay({
+        orderNumber: order.order_number,
+        name,
+        phone,
+        onPaid: () => {
+          setFormOpen(false);
+          setLoading(false);
+          onConfirmed();
+        },
+        onFail: (message) => {
+          setLoading(false);
+          setError(message);
+        },
+        onDismiss: () => {
+          setLoading(false);
+          setError("Payment cancelled. Your order is held — press Confirm again to finish it.");
+        },
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't confirm this order. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -3045,6 +3100,42 @@ function CustomOrderConfirmCard({
               />
             </div>
           </div>
+
+          {/* Delivery is priced from the address just entered, the same as at
+              checkout — an admin-built order is quoted before anyone knows
+              where it is going. */}
+          {isIndia(country) ? (
+            <div className="flex flex-col gap-1.5">
+              <span className={labelClass}>Delivery</span>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {INDIA_DELIVERY.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setSpeed(d.id)}
+                    aria-pressed={speed === d.id}
+                    className={`rounded-sm border px-3 py-2.5 text-left transition-colors ${
+                      speed === d.id ? "border-olive-600 bg-white" : "border-border hover:border-olive-300"
+                    }`}
+                  >
+                    <span className="block text-xs font-semibold text-foreground">{d.label}</span>
+                    <span className="block text-[11px] text-foreground/55">
+                      {d.eta} &middot; ₹{d.amount}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-foreground/60">
+              International delivery ₹{shippingFor(country, speed).amount.toLocaleString("en-IN")} will be added.
+            </p>
+          )}
+
+          <p className="text-xs text-foreground/55">
+            Delivery and GST are added to the total, and you&rsquo;ll pay on the next screen.
+          </p>
+
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="mt-1 flex gap-3">
             <button
