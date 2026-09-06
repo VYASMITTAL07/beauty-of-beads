@@ -72,6 +72,10 @@ import {
   Clock,
   CalendarDays,
   CircleCheck,
+  CreditCard,
+  Smartphone,
+  Landmark,
+  Wallet,
 } from "lucide-react";
 
 // ---------- Decorative bead-strand graphic (stand-in for product photography) ----------
@@ -2008,7 +2012,26 @@ function formatShortDateTime(iso: string) {
   });
 }
 
-function CheckoutModal({
+// Razorpay's Key ID is public by design — like a Google OAuth client ID — and
+// the Key Secret never leaves the Worker. Empty until the account is live.
+// While it is empty the checkout shows no payment methods at all: a live
+// customer offered a payment selector that cannot take payment is worse off
+// than one who isn't offered it yet.
+const RAZORPAY_KEY_ID = "";
+const PAYMENTS_ENABLED = RAZORPAY_KEY_ID.length > 0;
+
+const PAYMENT_METHODS = [
+  { id: "upi", label: "UPI", hint: "GPay, PhonePe, Paytm, BHIM", Icon: Smartphone },
+  { id: "card", label: "Credit / Debit Card", hint: "Visa, Mastercard, RuPay, Amex", Icon: CreditCard },
+  { id: "netbanking", label: "Net Banking", hint: "All major Indian banks", Icon: Landmark },
+  { id: "wallet", label: "Wallet", hint: "Paytm, Amazon Pay, Freecharge", Icon: Wallet },
+] as const;
+
+// A page rather than a dialog. The dialog was a form taller than the phone
+// screen scrolling inside the page's own scroll, with nowhere to show what you
+// are buying, no room for payment methods, and no way to check the total
+// against the basket before committing.
+function CheckoutPage({
   open,
   onOpenChange,
   items,
@@ -2033,18 +2056,55 @@ function CheckoutModal({
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]["id"]>("upi");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The order API has taken a promo code all along; the dialog never had room
+  // to ask for one, so WELCOME10 — advertised on every product page — could not
+  // actually be redeemed.
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; discount: number } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (open) {
       setName(prefilledName || "");
       setPhone(prefilledPhone || "");
       setError(null);
+      setPromo(null);
+      setPromoInput("");
+      setPromoError(null);
     }
   }, [open, prefilledName, prefilledPhone]);
 
-  const total = items.reduce((sum, i) => sum + i.quantity * i.product_price, 0);
+  const subtotal = items.reduce((sum, i) => sum + i.quantity * i.product_price, 0);
+  const discount = promo?.discount ?? 0;
+  const total = Math.max(0, subtotal - discount);
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code || promoChecking) return;
+    setPromoChecking(true);
+    setPromoError(null);
+    try {
+      const res = await api.orders.previewPromo(code, subtotal);
+      if (res.valid && res.discountAmount) {
+        setPromo({ code, discount: res.discountAmount });
+      } else {
+        setPromo(null);
+        setPromoError(res.error || "That code isn't valid for this order.");
+      }
+    } catch (err) {
+      setPromo(null);
+      setPromoError(err instanceof ApiError ? err.message : "Couldn't check that code. Please try again.");
+    } finally {
+      setPromoChecking(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2059,6 +2119,7 @@ function CheckoutModal({
       const res = await api.orders.place({
         items: items.map((i) => ({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
         currencyCode: currency.code,
+        promoCode: promo?.code,
         shipping: {
           name,
           phone,
@@ -2079,114 +2140,211 @@ function CheckoutModal({
   };
 
   const fieldClass =
-    "rounded-sm border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive-500";
-  const labelClass = "text-sm font-medium text-foreground/80";
+    "w-full rounded-sm border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/35 focus:outline-none focus:ring-2 focus:ring-olive-500/60";
+  const labelClass = "text-[11px] font-semibold uppercase tracking-wide text-foreground/60";
+  const cardClass = "rounded-sm border border-border bg-card p-5 md:p-6";
+  const headingClass = "font-serif text-lg uppercase tracking-wide text-olive-600";
+
+  if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-sm overflow-y-auto rounded-lg font-sans sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-serif text-2xl">Checkout</DialogTitle>
-          <DialogDescription>Enter your shipping details to place your order.</DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-[95] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Back"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-olive-50"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <h1 className="min-w-0 truncate font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">Checkout</h1>
+        <span className="ml-auto shrink-0 text-xs text-foreground/50">
+          {items.length} {items.length === 1 ? "item" : "items"}
+        </span>
+      </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="ship-name" className={labelClass}>
-              Full name
-            </label>
-            <input id="ship-name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-5xl flex-1 px-5 py-6 md:px-8 md:py-10">
+        <div className="grid items-start gap-6 md:grid-cols-[1.6fr_1fr] md:gap-8">
+          <div className="flex flex-col gap-6">
+            <section className={cardClass}>
+              <h2 className={headingClass}>Shipping details</h2>
+              <p className="mt-1 text-sm text-foreground/60">Where should we send your pieces?</p>
+
+              <div className="mt-5 flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ship-name" className={labelClass}>Full name</label>
+                  <input id="ship-name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ship-phone" className={labelClass}>Phone number</label>
+                  <input
+                    id="ship-phone"
+                    type="tel"
+                    required
+                    minLength={7}
+                    maxLength={20}
+                    pattern={PHONE_REGEX.source}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder={PHONE_PLACEHOLDER}
+                    className={fieldClass}
+                  />
+                  <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ship-line1" className={labelClass}>Address line 1</label>
+                  <input
+                    id="ship-line1"
+                    required
+                    value={line1}
+                    onChange={(e) => setLine1(e.target.value)}
+                    placeholder="House no., street"
+                    className={fieldClass}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="ship-line2" className={labelClass}>Address line 2 (optional)</label>
+                  <input
+                    id="ship-line2"
+                    value={line2}
+                    onChange={(e) => setLine2(e.target.value)}
+                    placeholder="Landmark, apartment"
+                    className={fieldClass}
+                  />
+                </div>
+                <CountryStateFields
+                  country={country}
+                  onCountryChange={setCountry}
+                  state={state}
+                  onStateChange={setState}
+                  fieldClass={fieldClass}
+                  labelClass={labelClass}
+                  idPrefix="ship"
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="ship-city" className={labelClass}>City</label>
+                    <input id="ship-city" required value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="ship-postal" className={labelClass}>{postalLabel(country)}</label>
+                    <input
+                      id="ship-postal"
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      placeholder={postalPlaceholder(country)}
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {PAYMENTS_ENABLED && (
+              <section className={cardClass}>
+                <h2 className={headingClass}>Payment method</h2>
+                <p className="mt-1 text-sm text-foreground/60">Pick how you would like to pay, then confirm on the next screen.</p>
+                <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                  {PAYMENT_METHODS.map(({ id, label, hint, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setMethod(id)}
+                      aria-pressed={method === id}
+                      className={`flex items-center gap-3 rounded-sm border px-4 py-3.5 text-left transition-colors ${
+                        method === id ? "border-olive-600 bg-olive-50" : "border-border hover:border-olive-300"
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 shrink-0 ${method === id ? "text-olive-600" : "text-foreground/45"}`} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">{label}</span>
+                        <span className="block truncate text-xs text-foreground/55">{hint}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="ship-phone" className={labelClass}>
-              Phone number
-            </label>
-            <input
-              id="ship-phone"
-              type="tel"
-              required
-              minLength={7}
-              maxLength={20}
-              pattern={PHONE_REGEX.source}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder={PHONE_PLACEHOLDER}
-              className={fieldClass}
-            />
-            <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="ship-line1" className={labelClass}>
-              Address line 1
-            </label>
-            <input
-              id="ship-line1"
-              required
-              value={line1}
-              onChange={(e) => setLine1(e.target.value)}
-              placeholder="House no., street"
-              className={fieldClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="ship-line2" className={labelClass}>
-              Address line 2 (optional)
-            </label>
-            <input
-              id="ship-line2"
-              value={line2}
-              onChange={(e) => setLine2(e.target.value)}
-              placeholder="Landmark, apartment"
-              className={fieldClass}
-            />
-          </div>
-          <CountryStateFields
-            country={country}
-            onCountryChange={setCountry}
-            state={state}
-            onStateChange={setState}
-            fieldClass={fieldClass}
-            labelClass={labelClass}
-            idPrefix="ship"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ship-city" className={labelClass}>
-                City
-              </label>
-              <input id="ship-city" required value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass} />
+
+          <aside className={`${cardClass} md:sticky md:top-24`}>
+            <h2 className={headingClass}>Order summary</h2>
+
+            <ul className="mt-4 flex flex-col gap-3 border-b border-border pb-4">
+              {items.map((i) => (
+                <li key={`${i.product_name}-${i.product_price}`} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="block leading-snug text-foreground/85">{i.product_name}</span>
+                    <span className="text-xs text-foreground/50">Qty {i.quantity}</span>
+                  </span>
+                  <span className="shrink-0 font-serif">{formatPrice(i.quantity * i.product_price, currency)}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="border-b border-border py-4">
+              <label htmlFor="promo" className={labelClass}>Promo code</label>
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  id="promo"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                  placeholder="WELCOME10"
+                  className={fieldClass}
+                />
+                <button
+                  type="button"
+                  onClick={applyPromo}
+                  disabled={promoChecking || !promoInput.trim()}
+                  className="shrink-0 rounded-sm border border-olive-600 px-4 text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-40"
+                >
+                  {promoChecking ? "…" : "Apply"}
+                </button>
+              </div>
+              {promo && <p className="mt-2 text-xs text-olive-600">{promo.code} applied.</p>}
+              {promoError && <p className="mt-2 text-xs text-destructive">{promoError}</p>}
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="ship-postal" className={labelClass}>
-                {postalLabel(country)}
-              </label>
-              <input
-                id="ship-postal"
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value)}
-                placeholder={postalPlaceholder(country)}
-                className={fieldClass}
-              />
-            </div>
-          </div>
 
-          <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-sm">
-            <span className="text-foreground/70">Total</span>
-            <span className="font-serif text-lg">{formatPrice(total, currency)}</span>
-          </div>
+            <dl className="flex flex-col gap-2 py-4 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-foreground/65">Subtotal</dt>
+                <dd>{formatPrice(subtotal, currency)}</dd>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-olive-600">
+                  <dt>Discount</dt>
+                  <dd>-{formatPrice(discount, currency)}</dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-foreground/65">Shipping</dt>
+                <dd>Free</dd>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between border-t border-border pt-3">
+                <dt className="font-semibold text-foreground">Total</dt>
+                <dd className="font-serif text-xl">{formatPrice(total, currency)}</dd>
+              </div>
+            </dl>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={loading || items.length === 0}
-            className="mt-1 w-full rounded-sm border border-olive-600 bg-white py-2.5 text-sm font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-60"
-          >
-            {loading ? "Placing Order…" : "Place Order"}
-          </button>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <button
+              type="submit"
+              disabled={loading || items.length === 0}
+              className="w-full rounded-sm border border-olive-600 bg-white py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {loading ? "Placing Order…" : PAYMENTS_ENABLED ? `Pay ${formatPrice(total, currency)}` : "Place Order"}
+            </button>
+
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-foreground/50">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Your details are sent over an encrypted connection.
+            </p>
+          </aside>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -6734,7 +6892,7 @@ export default function App() {
       onOpenProduct={openProduct}
       allProducts={allProducts}
     />
-    <CheckoutModal
+    <CheckoutPage
       open={checkoutOpen}
       onOpenChange={setCheckoutOpen}
       items={cartItems}
