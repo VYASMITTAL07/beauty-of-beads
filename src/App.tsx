@@ -489,7 +489,10 @@ const NO_DECIMAL_CURRENCIES = new Set(["INR", "JPY", "KRW", "VND", "IDR"]);
 
 function formatPrice(inrAmount: number, currency: CurrencyOption) {
   const converted = inrAmount * currency.rate;
-  const decimals = NO_DECIMAL_CURRENCIES.has(currency.code) ? 0 : 2;
+  // Rupee prices are shown whole — ₹2,800, not ₹2,800.00 — but a total with
+  // GST in it rarely lands on a round rupee, and printing ₹3,449 next to a
+  // button that charges ₹3,449.47 is showing the customer the wrong number.
+  const decimals = NO_DECIMAL_CURRENCIES.has(currency.code) ? (Number.isInteger(converted) ? 0 : 2) : 2;
   return `${currency.symbol}${converted.toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -2933,6 +2936,57 @@ function ComplaintComposer({
 // 'awaiting_payment' and no shipping address yet — this card is how the
 // customer reviews it and supplies/confirms their shipping details
 // (see api.orders.confirm) to move it into the normal fulfillment flow.
+function ResumePaymentCard({ order, onPaid }: { order: OrderDto; onPaid: () => void }) {
+  const { currency } = useCurrency();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const pay = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await payWithRazorpay({
+        orderNumber: order.order_number,
+        name: order.shipping_name || "",
+        phone: order.shipping_phone || "",
+        onPaid: () => {
+          setLoading(false);
+          onPaid();
+        },
+        onFail: (message) => {
+          setLoading(false);
+          setError(message);
+        },
+        onDismiss: () => {
+          setLoading(false);
+          setError("Payment cancelled. Your order is still held for you.");
+        },
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't start the payment. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-sm border border-olive-400 bg-olive-50 px-4 py-4 sm:px-5 sm:py-5">
+      <p className="font-serif text-base text-olive-700 sm:text-lg">This order is waiting for payment</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">
+        We&rsquo;ve held everything in it for you. Nothing has been charged yet.
+      </p>
+      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+      <button
+        type="button"
+        onClick={pay}
+        disabled={loading}
+        className="mt-4 rounded-sm border border-olive-600 bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:opacity-50"
+      >
+        {loading ? "Opening payment…" : `Pay ${formatPrice(order.total_amount, currency)}`}
+      </button>
+    </div>
+  );
+}
+
 function CustomOrderConfirmCard({
   order,
   onConfirmed,
@@ -3519,8 +3573,10 @@ function OrdersView({
                 </a>
               )}
 
-              {selected.order.status === "awaiting_payment" ? (
+              {selected.order.status === "awaiting_payment" && !selected.order.shipping_line1 ? (
                 <CustomOrderConfirmCard order={selected.order} onConfirmed={() => loadOrder(selected.order.order_number)} />
+              ) : selected.order.status === "awaiting_payment" ? (
+                <ResumePaymentCard order={selected.order} onPaid={() => loadOrder(selected.order.order_number)} />
               ) : (
                 <>
                   {selected.order.status !== "cancelled" && (
