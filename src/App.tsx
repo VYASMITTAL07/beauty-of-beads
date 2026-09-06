@@ -4,6 +4,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useInViewport } from "@/hooks/useInViewport";
 import { CountryStateFields } from "@/components/store/CountryStateFields";
 import { Invoice } from "@/components/store/Invoice";
+import { OrderConfirmed } from "@/components/store/OrderConfirmed";
 import { DEFAULT_COUNTRY, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
 // Imported as files rather than an inline data: URI — as base64 this single
 // logo was ~426KB of the JavaScript bundle, parsed on every page load.
@@ -5006,6 +5007,7 @@ export default function App() {
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [confirmedOrder, setConfirmedOrder] = useState<string | null>(null);
   const [ordersViewOpen, setOrdersViewOpen] = useState(false);
   const [trackOrderNumber, setTrackOrderNumber] = useState<string | null>(null);
   const openOrdersView = () => {
@@ -5020,8 +5022,7 @@ export default function App() {
     setCartItems([]);
     setAdded(new Set());
     setCheckoutOpen(false);
-    setTrackOrderNumber(orderNumber);
-    setOrdersViewOpen(true);
+    setConfirmedOrder(orderNumber);
   };
   // Everything the homepage renders, in ONE request.
   //
@@ -7085,6 +7086,17 @@ export default function App() {
       onOpenProduct={openProduct}
       allProducts={allProducts}
     />
+    {confirmedOrder && (
+      <OrderConfirmed
+        orderNumber={confirmedOrder}
+        onClose={() => setConfirmedOrder(null)}
+        onTrack={(n) => {
+          setConfirmedOrder(null);
+          setTrackOrderNumber(n);
+          setOrdersViewOpen(true);
+        }}
+      />
+    )}
     <CheckoutPage
       open={checkoutOpen}
       onOpenChange={setCheckoutOpen}
