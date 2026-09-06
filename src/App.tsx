@@ -5172,6 +5172,10 @@ export default function App() {
   const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
   const [mobileCollectionsOpen, setMobileCollectionsOpen] = useState(false);
   const currencyMenuRef = useRef<HTMLDivElement>(null);
+  // The laptop Collections menu used to appear on hover alone, so clicking it —
+  // which is what the phone menu trains you to do — did nothing at all.
+  const [collectionsMenuOpen, setCollectionsMenuOpen] = useState(false);
+  const collectionsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!currencyMenuOpen) return;
@@ -5183,6 +5187,24 @@ export default function App() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [currencyMenuOpen]);
+
+  useEffect(() => {
+    if (!collectionsMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (collectionsMenuRef.current && !collectionsMenuRef.current.contains(e.target as Node)) {
+        setCollectionsMenuOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCollectionsMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [collectionsMenuOpen]);
   const [storySlide, setStorySlide] = useState(0);
 
   useEffect(() => {
@@ -5353,7 +5375,7 @@ export default function App() {
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform ${currencyMenuOpen ? "rotate-180" : ""}`} />
                 </button>
                 {currencyMenuOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-border bg-card py-2 shadow-xl">
+                  <div className="header-popover absolute left-0 top-full z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border border-border bg-card py-2 shadow-xl">
                     {CURRENCIES.map((c) => (
                       <button
                         key={c.country}
@@ -5383,14 +5405,24 @@ export default function App() {
 
           <div className="flex items-center justify-end gap-4 sm:gap-6">
             <nav className="hidden items-center gap-7 font-serif text-[15px] md:flex">
-              <div className="group relative">
-                <button className="flex items-center gap-1 text-foreground/80 transition-colors hover:text-olive-500">
-                  Collections <ChevronDown className="h-3.5 w-3.5" />
+              <div className="group relative" ref={collectionsMenuRef}>
+                <button
+                  type="button"
+                  aria-expanded={collectionsMenuOpen}
+                  onClick={() => setCollectionsMenuOpen((v) => !v)}
+                  className="flex items-center gap-1 text-foreground/80 transition-colors hover:text-olive-500"
+                >
+                  Collections
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${collectionsMenuOpen ? "rotate-180" : ""}`} />
                 </button>
                 {/* header-popover keeps the over-hero text colours out of this
                     panel — it has its own light background, so the light text
                     meant for the video would be invisible on it. */}
-                <div className="header-popover invisible absolute right-0 top-full z-50 flex overflow-hidden rounded-xl border border-border bg-card opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
+                <div
+                  className={`header-popover absolute right-0 top-full z-50 flex overflow-hidden rounded-xl border border-border bg-card shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100 ${
+                    collectionsMenuOpen ? "visible opacity-100" : "invisible opacity-0"
+                  }`}
+                >
                   {/* Grouped into families, the same as the phone menu and the
                       Collections page — a flat run of twenty-one names here was
                       the same wall of text it was there. Hovering a category
@@ -5407,7 +5439,10 @@ export default function App() {
                           <button
                             key={name}
                             onMouseEnter={() => setActiveCategory(name)}
-                            onClick={() => openCategoryView(name)}
+                            onClick={() => {
+                              setCollectionsMenuOpen(false);
+                              openCategoryView(name);
+                            }}
                             className={`flex w-full items-center justify-between gap-2 py-2.5 pr-5 text-left text-xs font-semibold uppercase tracking-wide transition-colors ${
                               entry.kind === "group" ? "pl-7" : "pl-5"
                             } ${hoveredCategory === name ? "bg-card text-olive-500" : "text-foreground/70 hover:bg-card/70"}`}
@@ -5421,7 +5456,10 @@ export default function App() {
                     {/* The full Collections page had no way in from a laptop at
                         all — it was only reachable from the phone menu. */}
                     <button
-                      onClick={() => setAllCollectionsOpen(true)}
+                      onClick={() => {
+                        setCollectionsMenuOpen(false);
+                        setAllCollectionsOpen(true);
+                      }}
                       className="mt-2 flex w-full items-center justify-between gap-2 border-t border-border/60 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-olive-600 transition-colors hover:bg-card"
                     >
                       View all collections
@@ -5432,7 +5470,10 @@ export default function App() {
                     <ul className="space-y-2 text-sm">
                       <li
                         className="cursor-pointer font-semibold text-olive-500 hover:text-olive-600"
-                        onClick={() => openCategoryView(hoveredCategory)}
+                        onClick={() => {
+                          setCollectionsMenuOpen(false);
+                          openCategoryView(hoveredCategory);
+                        }}
                       >
                         Shop All {hoveredCategoryProducts.length > 0 && `(${hoveredCategoryProducts.length})`}
                       </li>
@@ -5442,7 +5483,10 @@ export default function App() {
                         <li
                           key={p.slug || p.name}
                           className="cursor-pointer truncate text-foreground/75 hover:text-olive-500"
-                          onClick={() => openProduct(p)}
+                          onClick={() => {
+                            setCollectionsMenuOpen(false);
+                            openProduct(p);
+                          }}
                         >
                           {p.name}
                         </li>
