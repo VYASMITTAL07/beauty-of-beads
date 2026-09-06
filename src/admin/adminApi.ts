@@ -107,6 +107,10 @@ export type AdminOrder = {
   customer_name: string;
   customer_email: string;
   created_by_admin?: number | boolean;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  payment_id?: string | null;
+  paid_at?: string | null;
   created_at: string;
   updated_at: string;
 };
