@@ -3,6 +3,7 @@ import { useAuth, ApiError } from "@/context/AuthContext";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useInViewport } from "@/hooks/useInViewport";
 import { CountryStateFields } from "@/components/store/CountryStateFields";
+import { Invoice } from "@/components/store/Invoice";
 import { DEFAULT_COUNTRY, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
 // Imported as files rather than an inline data: URI — as base64 this single
 // logo was ~426KB of the JavaScript bundle, parsed on every page load.
@@ -3221,6 +3222,7 @@ function OrdersView({
   // (open -> in progress -> resolved/rejected) instead of the complaint
   // vanishing the moment they submit it.
   const [complaints, setComplaints] = useState<ComplaintDto[] | null>(null);
+  const [invoiceFor, setInvoiceFor] = useState<OrderDetail | null>(null);
 
   const loadComplaints = () => {
     api.complaints
@@ -3354,9 +3356,7 @@ function OrdersView({
           const itemCount = selected.items.reduce((n, it) => n + it.quantity, 0);
           const subtotal = selected.items.reduce((sum, it) => sum + it.product_price * it.quantity, 0);
           const discount = selected.order.discount_amount || 0;
-          const handleInvoice = () => {
-            alert("Invoice PDF download will be available once the payment gateway is set up.");
-          };
+          const handleInvoice = () => setInvoiceFor(selected);
 
           return (
             <div className="flex flex-col gap-4">
@@ -3656,6 +3656,9 @@ function OrdersView({
           loadComplaints();
         }}
       />
+      {invoiceFor && (
+        <Invoice order={invoiceFor.order} items={invoiceFor.items} onClose={() => setInvoiceFor(null)} />
+      )}
     </div>
   );
 }

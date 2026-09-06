@@ -111,6 +111,12 @@ export type AdminOrder = {
   payment_method?: string | null;
   payment_id?: string | null;
   paid_at?: string | null;
+  shipping_amount?: number | null;
+  shipping_method?: string | null;
+  tax_amount?: number | null;
+  tax_type?: string | null;
+  tax_rate?: number | null;
+  invoice_number?: string | null;
   created_at: string;
   updated_at: string;
 };

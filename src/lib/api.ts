@@ -303,6 +303,16 @@ export type OrderDto = OrderSummaryDto & {
   shipping_country: string;
   promo_code?: string | null;
   discount_amount?: number | null;
+  shipping_amount?: number | null;
+  shipping_method?: string | null;
+  tax_amount?: number | null;
+  tax_type?: string | null;
+  tax_rate?: number | null;
+  invoice_number?: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  payment_id?: string | null;
+  paid_at?: string | null;
   updated_at: string;
 };
 export type OrderItemDto = { product_name: string; product_price: number; quantity: number; product_image?: string | null };

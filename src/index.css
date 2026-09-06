@@ -116,3 +116,34 @@
 .over-hero .header-popover {
   color: hsl(var(--foreground));
 }
+
+/* Print-to-PDF for the tax invoice. Hiding by visibility rather than display
+   keeps the sheet's own layout intact while everything around it stops
+   painting — display:none on ancestors would take the sheet with them. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .invoice-sheet,
+  .invoice-sheet * {
+    visibility: visible;
+  }
+  .invoice-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+  }
+  .print-hide {
+    display: none !important;
+  }
+  .invoice-root {
+    background: #fff !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}
