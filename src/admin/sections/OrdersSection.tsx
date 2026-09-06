@@ -3,8 +3,23 @@ import { Button } from "@/components/ui/button";
 import { adminApi, AdminApiError, type AdminOrder, type AdminOrderDetail } from "../adminApi";
 
 const STAGES = ["placed", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"];
+// Whether the money arrived is a separate question from where the parcel is:
+// an order can be delivered and refunded, or placed and never paid for.
+const PAYMENT_LABEL: Record<string, string> = {
+  paid: "Paid",
+  unpaid: "Unpaid",
+  failed: "Payment failed",
+  refunded: "Refunded",
+  partially_refunded: "Partly refunded",
+};
+function paymentText(o: { payment_status?: string | null; payment_method?: string | null }) {
+  const status = o.payment_status || "unpaid";
+  const label = PAYMENT_LABEL[status] || status;
+  return o.payment_method && status === "paid" ? `${label} · ${o.payment_method}` : label;
+}
+
 const STATUS_LABEL: Record<string, string> = {
-  awaiting_payment: "Awaiting customer confirmation",
+  awaiting_payment: "Awaiting payment",
   placed: "Placed",
   confirmed: "Confirmed",
   packed: "Packed",
@@ -106,6 +121,7 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
               <th className="p-3">Order</th>
               <th className="p-3">Customer</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Payment</th>
               <th className="p-3">Amount</th>
               <th className="p-3">Placed</th>
               <th className="p-3" />
@@ -120,6 +136,9 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
                   <div className="text-xs text-foreground/50">{o.customer_email}</div>
                 </td>
                 <td className="p-3">{STATUS_LABEL[o.status] || o.status}</td>
+                <td className={`p-3 ${(o.payment_status || "unpaid") === "paid" ? "" : "text-foreground/50"}`}>
+                  {paymentText(o)}
+                </td>
                 <td className="p-3">₹{o.total_amount.toLocaleString("en-IN")}</td>
                 <td className="p-3 text-foreground/50">{new Date(o.created_at).toLocaleDateString("en-IN")}</td>
                 <td className="p-3">
@@ -239,6 +258,10 @@ function OrderDetailModal({
               <div>
                 <p className="font-mono text-sm">{detail.order.order_number}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-olive-600">{STATUS_LABEL[detail.order.status] || detail.order.status}</p>
+                <p className="mt-0.5 text-xs text-foreground/60">
+                  {paymentText(detail.order)}
+                  {detail.order.payment_id ? ` · ${detail.order.payment_id}` : ""}
+                </p>
               </div>
               <button type="button" onClick={onClose} className="text-sm text-foreground/50 hover:text-foreground">
                 Close
