@@ -2027,6 +2027,51 @@ const PAYMENT_METHODS = [
   { id: "wallet", label: "Wallet", hint: "Paytm, Amazon Pay, Freecharge", Icon: Wallet },
 ] as const;
 
+// Mirrors the Worker's src/lib/billing.js, for display only. The Worker decides
+// what is actually charged and what reaches the invoice; if the two ever
+// disagree, its number is the one the customer pays.
+const GST_RATE = 0.03;
+const SUPPLIER_STATE = "maharashtra";
+const INDIA_DELIVERY = [
+  { id: "normal", label: "Normal delivery", eta: "About 7 days", amount: 100 },
+  { id: "urgent", label: "Urgent delivery", eta: "2-3 days", amount: 170 },
+] as const;
+const NEARBY_COUNTRIES = new Set([
+  "australia",
+  "nepal",
+  "bangladesh",
+  "sri lanka",
+  "bhutan",
+  "maldives",
+  "myanmar",
+  "pakistan",
+  "afghanistan",
+]);
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const isIndia = (country: string) => country.trim().toLowerCase() === "india";
+
+function shippingFor(country: string, speed: "normal" | "urgent") {
+  if (isIndia(country)) {
+    const choice = INDIA_DELIVERY.find((d) => d.id === speed) || INDIA_DELIVERY[0];
+    return { amount: choice.amount, label: choice.label, eta: choice.eta };
+  }
+  if (NEARBY_COUNTRIES.has(country.trim().toLowerCase())) {
+    return { amount: 2000, label: "International delivery", eta: "7-14 days" };
+  }
+  return { amount: 3500, label: "International delivery", eta: "10-21 days" };
+}
+
+// Exports are zero-rated, so an order leaving India carries no GST line.
+function taxFor(country: string, state: string, taxable: number) {
+  if (!isIndia(country)) return { label: "", amount: 0 };
+  const total = round2(taxable * GST_RATE);
+  if (state.trim().toLowerCase() === SUPPLIER_STATE) {
+    const half = round2(total / 2);
+    return { label: "CGST 1.5% + SGST 1.5%", amount: round2(half * 2) };
+  }
+  return { label: "IGST 3%", amount: total };
+}
+
 type RazorpayResult = { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string };
 type RazorpayInstance = { open: () => void };
 type RazorpayCtor = new (options: Record<string, unknown>) => RazorpayInstance;
@@ -2084,6 +2129,7 @@ function CheckoutPage({
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]["id"]>("upi");
+  const [speed, setSpeed] = useState<(typeof INDIA_DELIVERY)[number]["id"]>("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2110,7 +2156,11 @@ function CheckoutPage({
 
   const subtotal = items.reduce((sum, i) => sum + i.quantity * i.product_price, 0);
   const discount = promo?.discount ?? 0;
-  const total = Math.max(0, subtotal - discount);
+  const goods = Math.max(0, round2(subtotal - discount));
+  const ship = shippingFor(country, speed);
+  const taxable = round2(goods + ship.amount);
+  const tax = taxFor(country, state, taxable);
+  const total = round2(taxable + tax.amount);
 
   const applyPromo = async () => {
     const code = promoInput.trim();
@@ -2155,6 +2205,7 @@ function CheckoutPage({
         items: items.map((i) => ({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
         currencyCode: currency.code,
         promoCode: promo?.code,
+        deliverySpeed: speed,
         shipping: {
           name,
           phone,
@@ -2331,6 +2382,46 @@ function CheckoutPage({
               </div>
             </section>
 
+            <section className={cardClass}>
+              <h2 className={headingClass}>Delivery</h2>
+              {isIndia(country) ? (
+                <>
+                  <p className="mt-1 text-sm text-foreground/60">How soon do you need it?</p>
+                  <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                    {INDIA_DELIVERY.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setSpeed(d.id)}
+                        aria-pressed={speed === d.id}
+                        className={`rounded-sm border px-4 py-3.5 text-left transition-colors ${
+                          speed === d.id ? "border-olive-600 bg-olive-50" : "border-border hover:border-olive-300"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold text-foreground">{d.label}</span>
+                        <span className="block text-xs text-foreground/55">{d.eta}</span>
+                        <span className="mt-1.5 block font-serif text-sm text-olive-600">{formatPrice(d.amount, currency)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                // Outside India the rate follows from the country already
+                // entered above, so there is nothing left to ask.
+                <div className="mt-4 flex items-center gap-3 rounded-sm border border-border px-4 py-3.5">
+                  <Truck className="h-5 w-5 shrink-0 text-foreground/45" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {ship.label}
+                      {country ? ` to ${country}` : ""}
+                    </span>
+                    <span className="block text-xs text-foreground/55">{ship.eta}</span>
+                  </span>
+                  <span className="ml-auto shrink-0 font-serif text-sm text-olive-600">{formatPrice(ship.amount, currency)}</span>
+                </div>
+              )}
+            </section>
+
             {PAYMENTS_ENABLED && (
               <section className={cardClass}>
                 <h2 className={headingClass}>Payment method</h2>
@@ -2408,9 +2499,18 @@ function CheckoutPage({
                 </div>
               )}
               <div className="flex justify-between">
-                <dt className="text-foreground/65">Shipping</dt>
-                <dd>Free</dd>
+                <dt className="text-foreground/65">{ship.label}</dt>
+                <dd>{formatPrice(ship.amount, currency)}</dd>
               </div>
+              {tax.amount > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-foreground/65">{tax.label}</dt>
+                  <dd>{formatPrice(tax.amount, currency)}</dd>
+                </div>
+              )}
+              {!isIndia(country) && country && (
+                <p className="text-xs text-foreground/45">No Indian GST on orders shipped abroad.</p>
+              )}
               <div className="mt-1 flex items-baseline justify-between border-t border-border pt-3">
                 <dt className="font-semibold text-foreground">Total</dt>
                 <dd className="font-serif text-xl">{formatPrice(total, currency)}</dd>
@@ -4581,7 +4681,7 @@ function ProductDetailView({
                 </>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
+            <p className="mt-1 text-xs text-muted-foreground">GST and delivery added at checkout</p>
 
             {/* Option groups — which piece of a set, and whether it's wanted in a
                 custom colour. A set is sold as one listing, so the choice of

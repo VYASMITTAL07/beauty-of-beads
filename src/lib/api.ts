@@ -157,9 +157,10 @@ export const api = {
       items: { productName: string; productPrice: number; quantity: number }[];
       currencyCode?: string;
       promoCode?: string;
+      deliverySpeed?: "normal" | "urgent";
       shipping: ShippingInput;
     }) =>
-      request<{ orderNumber: string; orderId: number; totalAmount: number; discountAmount: number; paymentRequired?: boolean }>("/api/orders", {
+      request<{ orderNumber: string; orderId: number; totalAmount: number; discountAmount: number; shippingAmount?: number; taxAmount?: number; paymentRequired?: boolean }>("/api/orders", {
         method: "POST",
         body: JSON.stringify(data),
       }),
