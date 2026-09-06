@@ -159,7 +159,30 @@ export const api = {
       promoCode?: string;
       shipping: ShippingInput;
     }) =>
-      request<{ orderNumber: string; orderId: number; totalAmount: number; discountAmount: number }>("/api/orders", {
+      request<{ orderNumber: string; orderId: number; totalAmount: number; discountAmount: number; paymentRequired?: boolean }>("/api/orders", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    // Razorpay. The amount is decided by the Worker from the stored order, not
+    // sent from here — the browser only ever names which order it is paying.
+    startPayment: (orderNumber: string) =>
+      request<{
+        keyId: string;
+        razorpayOrderId: string;
+        amount: number;
+        currency: string;
+        orderNumber: string;
+        name: string;
+        phone: string;
+      }>("/api/payments/razorpay/order", { method: "POST", body: JSON.stringify({ orderNumber }) }),
+    verifyPayment: (data: {
+      orderNumber: string;
+      razorpayOrderId: string;
+      razorpayPaymentId: string;
+      razorpaySignature: string;
+      method?: string;
+    }) =>
+      request<{ ok: true; orderNumber: string }>("/api/payments/razorpay/verify", {
         method: "POST",
         body: JSON.stringify(data),
       }),

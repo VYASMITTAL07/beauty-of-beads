@@ -2017,7 +2017,7 @@ function formatShortDateTime(iso: string) {
 // While it is empty the checkout shows no payment methods at all: a live
 // customer offered a payment selector that cannot take payment is worse off
 // than one who isn't offered it yet.
-const RAZORPAY_KEY_ID = "";
+const RAZORPAY_KEY_ID = "rzp_live_TYpAVco8r9vH0F";
 const PAYMENTS_ENABLED = RAZORPAY_KEY_ID.length > 0;
 
 const PAYMENT_METHODS = [
@@ -2026,6 +2026,33 @@ const PAYMENT_METHODS = [
   { id: "netbanking", label: "Net Banking", hint: "All major Indian banks", Icon: Landmark },
   { id: "wallet", label: "Wallet", hint: "Paytm, Amazon Pay, Freecharge", Icon: Wallet },
 ] as const;
+
+type RazorpayResult = { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string };
+type RazorpayInstance = { open: () => void };
+type RazorpayCtor = new (options: Record<string, unknown>) => RazorpayInstance;
+declare global {
+  interface Window {
+    Razorpay?: RazorpayCtor;
+  }
+}
+
+let razorpayScript: Promise<void> | null = null;
+function loadRazorpay(): Promise<void> {
+  if (window.Razorpay) return Promise.resolve();
+  if (razorpayScript) return razorpayScript;
+  razorpayScript = new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = "https://checkout.razorpay.com/v1/checkout.js";
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => {
+      razorpayScript = null;
+      reject(new Error("Couldn't reach the payment provider."));
+    };
+    document.head.appendChild(el);
+  });
+  return razorpayScript;
+}
 
 // A page rather than a dialog. The dialog was a form taller than the phone
 // screen scrolling inside the page's own scroll, with nowhere to show what you
@@ -2139,10 +2166,62 @@ function CheckoutPage({
           country,
         },
       });
-      onPlaced(res.orderNumber);
+
+      // Without a gateway the order is placed outright, exactly as before.
+      if (!res.paymentRequired) {
+        setLoading(false);
+        onPlaced(res.orderNumber);
+        return;
+      }
+
+      const pay = await api.orders.startPayment(res.orderNumber);
+      await loadRazorpay();
+      const Razorpay = window.Razorpay;
+      if (!Razorpay) throw new Error("Couldn't reach the payment provider.");
+
+      const checkout = new Razorpay({
+        key: pay.keyId,
+        amount: pay.amount,
+        currency: pay.currency,
+        order_id: pay.razorpayOrderId,
+        name: "Beauty of Beads",
+        description: `Order ${pay.orderNumber}`,
+        prefill: { name: pay.name || name, contact: pay.phone || phone, method },
+        notes: { order_number: pay.orderNumber },
+        theme: { color: "#3E2B23" },
+        handler: async (result: RazorpayResult) => {
+          try {
+            await api.orders.verifyPayment({
+              orderNumber: pay.orderNumber,
+              razorpayOrderId: result.razorpay_order_id,
+              razorpayPaymentId: result.razorpay_payment_id,
+              razorpaySignature: result.razorpay_signature,
+              method,
+            });
+            onPlaced(pay.orderNumber);
+          } catch (err) {
+            // The money may well have left — the webhook records it either way,
+            // so this must never read as "your payment failed".
+            setError(
+              err instanceof ApiError
+                ? err.message
+                : `We couldn't confirm the payment on this screen. If it left your account, order ${pay.orderNumber} is safe — check My Orders in a minute or send us the payment reference.`
+            );
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setLoading(false);
+            setError(`Payment cancelled. Order ${pay.orderNumber} is held for you — press Pay again to finish it.`);
+          },
+        },
+      });
+      checkout.open();
+      return;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't place your order. Please check your connection and try again.");
-    } finally {
       setLoading(false);
     }
   };
