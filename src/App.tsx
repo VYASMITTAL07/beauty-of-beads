@@ -3624,8 +3624,30 @@ function OrdersView({
                       <span>− {formatPrice(discount, currency)}</span>
                     </div>
                   )}
+                  {/* Delivery and GST are only known once an address exists, so
+                      an admin-built order shows neither until it is confirmed. */}
+                  {Number(selected.order.shipping_amount || 0) > 0 && (
+                    <div className="flex items-center justify-between text-foreground/60">
+                      <span>
+                        {selected.order.shipping_method === "urgent"
+                          ? "Urgent delivery"
+                          : selected.order.shipping_method === "international"
+                            ? "International delivery"
+                            : "Normal delivery"}
+                      </span>
+                      <span>{formatPrice(Number(selected.order.shipping_amount), currency)}</span>
+                    </div>
+                  )}
+                  {Number(selected.order.tax_amount || 0) > 0 && (
+                    <div className="flex items-center justify-between text-foreground/60">
+                      <span>{selected.order.tax_type === "cgst_sgst" ? "CGST 1.5% + SGST 1.5%" : "IGST 3%"}</span>
+                      <span>{formatPrice(Number(selected.order.tax_amount), currency)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-t border-olive-200/60 pt-2 font-semibold text-foreground">
-                    <span>Total paid</span>
+                    {/* "Total paid" on an order nobody has paid for was telling
+                        the customer their money had gone. */}
+                    <span>{selected.order.payment_status === "paid" ? "Total paid" : "Amount due"}</span>
                     <span className="font-serif text-base">{formatPrice(selected.order.total_amount, currency)}</span>
                   </div>
                 </div>
