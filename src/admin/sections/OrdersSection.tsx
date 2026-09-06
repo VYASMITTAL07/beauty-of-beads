@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { adminApi, AdminApiError, type AdminOrder, type AdminOrderDetail } from "../adminApi";
+import {
+  adminApi,
+  AdminApiError,
+  type AdminOrder,
+  type AdminOrderDetail,
+} from "../adminApi";
+import { Invoice } from "@/components/store/Invoice";
 
-const STAGES = ["placed", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"];
+const STAGES = [
+  "placed",
+  "confirmed",
+  "packed",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+];
 // Whether the money arrived is a separate question from where the parcel is:
 // an order can be delivered and refunded, or placed and never paid for.
 const PAYMENT_LABEL: Record<string, string> = {
@@ -12,10 +25,15 @@ const PAYMENT_LABEL: Record<string, string> = {
   refunded: "Refunded",
   partially_refunded: "Partly refunded",
 };
-function paymentText(o: { payment_status?: string | null; payment_method?: string | null }) {
+function paymentText(o: {
+  payment_status?: string | null;
+  payment_method?: string | null;
+}) {
   const status = o.payment_status || "unpaid";
   const label = PAYMENT_LABEL[status] || status;
-  return o.payment_method && status === "paid" ? `${label} · ${o.payment_method}` : label;
+  return o.payment_method && status === "paid"
+    ? `${label} · ${o.payment_method}`
+    : label;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -31,7 +49,13 @@ const STATUS_LABEL: Record<string, string> = {
 
 type View = "all" | "pending" | "completed";
 
-export default function OrdersSection({ onError, onSuccess }: { onError: (m: string) => void; onSuccess: (m: string) => void }) {
+export default function OrdersSection({
+  onError,
+  onSuccess,
+}: {
+  onError: (m: string) => void;
+  onSuccess: (m: string) => void;
+}) {
   const [orders, setOrders] = useState<AdminOrder[] | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [view, setView] = useState<View>("all");
@@ -41,13 +65,18 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
     adminApi.orders
       .list(statusFilter || undefined)
       .then((r) => setOrders(r.orders))
-      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load orders"));
+      .catch((e) =>
+        onError(
+          e instanceof AdminApiError ? e.message : "Couldn't load orders",
+        ),
+      );
   };
 
   useEffect(load, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = orders?.filter((o) => {
-    if (view === "pending") return !["delivered", "cancelled"].includes(o.status);
+    if (view === "pending")
+      return !["delivered", "cancelled"].includes(o.status);
     if (view === "completed") return o.status === "delivered";
     return true;
   });
@@ -55,7 +84,9 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Orders</h1>
+        <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">
+          Orders
+        </h1>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-sm border border-border bg-background p-0.5 text-sm">
             {(["all", "pending", "completed"] as View[]).map((v) => (
@@ -64,7 +95,9 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
                 type="button"
                 onClick={() => setView(v)}
                 className={`rounded-sm px-3 py-1.5 capitalize transition-colors ${
-                  view === v ? "bg-olive-100 font-medium text-olive-600" : "text-foreground/60 hover:bg-olive-50"
+                  view === v
+                    ? "bg-olive-100 font-medium text-olive-600"
+                    : "text-foreground/60 hover:bg-olive-50"
                 }`}
               >
                 {v}
@@ -96,21 +129,33 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
             className="w-full rounded-md border border-border bg-background p-3 text-left transition-colors hover:border-olive-400"
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="font-mono text-xs text-foreground/70">{o.order_number}</span>
+              <span className="font-mono text-xs text-foreground/70">
+                {o.order_number}
+              </span>
               <span className="shrink-0 rounded-full bg-olive-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-olive-600">
                 {STATUS_LABEL[o.status] || o.status}
               </span>
             </div>
-            <p className="mt-1.5 truncate text-sm font-medium">{o.customer_name}</p>
-            <p className="truncate text-xs text-foreground/50">{o.customer_email}</p>
+            <p className="mt-1.5 truncate text-sm font-medium">
+              {o.customer_name}
+            </p>
+            <p className="truncate text-xs text-foreground/50">
+              {o.customer_email}
+            </p>
             <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-foreground/50">{new Date(o.created_at).toLocaleDateString("en-IN")}</span>
-              <span className="font-serif text-sm">₹{o.total_amount.toLocaleString("en-IN")}</span>
+              <span className="text-foreground/50">
+                {new Date(o.created_at).toLocaleDateString("en-IN")}
+              </span>
+              <span className="font-serif text-sm">
+                ₹{o.total_amount.toLocaleString("en-IN")}
+              </span>
             </div>
           </button>
         ))}
         {visible && visible.length === 0 && (
-          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">No orders found.</p>
+          <p className="rounded-md border border-border bg-background p-6 text-center text-sm text-foreground/50">
+            No orders found.
+          </p>
         )}
       </div>
 
@@ -129,20 +174,35 @@ export default function OrdersSection({ onError, onSuccess }: { onError: (m: str
           </thead>
           <tbody>
             {visible?.map((o) => (
-              <tr key={o.id} className="border-b border-border/60 last:border-none hover:bg-olive-50/50">
+              <tr
+                key={o.id}
+                className="border-b border-border/60 last:border-none hover:bg-olive-50/50"
+              >
                 <td className="p-3 font-mono text-xs">{o.order_number}</td>
                 <td className="p-3">
                   <div>{o.customer_name}</div>
-                  <div className="text-xs text-foreground/50">{o.customer_email}</div>
+                  <div className="text-xs text-foreground/50">
+                    {o.customer_email}
+                  </div>
                 </td>
                 <td className="p-3">{STATUS_LABEL[o.status] || o.status}</td>
-                <td className={`p-3 ${(o.payment_status || "unpaid") === "paid" ? "" : "text-foreground/50"}`}>
+                <td
+                  className={`p-3 ${(o.payment_status || "unpaid") === "paid" ? "" : "text-foreground/50"}`}
+                >
                   {paymentText(o)}
                 </td>
-                <td className="p-3">₹{o.total_amount.toLocaleString("en-IN")}</td>
-                <td className="p-3 text-foreground/50">{new Date(o.created_at).toLocaleDateString("en-IN")}</td>
                 <td className="p-3">
-                  <button type="button" onClick={() => setOpenOrderId(o.id)} className="text-xs font-medium text-olive-600 hover:underline">
+                  ₹{o.total_amount.toLocaleString("en-IN")}
+                </td>
+                <td className="p-3 text-foreground/50">
+                  {new Date(o.created_at).toLocaleDateString("en-IN")}
+                </td>
+                <td className="p-3">
+                  <button
+                    type="button"
+                    onClick={() => setOpenOrderId(o.id)}
+                    className="text-xs font-medium text-olive-600 hover:underline"
+                  >
                     View
                   </button>
                 </td>
@@ -194,7 +254,9 @@ function OrderDetailModal({
     adminApi.orders
       .get(orderId)
       .then(setDetail)
-      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load order"));
+      .catch((e) =>
+        onError(e instanceof AdminApiError ? e.message : "Couldn't load order"),
+      );
   };
 
   useEffect(load, [orderId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -207,11 +269,15 @@ function OrderDetailModal({
     setUpdating(true);
     try {
       await adminApi.orders.setStatus(orderId, next);
-      onSuccess(`Order marked ${STATUS_LABEL[next]}${next === "delivered" ? " — delivery + review-request emails sent" : ""}`);
+      onSuccess(
+        `Order marked ${STATUS_LABEL[next]}${next === "delivered" ? " — delivery + review-request emails sent" : ""}`,
+      );
       load();
       onChanged();
     } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't update status");
+      onError(
+        e instanceof AdminApiError ? e.message : "Couldn't update status",
+      );
     } finally {
       setUpdating(false);
     }
@@ -237,118 +303,201 @@ function OrderDetailModal({
       await adminApi.orders.resendDeliveryEmail(orderId);
       onSuccess("Emails resent");
     } catch (e) {
-      onError(e instanceof AdminApiError ? e.message : "Couldn't resend emails");
+      onError(
+        e instanceof AdminApiError ? e.message : "Couldn't resend emails",
+      );
     } finally {
       setUpdating(false);
     }
   };
 
-  const showInvoicePlaceholder = () => {
-    alert("Invoice PDF download will be available once the payment gateway is set up.");
-  };
+  const [showInvoice, setShowInvoice] = useState(false);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md bg-background p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
-        {!detail ? (
-          <p className="text-sm text-foreground/50">Loading…</p>
-        ) : (
-          <>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-mono text-sm">{detail.order.order_number}</p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-olive-600">{STATUS_LABEL[detail.order.status] || detail.order.status}</p>
-                <p className="mt-0.5 text-xs text-foreground/60">
-                  {paymentText(detail.order)}
-                  {detail.order.payment_id ? ` · ${detail.order.payment_id}` : ""}
-                </p>
-              </div>
-              <button type="button" onClick={onClose} className="text-sm text-foreground/50 hover:text-foreground">
-                Close
-              </button>
-            </div>
-
-            <div className="mt-4 rounded-sm bg-olive-50 p-3 text-sm">
-              <div className="flex items-center gap-2">
-                <p className="font-medium">{detail.order.customer_name}</p>
-                {detail.order.created_by_admin ? (
-                  <span className="rounded-full bg-olive-600 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white">Custom order</span>
-                ) : null}
-              </div>
-              <p className="text-foreground/60">{detail.order.customer_email}</p>
-              <p className="text-foreground/60">{detail.order.shipping_phone || "—"}</p>
-              <p className="mt-2 text-foreground/70">
-                {detail.order.shipping_line1}
-                {detail.order.shipping_line2 ? `, ${detail.order.shipping_line2}` : ""}, {detail.order.shipping_city}
-                {detail.order.shipping_state ? `, ${detail.order.shipping_state}` : ""} {detail.order.shipping_postal_code || ""},{" "}
-                {detail.order.shipping_country}
-              </p>
-              {detail.order.custom_note && (
-                <p className="mt-2 rounded-sm border border-olive-200 bg-background p-2 text-xs text-foreground/70">
-                  <span className="font-medium">Note to customer: </span>
-                  {detail.order.custom_note}
-                </p>
-              )}
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {detail.items.map((it) => (
-                <div key={it.product_name} className="flex justify-between text-sm">
-                  <span>
-                    {it.product_name} × {it.quantity}
-                  </span>
-                  <span>₹{(it.product_price * it.quantity).toLocaleString("en-IN")}</span>
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4"
+        onClick={onClose}
+      >
+        <div
+          className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md bg-background p-4 sm:p-6"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!detail ? (
+            <p className="text-sm text-foreground/50">Loading…</p>
+          ) : (
+            <>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-mono text-sm">
+                    {detail.order.order_number}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-wide text-olive-600">
+                    {STATUS_LABEL[detail.order.status] || detail.order.status}
+                  </p>
+                  <p className="mt-0.5 text-xs text-foreground/60">
+                    {paymentText(detail.order)}
+                    {detail.order.payment_id
+                      ? ` · ${detail.order.payment_id}`
+                      : ""}
+                  </p>
                 </div>
-              ))}
-            </div>
-
-            <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm font-medium">
-              <span>Total</span>
-              <div className="flex items-center gap-3">
-                <span>₹{detail.order.total_amount.toLocaleString("en-IN")}</span>
-                <button type="button" onClick={showInvoicePlaceholder} className="text-xs font-medium text-olive-600 hover:underline">
-                  Invoice
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-sm text-foreground/50 hover:text-foreground"
+                >
+                  Close
                 </button>
               </div>
-            </div>
-            {detail.order.promo_code && (
-              <p className="mt-1 text-xs text-foreground/50">
-                Promo {detail.order.promo_code} applied — ₹{detail.order.discount_amount.toLocaleString("en-IN")} off
-              </p>
-            )}
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              {STAGES.indexOf(detail.order.status) >= 0 && STAGES.indexOf(detail.order.status) < STAGES.length - 1 && (
-                <Button size="sm" disabled={updating} onClick={advance} className="bg-olive-600 hover:bg-black">
-                  Mark as {STATUS_LABEL[STAGES[STAGES.indexOf(detail.order.status) + 1]]}
-                </Button>
-              )}
-              {["awaiting_payment", "placed", "confirmed", "packed"].includes(detail.order.status) && (
-                <Button size="sm" variant="outline" disabled={updating} onClick={cancel}>
-                  Cancel order
-                </Button>
-              )}
-              {detail.order.status === "delivered" && (
-                <Button size="sm" variant="outline" disabled={updating} onClick={resendDeliveryEmail}>
-                  Resend delivery + review email
-                </Button>
-              )}
-            </div>
+              <div className="mt-4 rounded-sm bg-olive-50 p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{detail.order.customer_name}</p>
+                  {detail.order.created_by_admin ? (
+                    <span className="rounded-full bg-olive-600 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white">
+                      Custom order
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-foreground/60">
+                  {detail.order.customer_email}
+                </p>
+                <p className="text-foreground/60">
+                  {detail.order.shipping_phone || "—"}
+                </p>
+                <p className="mt-2 text-foreground/70">
+                  {detail.order.shipping_line1}
+                  {detail.order.shipping_line2
+                    ? `, ${detail.order.shipping_line2}`
+                    : ""}
+                  , {detail.order.shipping_city}
+                  {detail.order.shipping_state
+                    ? `, ${detail.order.shipping_state}`
+                    : ""}{" "}
+                  {detail.order.shipping_postal_code || ""},{" "}
+                  {detail.order.shipping_country}
+                </p>
+                {detail.order.custom_note && (
+                  <p className="mt-2 rounded-sm border border-olive-200 bg-background p-2 text-xs text-foreground/70">
+                    <span className="font-medium">Note to customer: </span>
+                    {detail.order.custom_note}
+                  </p>
+                )}
+              </div>
 
-            <div className="mt-6 border-t border-border pt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-foreground/50">History</p>
-              <div className="mt-2 space-y-1.5">
-                {detail.history.map((h, i) => (
-                  <div key={i} className="flex justify-between text-xs text-foreground/60">
-                    <span>{STATUS_LABEL[h.status] || h.status}</span>
-                    <span>{new Date(h.created_at).toLocaleString("en-IN")}</span>
+              <div className="mt-4 space-y-2">
+                {detail.items.map((it) => (
+                  <div
+                    key={it.product_name}
+                    className="flex justify-between text-sm"
+                  >
+                    <span>
+                      {it.product_name} × {it.quantity}
+                    </span>
+                    <span>
+                      ₹
+                      {(it.product_price * it.quantity).toLocaleString("en-IN")}
+                    </span>
                   </div>
                 ))}
               </div>
-            </div>
-          </>
-        )}
+
+              <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm font-medium">
+                <span>Total</span>
+                <div className="flex items-center gap-3">
+                  <span>
+                    ₹{detail.order.total_amount.toLocaleString("en-IN")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowInvoice(true)}
+                    className="text-xs font-medium text-olive-600 hover:underline"
+                  >
+                    Invoice
+                  </button>
+                </div>
+              </div>
+              {detail.order.promo_code && (
+                <p className="mt-1 text-xs text-foreground/50">
+                  Promo {detail.order.promo_code} applied — ₹
+                  {detail.order.discount_amount.toLocaleString("en-IN")} off
+                </p>
+              )}
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {STAGES.indexOf(detail.order.status) >= 0 &&
+                  STAGES.indexOf(detail.order.status) < STAGES.length - 1 && (
+                    <Button
+                      size="sm"
+                      disabled={updating}
+                      onClick={advance}
+                      className="bg-olive-600 hover:bg-black"
+                    >
+                      Mark as{" "}
+                      {
+                        STATUS_LABEL[
+                          STAGES[STAGES.indexOf(detail.order.status) + 1]
+                        ]
+                      }
+                    </Button>
+                  )}
+                {["awaiting_payment", "placed", "confirmed", "packed"].includes(
+                  detail.order.status,
+                ) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={updating}
+                    onClick={cancel}
+                  >
+                    Cancel order
+                  </Button>
+                )}
+                {detail.order.status === "delivered" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={updating}
+                    onClick={resendDeliveryEmail}
+                  >
+                    Resend delivery + review email
+                  </Button>
+                )}
+              </div>
+
+              <div className="mt-6 border-t border-border pt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-foreground/50">
+                  History
+                </p>
+                <div className="mt-2 space-y-1.5">
+                  {detail.history.map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between text-xs text-foreground/60"
+                    >
+                      <span>{STATUS_LABEL[h.status] || h.status}</span>
+                      <span>
+                        {new Date(h.created_at).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+      {showInvoice && detail && (
+        <Invoice
+          order={{
+            ...detail.order,
+            customer_email: detail.order.customer_email,
+          }}
+          items={detail.items}
+          onClose={() => setShowInvoice(false)}
+        />
+      )}
+    </>
   );
 }
