@@ -4518,6 +4518,7 @@ function ProductDetailView({
   const [quantity, setQuantity] = useState(1);
   const [openSection, setOpenSection] = useState<"care" | "shipping" | null>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   // Colour-variant selector (task 1) — purely local UI state; there's no backend
   // field for "selected colour on an order item" yet, so the choice is folded into
   // the cart line's product name (see `cartProduct` below) to at least surface it
@@ -4535,6 +4536,12 @@ function ProductDetailView({
     setQuantity(1);
     setJustAdded(false);
     setSelectedColor(product.colorOptions && product.colorOptions.length > 0 ? product.colorOptions[0] : null);
+    // This panel is not remounted when you tap a piece in "You may also like" —
+    // only its product changes — so it kept the scroll position you tapped
+    // from, dropping you into the middle of the new product instead of at its
+    // photograph. Set rather than animated: a smooth scroll inside this overlay
+    // silently does nothing.
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.name]);
 
@@ -4665,7 +4672,7 @@ function ProductDetailView({
   };
 
   return (
-    <div className="fixed inset-0 z-[92] flex flex-col overflow-y-auto bg-background font-sans">
+    <div ref={scrollRef} className="fixed inset-0 z-[92] flex flex-col overflow-y-auto bg-background font-sans">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
         <button
           type="button"
