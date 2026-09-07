@@ -25,6 +25,16 @@ export function mediaUrl(url: string | null | undefined): string {
   const trimmed = url.trim();
   if (!trimmed) return "";
   if (trimmed.startsWith("/media/")) return `${API_BASE}${trimmed}`;
+  // Media rows were written with an absolute URL to whichever origin the API
+  // answered on when they were uploaded. Those hosts still serve the file, but
+  // from the shop's own domain they are third-party — and *.workers.dev sits on
+  // enough blocklists that Brave's shields and ordinary ad blockers drop the
+  // request outright, leaving every product photo broken. Anything that is
+  // recognisably ours is pinned to whichever origin the API is on now.
+  const abs = trimmed.match(/^https?:\/\/([^/]+)(\/media\/.+)$/i);
+  if (abs && /(^|\.)workers\.dev$|(^|\.)beautyofbeadsbykhushi\.com$/i.test(abs[1])) {
+    return `${API_BASE}${abs[2]}`;
+  }
   // Anything under the API origin must sit beneath /media/.
   if (trimmed.startsWith(`${API_BASE}/`) && !trimmed.startsWith(`${API_BASE}/media/`)) {
     return `${API_BASE}/media/${trimmed.slice(API_BASE.length + 1)}`;
