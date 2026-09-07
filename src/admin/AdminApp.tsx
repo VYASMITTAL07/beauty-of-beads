@@ -8,6 +8,7 @@ import { Menu, X, LogOut } from "lucide-react";
 import { adminApi, AdminApiError, type AdminUser } from "./adminApi";
 import ProductsSection from "./sections/ProductsSection";
 import WebsiteEditorSection from "./sections/WebsiteEditorSection";
+import CategoryEditorSection from "./sections/CategoryEditorSection";
 import OrdersSection from "./sections/OrdersSection";
 import CustomersSection from "./sections/CustomersSection";
 import ReviewsSection from "./sections/ReviewsSection";
@@ -19,6 +20,7 @@ const SECTIONS = [
   { key: "analytics", label: "Overview" },
   { key: "products", label: "Products" },
   { key: "website", label: "Website Editor" },
+  { key: "categoryEditor", label: "Category Editor" },
   { key: "orders", label: "Orders" },
   { key: "customers", label: "Customers" },
   { key: "reviews", label: "Reviews" },
@@ -193,6 +195,9 @@ export default function AdminApp() {
         {section === "analytics" && <AnalyticsSection onError={(m) => toast.error(m)} />}
         {section === "products" && <ProductsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "website" && <WebsiteEditorSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
+        {section === "categoryEditor" && (
+          <CategoryEditorSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />
+        )}
         {section === "orders" && <OrdersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "customers" && <CustomersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "reviews" && <ReviewsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
