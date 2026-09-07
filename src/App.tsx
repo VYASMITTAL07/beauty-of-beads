@@ -6941,8 +6941,8 @@ export default function App() {
         no address or opening hours are invented here.
       */}
       <section className="bg-olive-600 text-background">
-        <div className="grid md:grid-cols-[1.1fr_1fr] md:items-stretch">
-          <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-auto md:min-h-[560px]">
+        <div className="grid md:grid-cols-[auto_1fr] md:items-center">
+          <div className="relative aspect-[9/16] w-full overflow-hidden md:h-[620px] md:w-auto">
             {storeVisitBannerImages.length > 0 ? (
               <ImageSlideshow
                 images={storeVisitBannerImages}
