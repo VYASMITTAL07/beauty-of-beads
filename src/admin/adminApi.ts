@@ -8,7 +8,7 @@ export { IMAGE_CAPS };
 function readViteEnv(key: "VITE_API_BASE"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
-const API_BASE = readViteEnv("VITE_API_BASE") || "https://beauty-of-beads-api.vyasmittal1206.workers.dev";
+const API_BASE = readViteEnv("VITE_API_BASE") || "https://api.beautyofbeadsbykhushi.com";
 
 // Resolves a media URL that may have been stored in one of two broken shapes.
 //

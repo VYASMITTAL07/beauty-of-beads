@@ -22,7 +22,7 @@ function readViteEnv(key: "VITE_API_BASE" | "VITE_GOOGLE_CLIENT_ID"): string {
   return (import.meta as { env?: Record<string, string> }).env?.[key] || "";
 }
 
-const API_BASE = readViteEnv("VITE_API_BASE") || "https://beauty-of-beads-api.vyasmittal1206.workers.dev";
+const API_BASE = readViteEnv("VITE_API_BASE") || "https://api.beautyofbeadsbykhushi.com";
 
 // Google Cloud OAuth Client ID (Web application) for "Sign in with Google". Client IDs
 // aren't secret — they're meant to be embedded in client-side code (unlike a client
