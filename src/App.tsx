@@ -6907,6 +6907,21 @@ export default function App() {
                 ))}
           </div>
         </div>
+
+        {/* The heading asked people to follow and then gave them nowhere to do
+            it — the tiles are clips, not links. */}
+        <div className="mt-7 flex justify-center px-5">
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center gap-2.5 rounded-sm border border-olive-600 bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
+          >
+            <InstagramIcon className="h-4 w-4" />
+            Follow @beauty_of_beads_official
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </a>
+        </div>
       </section>
 
       {/* Where's Your Order */}
