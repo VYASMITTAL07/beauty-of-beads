@@ -6915,10 +6915,10 @@ export default function App() {
             href={INSTAGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2.5 rounded-sm border border-olive-600 bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50"
+            className="group inline-flex items-center gap-2.5 font-serif text-base tracking-wide text-foreground transition-colors hover:text-olive-600 sm:text-lg"
           >
-            <InstagramIcon className="h-4 w-4" />
-            Follow @beauty_of_beads_official
+            <InstagramIcon className="h-[18px] w-[18px]" />
+            @beauty_of_beads_official
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </a>
         </div>
