@@ -7122,7 +7122,7 @@ export default function App() {
                 Every piece you see here is more than just jewellery – it's a little piece of passion, made to add beauty to your everyday.
               </p>
               <div className="mt-5 flex justify-center gap-4 md:justify-start">
-                <a href="mailto:hello@beautyofbeads.in" aria-label="Email us">
+                <a href="mailto:beautyofbeadsbykhushi@gmail.com" aria-label="Email us">
                   <AtSign className="h-4 w-4 cursor-pointer hover:text-olive-600" />
                 </a>
                 <a href="#reviews" aria-label="See reviews">
