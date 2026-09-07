@@ -1,0 +1,18 @@
+# Vite fingerprints these filenames, so a given URL's bytes can never change —
+# a new build produces a new name. They were being served
+# `max-age=0, must-revalidate`, which made every repeat visit revalidate the
+# whole bundle before anything could render: four round trips of ~400ms on a
+# page that had every byte already.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The HTML must NOT be cached that way — it is what points at the fingerprinted
+# names, so a stale copy pins the browser to a build that no longer exists.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/admin
+  Cache-Control: public, max-age=0, must-revalidate
+/admin.html
+  Cache-Control: public, max-age=0, must-revalidate

@@ -32,7 +32,6 @@ import {
   type HomepageSectionKey,
   type ProductVariantGroup,
 } from "@/lib/api";
-import { SCRAPED_PRODUCTS } from "@/data/scrapedProducts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -307,7 +306,7 @@ const ALL_PRODUCTS: Product[] = (() => {
   // owner's request, layered in behind the hand-picked homepage sections above so
   // "Shop All" / category browsing / search show the full real catalog while the
   // curated homepage carousels keep their original marketing copy untouched.
-  const combined: Product[] = [...TOP_PICKS, ...FEATURED_PRODUCTS, ...NEW_ARRIVALS, ...(SCRAPED_PRODUCTS as Product[])];
+  const combined: Product[] = [...TOP_PICKS, ...FEATURED_PRODUCTS, ...NEW_ARRIVALS];
   const seen = new Set<string>();
   return combined.filter((p) => {
     if (seen.has(p.name)) return false;
