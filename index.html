@@ -14,8 +14,36 @@
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Kaushan+Script&text=BeautyofdsO%20&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Kaushan+Script&text=BeautyofdsO%20&display=swap"
+      />
+    </noscript>
     <link rel="dns-prefetch" href="https://api.beautyofbeadsbykhushi.com" />
+    <style>
+      /* Inline so it costs no request and applies before anything downloads. */
+      html,
+      body {
+        margin: 0;
+        background: #ffeaea;
+      }
+      .boot {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-family: Georgia, "Times New Roman", serif;
+        font-style: italic;
+        font-size: 26px;
+        letter-spacing: 0.02em;
+        color: #3e2b23;
+        opacity: 0.55;
+      }
+    </style>
     <title>Beauty of Beads by Khushi — Handmade Hair Accessories & Jewellery</title>
     <meta
       name="description"
@@ -39,7 +67,11 @@
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot">
+        <span>Beauty of Beads</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
