@@ -297,6 +297,30 @@ function OrderDetailModal({
     }
   };
 
+  // An abandoned checkout — someone opened the payment window and closed it.
+  // The server refuses this for anything that ever took money, so the worst a
+  // mis-click can lose is a row nobody paid for.
+  const remove = async () => {
+    if (!detail) return;
+    if (
+      !window.confirm(
+        `Delete ${detail.order.order_number}? Nothing was paid for it, and it will be gone for good.`,
+      )
+    )
+      return;
+    setUpdating(true);
+    try {
+      await adminApi.orders.remove(orderId);
+      onSuccess(`${detail.order.order_number} deleted`);
+      onChanged();
+      onClose();
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't delete that order");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const resendDeliveryEmail = async () => {
     setUpdating(true);
     try {
@@ -464,6 +488,20 @@ function OrderDetailModal({
                     Resend delivery + review email
                   </Button>
                 )}
+                {["awaiting_payment", "cancelled"].includes(detail.order.status) &&
+                  !["paid", "refunded", "partially_refunded"].includes(
+                    detail.order.payment_status || "unpaid",
+                  ) &&
+                  !detail.order.invoice_number && (
+                    <button
+                      type="button"
+                      disabled={updating}
+                      onClick={remove}
+                      className="self-center text-xs font-medium text-destructive hover:underline disabled:opacity-50"
+                    >
+                      Delete this order
+                    </button>
+                  )}
               </div>
 
               <div className="mt-6 border-t border-border pt-4">

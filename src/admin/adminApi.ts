@@ -360,6 +360,9 @@ export const adminApi = {
     setStatus: (id: number, status: string, note?: string) =>
       request<{ ok: true; status: string }>(`/api/admin/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) }),
     resendDeliveryEmail: (id: number) => request<{ ok: true }>(`/api/admin/orders/${id}/resend-delivery-email`, { method: "POST" }),
+    // Only ever accepted for an order that never took money — the server
+    // refuses anything paid, refunded or invoiced.
+    remove: (id: number) => request<{ ok: true; orderNumber: string }>(`/api/admin/orders/${id}`, { method: "DELETE" }),
   },
   customers: {
     list: () => request<{ customers: AdminCustomer[] }>("/api/admin/customers"),
