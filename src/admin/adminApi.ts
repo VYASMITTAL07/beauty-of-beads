@@ -102,6 +102,7 @@ export type AdminProduct = {
   isSpotlight: boolean;
   stock: number;
   active: boolean;
+  sortOrder?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -310,6 +311,12 @@ export const adminApi = {
         body: JSON.stringify({ products }),
       }),
     list: () => request<{ products: AdminProduct[] }>("/api/admin/products"),
+    // Position within a category, written for the whole list at once.
+    reorder: (items: { id: number; sortOrder: number }[]) =>
+      request<{ ok: true; updated: number }>("/api/admin/products/reorder", {
+        method: "POST",
+        body: JSON.stringify({ items }),
+      }),
     get: (id: number) => request<{ product: AdminProduct }>(`/api/admin/products/${id}`),
     create: (data: Partial<AdminProduct>) => request<{ product: AdminProduct }>("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<AdminProduct>) => request<{ product: AdminProduct }>(`/api/admin/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
