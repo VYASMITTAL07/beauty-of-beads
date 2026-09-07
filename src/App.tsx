@@ -6956,7 +6956,7 @@ export default function App() {
         no address or opening hours are invented here.
       */}
       <section className="bg-olive-600 text-background">
-        <div className="grid md:grid-cols-[auto_1fr] md:items-center">
+        <div className="grid md:grid-cols-[auto_1fr_1fr] md:items-center">
           <div className="relative aspect-[9/16] w-full overflow-hidden md:h-[620px] md:w-auto">
             {storeVisitBannerImages.length > 0 ? (
               <ImageSlideshow
@@ -6981,7 +6981,7 @@ export default function App() {
             <div aria-hidden="true" className="pointer-events-none absolute inset-4 border border-gold-300/35 md:inset-6" />
           </div>
 
-          <div className="flex flex-col justify-center gap-7 px-6 py-12 md:px-9 md:py-14 lg:px-14 lg:py-16">
+          <div className="flex flex-col justify-center gap-7 px-6 py-12 md:px-9 md:py-14 lg:px-12 lg:py-16">
             <div>
               <div className="flex items-center gap-3">
                 <span className="h-px w-10 bg-gold-300/70" />
@@ -7030,11 +7030,40 @@ export default function App() {
               </a>
             </div>
           </div>
+
+          {/* Laptops only — phones keep the standalone FAQ section further down,
+              and that one hides itself here so no answer is on the page twice. */}
+          <div
+            data-faqs
+            className="hidden flex-col justify-center px-6 py-12 md:flex md:px-0 md:py-14 md:pr-9 lg:py-16 lg:pr-12"
+          >
+            <div className="flex items-center gap-3">
+              <span className="h-px w-10 bg-gold-300/70" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-300">Good to know</span>
+            </div>
+            <div className="mt-5 divide-y divide-background/15 border-y border-background/15">
+              {FAQS.map((f, i) => (
+                <div key={f.q} className="py-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq((o) => (o === i ? null : i))}
+                    className="flex w-full items-center justify-between gap-4 text-left font-serif text-[15px] text-background"
+                  >
+                    {f.q}
+                    <ChevronDown
+                      className={`h-4 w-4 flex-shrink-0 text-gold-300 transition-transform ${openFaq === i ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {openFaq === i && <p className="mt-2 text-sm leading-relaxed text-background/70">{f.a}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* FAQs */}
-      <section id="faqs" className="pb-16 pt-8">
+      <section id="faqs" data-faqs className="pb-16 pt-8 md:hidden">
         <div className="mx-auto max-w-3xl px-5 md:px-8">
           <h2 className="mb-8 text-center font-serif text-2xl uppercase tracking-wide text-olive-600 md:text-3xl">FAQs</h2>
           <div className="divide-y divide-border">
@@ -7108,7 +7137,23 @@ export default function App() {
                   <li className="cursor-pointer hover:text-olive-600" onClick={() => setLegalView("privacy")}>Privacy Policy</li>
                   <li className="cursor-pointer hover:text-olive-600" onClick={() => setLegalView("terms")}>Terms and Conditions</li>
                   <li className="cursor-pointer hover:text-olive-600" onClick={() => setLegalView("returns")}>Return &amp; Cancellations</li>
-                  <li><a href="#faqs" className="transition-colors hover:text-olive-600">FAQs</a></li>
+                  <li>
+                    <a
+                      href="#faqs"
+                      onClick={(e) => {
+                        const shown = Array.from(document.querySelectorAll<HTMLElement>("[data-faqs]")).find(
+                          (el) => el.getBoundingClientRect().height > 0
+                        );
+                        if (shown) {
+                          e.preventDefault();
+                          shown.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
+                      }}
+                      className="transition-colors hover:text-olive-600"
+                    >
+                      FAQs
+                    </a>
+                  </li>
                   <li>
                     <a
                       href={INSTAGRAM_URL}
