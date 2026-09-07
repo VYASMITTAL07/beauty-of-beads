@@ -264,6 +264,8 @@ export type AdminComplaint = {
   updated_at: string;
 };
 
+export type AdminAccount = { id: number; name: string; email: string; created_at: string };
+
 export type AdminProductStats = {
   products: {
     name: string;
@@ -424,6 +426,19 @@ export const adminApi = {
     create: (data: PromoCodeInput) => request<{ promoCode: AdminPromoCode }>("/api/admin/promo-codes", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: PromoCodeInput) => request<{ promoCode: AdminPromoCode }>(`/api/admin/promo-codes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: number) => request<{ ok: true }>(`/api/admin/promo-codes/${id}`, { method: "DELETE" }),
+  },
+  // Every call here needs an admin session, so it grants nothing that signing
+  // in did not already give.
+  admins: {
+    list: () => request<{ admins: AdminAccount[]; currentId: number | null }>("/api/admin/admins"),
+    create: (data: { name: string; email: string; password: string }) =>
+      request<{ admin: AdminAccount }>("/api/admin/admins", { method: "POST", body: JSON.stringify(data) }),
+    setPassword: (id: number, password: string) =>
+      request<{ ok: true; email: string }>(`/api/admin/admins/${id}/password`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      }),
+    remove: (id: number) => request<{ ok: true }>(`/api/admin/admins/${id}`, { method: "DELETE" }),
   },
   analytics: {
     get: () => request<AdminAnalytics>("/api/admin/analytics"),

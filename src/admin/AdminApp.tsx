@@ -10,6 +10,7 @@ import ProductsSection from "./sections/ProductsSection";
 import WebsiteEditorSection from "./sections/WebsiteEditorSection";
 import CategoryEditorSection from "./sections/CategoryEditorSection";
 import BestProductsSection from "./sections/BestProductsSection";
+import AdminsSection from "./sections/AdminsSection";
 import OrdersSection from "./sections/OrdersSection";
 import CustomersSection from "./sections/CustomersSection";
 import ReviewsSection from "./sections/ReviewsSection";
@@ -28,6 +29,7 @@ const SECTIONS = [
   { key: "reviews", label: "Reviews" },
   { key: "promo", label: "Promo Codes" },
   { key: "complaints", label: "Complaints" },
+  { key: "admins", label: "Admin Accounts" },
 ] as const;
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
@@ -201,6 +203,7 @@ export default function AdminApp() {
           <CategoryEditorSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />
         )}
         {section === "bestProducts" && <BestProductsSection onError={(m) => toast.error(m)} />}
+        {section === "admins" && <AdminsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "orders" && <OrdersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "customers" && <CustomersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "reviews" && <ReviewsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
