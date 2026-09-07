@@ -3010,6 +3010,7 @@ function CustomOrderConfirmCard({
   onConfirmed: () => void;
 }) {
   const { user } = useAuth();
+  const { currency } = useCurrency();
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
@@ -3201,9 +3202,45 @@ function CustomOrderConfirmCard({
             </p>
           )}
 
-          <p className="text-xs text-foreground/55">
-            Delivery and GST are added to the total, and you&rsquo;ll pay on the next screen.
-          </p>
+          {/* The bill sitting under this card is the order as the admin built
+              it — goods only — and it does not move when a delivery speed is
+              picked here. Without this the first time anyone saw what they were
+              actually being charged was the payment window, which reads as a
+              trick. The figures mirror the Worker's, which decides the real
+              amount; the base is the order's own total with anything we
+              previously added taken back off, so re-confirming after a
+              cancelled payment cannot stack it twice. */}
+          {(() => {
+            const goods = Math.max(
+              0,
+              round2(
+                Number(order.total_amount || 0) -
+                  Number(order.shipping_amount || 0) -
+                  Number(order.tax_amount || 0)
+              )
+            );
+            const ship = shippingFor(country, speed);
+            const taxable = round2(goods + ship.amount);
+            const tax = taxFor(country, state, taxable);
+            const total = round2(taxable + tax.amount);
+            const row = (label: string, value: string, strong = false) => (
+              <div className={`flex justify-between ${strong ? "border-t border-olive-300/60 pt-2 font-semibold text-foreground" : "text-foreground/65"}`}>
+                <span>{label}</span>
+                <span className={strong ? "font-serif text-base" : ""}>{value}</span>
+              </div>
+            );
+            return (
+              <div className="flex flex-col gap-1.5 rounded-sm border border-olive-300 bg-white/60 px-3.5 py-3 text-xs">
+                {row("Items", formatPrice(goods, currency))}
+                {row(ship.label, formatPrice(ship.amount, currency))}
+                {tax.amount > 0 && row(tax.label, formatPrice(tax.amount, currency))}
+                {!isIndia(country) && country && (
+                  <p className="text-[11px] text-foreground/45">No Indian GST on orders shipped abroad.</p>
+                )}
+                {row("You pay", formatPrice(total, currency), true)}
+              </div>
+            );
+          })()}
 
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="mt-1 flex gap-3">
@@ -5194,6 +5231,34 @@ export default function App() {
   const { user, ready, logout } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const openAuthModal = () => setAuthModalOpen(true);
+
+  // The confirmation and review emails link back to one specific order. That
+  // link used to carry "?orders=1", which nothing read, so every one of them
+  // dropped the customer on the homepage to go and find the order themselves.
+  // It now carries the order number, and if they are signed out the sign-in
+  // box opens over the page and the order opens the moment they are through —
+  // rather than sending them home to start again.
+  const [pendingOrder, setPendingOrder] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const wanted = new URLSearchParams(window.location.search).get("order");
+    if (!wanted) return;
+    setPendingOrder(wanted);
+    // Take it out of the address bar so a refresh, or a shared link, does not
+    // reopen it later.
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !pendingOrder) return;
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setTrackOrderNumber(pendingOrder);
+    setOrdersViewOpen(true);
+    setPendingOrder(null);
+  }, [ready, user, pendingOrder]);
   const [cartPanelOpen, setCartPanelOpen] = useState(false);
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
