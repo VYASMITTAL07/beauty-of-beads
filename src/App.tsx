@@ -2492,8 +2492,24 @@ function CheckoutPage({
 
             <ul className="mt-4 flex flex-col gap-3 border-b border-border pb-4">
               {items.map((i) => (
-                <li key={`${i.product_name}-${i.product_price}`} className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0">
+                <li key={`${i.product_name}-${i.product_price}`} className="flex items-start gap-3 text-sm">
+                  {i.product_image && (
+                    <img
+                      src={cardImage(i.product_image)}
+                      alt=""
+                      width={44}
+                      height={56}
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        const full = mediaUrl(i.product_image!);
+                        if (el.src !== full) el.src = full;
+                      }}
+                      className="h-14 w-11 shrink-0 rounded-sm object-cover"
+                    />
+                  )}
+                  <span className="min-w-0 flex-1">
                     <span className="block leading-snug text-foreground/85">{i.product_name}</span>
                     <span className="text-xs text-foreground/50">Qty {i.quantity}</span>
                   </span>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronLeft, Package, MapPin, CreditCard, FileText } from "lucide-react";
-import { api, ApiError, type OrderDto, type OrderItemDto } from "@/lib/api";
+import { api, ApiError, mediaUrl, type OrderDto, type OrderItemDto } from "@/lib/api";
 import { Invoice } from "@/components/store/Invoice";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
@@ -102,8 +102,19 @@ export function OrderConfirmed({
               </h3>
               <ul className="mt-4 flex flex-col gap-3">
                 {items.map((it, i) => (
-                  <li key={`${it.product_name}-${i}`} className="flex items-start justify-between gap-3 text-sm">
-                    <span className="min-w-0">
+                  <li key={`${it.product_name}-${i}`} className="flex items-start gap-3 text-sm">
+                    {it.product_image && (
+                      <img
+                        src={mediaUrl(it.product_image)}
+                        alt=""
+                        width={44}
+                        height={56}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-14 w-11 shrink-0 rounded-sm object-cover"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1">
                       <span className="block leading-snug text-foreground/85">{it.product_name}</span>
                       <span className="text-xs text-foreground/50">Qty {it.quantity}</span>
                     </span>
