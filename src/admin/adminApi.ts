@@ -265,11 +265,12 @@ export type AdminComplaint = {
 
 export type AdminAnalytics = {
   orderCount: number;
+  paidOrderCount?: number;
   revenue: number;
   customerCount: number;
   byStatus: { status: string; count: number }[];
   topProducts: { productName: string; unitsSold: number; revenue: number }[];
-  recentOrders: { order_number: string; total_amount: number; status: string; created_at: string }[];
+  recentOrders: { order_number: string; total_amount: number; status: string; payment_status?: string | null; created_at: string }[];
 };
 
 export const adminApi = {

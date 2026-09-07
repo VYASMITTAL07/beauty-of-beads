@@ -30,8 +30,15 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
       <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Overview</h1>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <StatCard label="Total revenue" value={`₹${data.revenue.toLocaleString("en-IN")}`} />
-        <StatCard label="Orders" value={String(data.orderCount)} />
+        <StatCard label="Revenue received" value={`₹${data.revenue.toLocaleString("en-IN")}`} />
+        <StatCard
+          label="Orders"
+          value={
+            data.paidOrderCount === undefined
+              ? String(data.orderCount)
+              : `${data.paidOrderCount} paid / ${data.orderCount}`
+          }
+        />
         <StatCard label="Customers" value={String(data.customerCount)} />
       </div>
 
