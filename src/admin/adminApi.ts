@@ -264,6 +264,26 @@ export type AdminComplaint = {
   updated_at: string;
 };
 
+export type AdminProductStats = {
+  products: {
+    name: string;
+    category: string;
+    price: number;
+    image: string;
+    active: boolean;
+    unitsSold: number;
+    orders: number;
+    revenue: number;
+    soldThisWeek: number;
+    inCarts: number;
+    inCartsUnits: number;
+    inCartsSince: string | null;
+    inWishlists: number;
+  }[];
+  trending: string[];
+  viewTrackingAvailable: boolean;
+};
+
 export type AdminAnalytics = {
   orderCount: number;
   paidOrderCount?: number;
@@ -407,6 +427,7 @@ export const adminApi = {
   },
   analytics: {
     get: () => request<AdminAnalytics>("/api/admin/analytics"),
+    products: () => request<AdminProductStats>("/api/admin/analytics/products"),
   },
   complaints: {
     list: (status?: string) => request<{ complaints: AdminComplaint[] }>(`/api/admin/complaints${status ? `?status=${status}` : ""}`),
