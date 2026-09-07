@@ -5901,7 +5901,7 @@ export default function App() {
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-8 md:py-4">
           <div className="flex items-center gap-6">
-            <button className="md:hidden" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
+            <button className="-m-2 p-2 md:hidden" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
               {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <nav className="hidden items-center gap-7 font-serif text-[15px] md:flex">
@@ -6044,14 +6044,14 @@ export default function App() {
               <a href="#contact" className="text-foreground/80 transition-colors hover:text-olive-500">Contact Us</a>
             </nav>
             <div className="flex items-center gap-4">
-              <button type="button" aria-label="Search" onClick={() => setSearchOpen(true)} className="flex items-center justify-center border-none bg-transparent p-0">
+              <button type="button" aria-label="Search" onClick={() => setSearchOpen(true)} className="-m-2 flex items-center justify-center border-none bg-transparent p-2">
                 <Search className="h-[18px] w-[18px] cursor-pointer text-foreground/70 hover:text-olive-500 sm:h-5 sm:w-5" />
               </button>
               <button
                 type="button"
                 aria-label="Wishlist"
                 onClick={() => setWishlistPanelOpen(true)}
-                className="relative flex items-center gap-1.5 border-none bg-transparent p-0"
+                className="relative -m-2 flex items-center gap-1.5 border-none bg-transparent p-2"
               >
                 <Heart className={`h-[18px] w-[18px] cursor-pointer ${wishlist.size > 0 ? "fill-olive-500 text-olive-500" : "text-foreground/70"} hover:text-olive-500 sm:h-5 sm:w-5`} />
                 {wishlist.size > 0 && (
@@ -6064,7 +6064,7 @@ export default function App() {
                 type="button"
                 aria-label="Cart"
                 onClick={() => setCartPanelOpen(true)}
-                className="relative flex items-center gap-1.5 border-none bg-transparent p-0"
+                className="relative -m-2 flex items-center gap-1.5 border-none bg-transparent p-2"
               >
                 <ShoppingCart className="h-[18px] w-[18px] cursor-pointer text-foreground/70 hover:text-olive-500 sm:h-5 sm:w-5" />
                 {cartCount > 0 && (
@@ -6089,7 +6089,7 @@ export default function App() {
                       type="button"
                       aria-label={`Account: ${user.name}`}
                       title={user.name}
-                      className="flex items-center justify-center border-none bg-transparent p-0"
+                      className="-m-2 flex items-center justify-center border-none bg-transparent p-2"
                     >
                       <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-olive-500 text-[10px] font-semibold uppercase text-white transition-colors duration-200 sm:h-5 sm:w-5">
                         {user.name.trim().charAt(0) || "U"}
@@ -6124,7 +6124,7 @@ export default function App() {
                   aria-label="Log in"
                   title="Log in"
                   onClick={openAuthModal}
-                  className="flex items-center justify-center border-none bg-transparent p-0"
+                  className="-m-2 flex items-center justify-center border-none bg-transparent p-2"
                 >
                   <User className="h-[18px] w-[18px] cursor-pointer text-foreground/70 transition-colors duration-200 hover:text-olive-500 sm:h-5 sm:w-5" />
                 </button>
