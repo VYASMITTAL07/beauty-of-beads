@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 
 // The deployed backend. Only used by the dev-server proxy below — the built
 // bundle still talks to it directly via API_BASE in src/lib/api.ts.
-const BACKEND = "https://beauty-of-beads-api.vyasmittal1206.workers.dev";
+const BACKEND = "https://api.beautyofbeadsbykhushi.com";
 
 export default defineConfig({
   plugins: [react()],
