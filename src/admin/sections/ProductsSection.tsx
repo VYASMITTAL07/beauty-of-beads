@@ -547,6 +547,27 @@ function ProductFormModal({
 }) {
   const [form, setForm] = useState<FormState>(product ? productToForm(product) : emptyForm);
   const [saving, setSaving] = useState(false);
+  // The list is sent a light copy of each product — no description, videos or
+  // option groups, since the table renders none of them. The one being edited
+  // is fetched in full here, so the form is never quietly saved back with
+  // those fields blanked out.
+  const [loadingFull, setLoadingFull] = useState(product !== null);
+  useEffect(() => {
+    if (!product) return;
+    let cancelled = false;
+    adminApi.products
+      .get(product.id)
+      .then((r) => {
+        if (cancelled) return;
+        setForm(productToForm(r.product));
+        setHasColors((r.product.colors?.length ?? 0) > 0);
+      })
+      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load this product"))
+      .finally(() => !cancelled && setLoadingFull(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<AdminCategory[] | null>(null);
   const [hasColors, setHasColors] = useState((product?.colors.length ?? 0) > 0);
@@ -939,7 +960,9 @@ function ProductFormModal({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="bg-olive-600 hover:bg-black">
+          {/* Saving before the full record has arrived would write the blanked
+              description and option groups back over the real ones. */}
+          <Button type="submit" disabled={saving || loadingFull} className="bg-olive-600 hover:bg-black">
             {saving ? "Saving…" : product ? "Save changes" : "Add product"}
           </Button>
         </div>
