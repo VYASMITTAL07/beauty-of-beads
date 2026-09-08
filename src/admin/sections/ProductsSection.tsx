@@ -704,27 +704,60 @@ function ProductFormModal({
 
         <div className="mt-4">
           <Label className="text-xs">Images</Label>
+          {/* An upload always lands at the end, and there was no way to move it
+              afterwards — putting a new photo first meant deleting every other
+              one and adding them all back in order. The box under each
+              thumbnail moves it straight to that position.
+
+              Position 1 is the photo the shop's cards and search results show,
+              so it is worth saying which one that is. */}
+          <p className="mt-1 text-xs text-foreground/50">
+            Use the number under a photo to move it. Number 1 is the one shown on the product card.
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {form.images.map((url, i) => (
-              <div key={url} className="relative h-16 w-16 overflow-hidden rounded-sm border border-border">
-                {/* Contained, not cropped — the storefront cards show the whole
-                    photo now, so the thumbnail here has to show what will
-                    actually appear. */}
-                <img src={url} alt="" className="h-full w-full object-contain" />
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }))}
-                  className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center bg-black/60 text-[10px] text-white"
+              <div key={url} className="w-16">
+                <div className="relative h-16 w-16 overflow-hidden rounded-sm border border-border">
+                  {/* Contained, not cropped — the storefront cards show the whole
+                      photo now, so the thumbnail here has to show what will
+                      actually appear. */}
+                  <img src={url} alt="" className="h-full w-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }))}
+                    className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center bg-black/60 text-[10px] text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+                <select
+                  aria-label={`Position of image ${i + 1}`}
+                  value={i + 1}
+                  onChange={(e) => {
+                    const to = Number(e.target.value) - 1;
+                    setForm((f) => {
+                      const images = [...f.images];
+                      const [moved] = images.splice(i, 1);
+                      images.splice(to, 0, moved);
+                      return { ...f, images };
+                    });
+                  }}
+                  className="mt-1 w-full rounded-sm border border-border bg-card px-1 py-1 text-center text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-olive-500/60"
                 >
-                  ×
-                </button>
+                  {form.images.map((_, n) => (
+                    <option key={n} value={n + 1}>
+                      {n + 1}
+                      {n === 0 ? " · cover" : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             ))}
             <button
               type="button"
               disabled={uploading}
               onClick={() => imageInputRef.current?.click()}
-              className="flex h-16 w-16 items-center justify-center rounded-sm border border-dashed border-border text-xs text-foreground/50 hover:bg-olive-50"
+              className="flex h-16 w-16 items-center justify-center self-start rounded-sm border border-dashed border-border text-xs text-foreground/50 hover:bg-olive-50"
             >
               {uploading ? "…" : "+ Add"}
             </button>
