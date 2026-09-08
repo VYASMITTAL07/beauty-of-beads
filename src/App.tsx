@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useAuth, ApiError } from "@/context/AuthContext";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useInViewport } from "@/hooks/useInViewport";
@@ -28,6 +28,7 @@ import {
   type AddressDto,
   type ComplaintDto,
   type ProductCardDto,
+  type ProductDto,
   type HomepagePayload,
   type HomepageSectionKey,
   type ProductVariantGroup,
@@ -255,6 +256,19 @@ function cardDtoToProduct(d: ProductCardDto): Product {
     isSpotlight: d.isSpotlight,
     colorOptions: d.colors.length ? d.colors : undefined,
     variants: d.variants?.length ? d.variants : undefined,
+  };
+}
+
+// The same shape from the full detail payload, for a product opened straight
+// from a shared link — where there is no card to start from.
+function fullDtoToProduct(d: ProductDto): Product {
+  return {
+    ...cardDtoToProduct(d as unknown as ProductCardDto),
+    description: d.description || undefined,
+    materialsCare: d.materialsCare || undefined,
+    shippingReturns: d.shippingReturns || undefined,
+    videos: d.videos,
+    colorOptions: d.colors.length ? d.colors : undefined,
   };
 }
 
@@ -4640,6 +4654,7 @@ function ProductDetailView({
   const liveImages = (product.images || []).filter((u) => !brokenImages.has(u));
   const hasRealImages = liveImages.length > 0;
   const gallery: (number | string)[] = hasRealImages ? liveImages : [0, 90, 180, 270];
+  const [shareCopied, setShareCopied] = useState(false);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
@@ -4869,18 +4884,42 @@ function ProductDetailView({
                     printing it twice is the same repetition this replaced. */}
                 <h1 className="font-serif text-2xl leading-snug text-foreground md:text-3xl">{product.name}</h1>
               </div>
+              {/* This used to copy the product's name and nothing else, so
+                  whatever link got pasted alongside it was whatever the address
+                  bar happened to say — the homepage. It now carries the piece's
+                  own link, through the phone's share sheet where there is one. */}
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const url = product.slug
+                    ? `${window.location.origin}${window.location.pathname}?product=${encodeURIComponent(product.slug)}`
+                    : window.location.href;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({ title: product.name, text: `${product.name} — Beauty of Beads`, url });
+                      return;
+                    } catch {
+                      // Dismissing the share sheet is a choice, not a failure —
+                      // don't quietly copy something they decided against.
+                      return;
+                    }
+                  }
                   try {
-                    navigator.clipboard?.writeText(`${product.name} — Beauty of Beads`);
+                    await navigator.clipboard?.writeText(url);
+                    setShareCopied(true);
+                    window.setTimeout(() => setShareCopied(false), 2000);
                   } catch {
-                    // clipboard unavailable — quietly ignore, this is a nice-to-have
+                    // clipboard unavailable — nothing useful left to try
                   }
                 }}
                 aria-label="Share"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground/60 transition-colors hover:border-olive-500 hover:text-olive-600"
+                title={shareCopied ? "Link copied" : "Share this piece"}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                  shareCopied
+                    ? "border-olive-600 bg-olive-600 text-olive-50"
+                    : "border-border text-foreground/60 hover:border-olive-500 hover:text-olive-600"
+                }`}
               >
-                <Share2 className="h-4 w-4" />
+                {shareCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
               </button>
             </div>
 
@@ -5465,6 +5504,71 @@ export default function App() {
         // Keep the card-level detail rather than blanking the page.
       });
   };
+
+  // A product opens over the page rather than at an address of its own, so the
+  // address bar used to keep saying "the homepage" no matter what was on
+  // screen. Anyone copying the link — or pressing Share, which only ever put
+  // the product's NAME on the clipboard — sent their friend to the front door
+  // instead of the piece they meant.
+  //
+  // The slug now rides in the query string. A path (/product/<slug>) would read
+  // better but needs the host to serve index.html for every unknown URL; a
+  // query string works today with nothing else to configure.
+  // Skipped on the first pass: a shared link arrives with the slug already in
+  // the address bar and nothing open yet, and this would have stripped it back
+  // out before the fetch below had a chance to answer.
+  const urlSyncReady = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!urlSyncReady.current) {
+      urlSyncReady.current = true;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const shown = params.get("product");
+    const wanted = selectedProduct?.slug;
+    if (wanted) {
+      if (shown === wanted) return; // arrived via Back/Forward; the URL is already right
+      params.set("product", wanted);
+      window.history.pushState({ product: wanted }, "", `${window.location.pathname}?${params.toString()}`);
+    } else if (shown) {
+      params.delete("product");
+      const qs = params.toString();
+      window.history.pushState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    }
+  }, [selectedProduct?.slug]);
+
+  // Opening one by slug alone — a shared link, or Back landing on a product
+  // that was never in this session's catalogue.
+  const openProductBySlug = useCallback((slug: string) => {
+    api.products
+      .get(slug)
+      .then(({ product: d }) => setSelectedProduct(fullDtoToProduct(d)))
+      .catch(() => {
+        // A link to a piece that has since been taken down: leave the shopper
+        // on the homepage rather than on an error.
+      });
+  }, []);
+
+  // The link someone was sent.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const slug = new URLSearchParams(window.location.search).get("product");
+    if (slug) openProductBySlug(slug);
+  }, [openProductBySlug]);
+
+  // Back closes the product instead of leaving the site — which is what the
+  // phone's back gesture did before, since nothing had ever been pushed.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPop = () => {
+      const slug = new URLSearchParams(window.location.search).get("product");
+      if (!slug) setSelectedProduct(null);
+      else openProductBySlug(slug);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [openProductBySlug]);
   const [cartItems, setCartItems] = useState<CartItemDto[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItemDto[]>([]);
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
