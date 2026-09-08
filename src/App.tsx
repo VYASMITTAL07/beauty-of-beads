@@ -4738,8 +4738,13 @@ function ProductDetailView({
     window.setTimeout(() => setJustAdded(false), 1600);
   };
 
+  // z-96 puts this above every list a product can be opened from. The search
+  // overlay sits at z-95, so a tap on a search result opened the product
+  // *behind* the results — the address bar changed and nothing else appeared
+  // to. Those lists stay mounted underneath on purpose: closing the product
+  // drops the shopper back where they were, search still typed.
   return (
-    <div ref={scrollRef} className="fixed inset-0 z-[92] flex flex-col overflow-y-auto bg-background font-sans">
+    <div ref={scrollRef} className="fixed inset-0 z-[96] flex flex-col overflow-y-auto bg-background font-sans">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
         <button
           type="button"
