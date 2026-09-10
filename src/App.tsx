@@ -5,7 +5,7 @@ import { useInViewport } from "@/hooks/useInViewport";
 import { CountryStateFields } from "@/components/store/CountryStateFields";
 import { Invoice } from "@/components/store/Invoice";
 import { OrderConfirmed } from "@/components/store/OrderConfirmed";
-import { DEFAULT_COUNTRY, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
+import { DEFAULT_COUNTRY, dialCodeForCountry, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
 // Imported as files rather than an inline data: URI — as base64 this single
 // logo was ~426KB of the JavaScript bundle, parsed on every page load.
 // logo-mark.png is the full-size master and is deliberately NOT imported:
@@ -2238,6 +2238,26 @@ function CheckoutPage({
     }
   }, [open, prefilledName, prefilledPhone]);
 
+  // Asking for a number "with country code" and leaving the customer to know
+  // their own meant plenty typed a bare local number and were refused without
+  // being told why. Choosing a country fills the code in.
+  //
+  // It only ever writes into an empty box, or over a code this put there for a
+  // country since changed — a number already typed is never touched.
+  const [dialCode, setDialCode] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void dialCodeForCountry(country).then((code) => {
+      if (cancelled) return;
+      setDialCode(code);
+      if (!code) return;
+      setPhone((prev) => (prev.trim() === "" || /^\+\d{1,4}$/.test(prev.trim()) ? `+${code} ` : prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [country]);
+
   const subtotal = items.reduce((sum, i) => sum + i.quantity * i.product_price, 0);
   const discount = promo?.discount ?? 0;
   const goods = Math.max(0, round2(subtotal - discount));
@@ -2272,7 +2292,13 @@ function CheckoutPage({
     if (items.length === 0) return;
     setError(null);
     if (!isValidPhone(phone)) {
-      setError(`Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`);
+      // Naming the customer's own code beats showing them India's when they
+      // are ordering from somewhere else.
+      setError(
+        dialCode
+          ? `Enter your phone number starting with +${dialCode}, the code for ${country}.`
+          : `Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`
+      );
       return;
     }
     if (!isValidPostalCode(postalCode, country)) {
@@ -2406,7 +2432,20 @@ function CheckoutPage({
               <h2 className={headingClass}>Shipping details</h2>
               <p className="mt-1 text-sm text-foreground/60">Where should we send your pieces?</p>
 
+              {/* Country leads, because the phone field's dialling code comes
+                  from it — asking for the number first meant asking the
+                  customer to supply a code the page could have known. */}
               <div className="mt-5 flex flex-col gap-4">
+                <CountryStateFields
+                  country={country}
+                  onCountryChange={setCountry}
+                  state={state}
+                  onStateChange={setState}
+                  fieldClass={fieldClass}
+                  labelClass={labelClass}
+                  idPrefix="ship"
+                  stateRequired
+                />
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ship-name" className={labelClass}>Full name</label>
                   <input id="ship-name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
@@ -2422,10 +2461,14 @@ function CheckoutPage({
                     pattern={PHONE_REGEX.source}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder={PHONE_PLACEHOLDER}
+                    placeholder={dialCode ? `+${dialCode} ` : PHONE_PLACEHOLDER}
                     className={fieldClass}
                   />
-                  <p className="text-xs text-foreground/50">{PHONE_HELPER_TEXT}</p>
+                  <p className="text-xs text-foreground/50">
+                    {dialCode
+                      ? `+${dialCode} is filled in for ${country} — just add your number after it.`
+                      : PHONE_HELPER_TEXT}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ship-line1" className={labelClass}>Address line 1</label>
@@ -2449,16 +2492,6 @@ function CheckoutPage({
                     className={fieldClass}
                   />
                 </div>
-                <CountryStateFields
-                  country={country}
-                  onCountryChange={setCountry}
-                  state={state}
-                  onStateChange={setState}
-                  fieldClass={fieldClass}
-                  labelClass={labelClass}
-                  idPrefix="ship"
-                  stateRequired
-                />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="ship-city" className={labelClass}>City</label>
