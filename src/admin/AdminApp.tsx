@@ -13,6 +13,7 @@ import BestProductsSection from "./sections/BestProductsSection";
 import AdminsSection from "./sections/AdminsSection";
 import OrdersSection from "./sections/OrdersSection";
 import CustomersSection from "./sections/CustomersSection";
+import CustomOrderSection from "./sections/CustomOrderSection";
 import ReviewsSection from "./sections/ReviewsSection";
 import PromoCodesSection from "./sections/PromoCodesSection";
 import AnalyticsSection from "./sections/AnalyticsSection";
@@ -26,6 +27,7 @@ const SECTIONS = [
   { key: "bestProducts", label: "Best Products" },
   { key: "orders", label: "Orders" },
   { key: "customers", label: "Customers" },
+  { key: "customOrder", label: "Custom Order" },
   { key: "reviews", label: "Reviews" },
   { key: "promo", label: "Promo Codes" },
   { key: "complaints", label: "Complaints" },
@@ -206,6 +208,9 @@ export default function AdminApp() {
         {section === "admins" && <AdminsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "orders" && <OrdersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "customers" && <CustomersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
+        {section === "customOrder" && (
+          <CustomOrderSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />
+        )}
         {section === "reviews" && <ReviewsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "promo" && <PromoCodesSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "complaints" && <ComplaintsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}

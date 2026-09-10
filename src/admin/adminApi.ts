@@ -373,6 +373,24 @@ export const adminApi = {
         body: JSON.stringify(data),
       }),
   },
+  // Building a custom order for an email address, whether or not anyone holds
+  // an account on it yet — the /customers route above can only build one for a
+  // customer who has already signed in.
+  customOrders: {
+    create: (data: {
+      email: string;
+      name?: string;
+      items: { productName: string; productPrice: number; quantity?: number }[];
+      note?: string;
+    }) =>
+      request<{
+        orderNumber: string;
+        orderId: number;
+        totalAmount: number;
+        email: { sent: boolean; reason?: string };
+        customer: { id: number; email: string; isNew: boolean };
+      }>("/api/admin/custom-orders", { method: "POST", body: JSON.stringify(data) }),
+  },
   categories: {
     list: () => request<{ categories: AdminCategory[] }>("/api/admin/categories"),
     create: (data: { name: string; imageUrl?: string; sortOrder?: number }) =>

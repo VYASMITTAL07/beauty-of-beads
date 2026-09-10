@@ -2189,6 +2189,7 @@ function CheckoutPage({
   prefilledName,
   prefilledPhone,
   onPlaced,
+  customOrder,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -2197,6 +2198,11 @@ function CheckoutPage({
   prefilledName: string;
   prefilledPhone: string;
   onPlaced: (orderNumber: string) => void;
+  /** Set when this is an order the shop priced and emailed, opened from the
+   *  link in that email. The pieces and their prices are already decided, so
+   *  the basket is not consulted and a promo code cannot re-price it — the
+   *  page collects an address, adds delivery and GST, and takes the money. */
+  customOrder?: { orderNumber: string; note?: string | null } | null;
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -2279,6 +2285,46 @@ function CheckoutPage({
     }
     setLoading(true);
     try {
+      // An emailed order already exists; confirming it is what fixes its
+      // address, delivery and GST. Placing a second one would bill twice.
+      if (customOrder) {
+        const shipping: ShippingInput = {
+          name,
+          phone,
+          line1,
+          line2: line2 || undefined,
+          city,
+          state: state || undefined,
+          postalCode: postalCode || undefined,
+          country,
+        };
+        const res = await api.orders.confirm(customOrder.orderNumber, shipping, speed);
+        if (!res.paymentRequired) {
+          setLoading(false);
+          onPlaced(customOrder.orderNumber);
+          return;
+        }
+        await payWithRazorpay({
+          orderNumber: customOrder.orderNumber,
+          name,
+          phone,
+          method,
+          onPaid: (n) => {
+            setLoading(false);
+            onPlaced(n);
+          },
+          onFail: (message) => {
+            setLoading(false);
+            setError(message);
+          },
+          onDismiss: (n) => {
+            setLoading(false);
+            setError(`Payment cancelled. Order ${n} is held for you — press Pay again to finish it.`);
+          },
+        });
+        return;
+      }
+
       const res = await api.orders.place({
         items: items.map((i) => ({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
         currencyCode: currency.code,
@@ -2501,7 +2547,18 @@ function CheckoutPage({
           </div>
 
           <aside className={`${cardClass} md:sticky md:top-24`}>
-            <h2 className={headingClass}>Order summary</h2>
+            <h2 className={headingClass}>{customOrder ? "Your custom order" : "Order summary"}</h2>
+            {customOrder && (
+              <p className="mt-2 text-xs leading-relaxed text-foreground/60">
+                Priced for you by Beauty of Beads &middot;{" "}
+                <span className="font-mono">{customOrder.orderNumber}</span>
+              </p>
+            )}
+            {customOrder?.note && (
+              <p className="mt-2 rounded-sm bg-olive-50 px-3 py-2 text-xs leading-relaxed text-foreground/70">
+                &ldquo;{customOrder.note}&rdquo;
+              </p>
+            )}
 
             <ul className="mt-4 flex flex-col gap-3 border-b border-border pb-4">
               {items.map((i) => (
@@ -2531,7 +2588,10 @@ function CheckoutPage({
               ))}
             </ul>
 
-            <div className="border-b border-border py-4">
+            {/* A promo code cannot re-price an order the shop has already
+                quoted — the server ignores one on confirm, so offering the
+                field would only look like it worked. */}
+            <div className={`border-b border-border py-4 ${customOrder ? "hidden" : ""}`}>
               <label htmlFor="promo" className={labelClass}>Promo code</label>
               <div className="mt-1.5 flex gap-2">
                 <input
@@ -5293,15 +5353,66 @@ export default function App() {
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
+  // An order the shop priced and emailed, opened from the link in that email:
+  // its pieces and prices are already settled, so it goes to the checkout page
+  // rather than into the orders list, where it used to sit as a card the
+  // customer had to find and unfold.
+  const [customCheckout, setCustomCheckout] = useState<{
+    orderNumber: string;
+    note?: string | null;
+    items: CartItemDto[];
+  } | null>(null);
+  const handledOrderRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!ready || !pendingOrder) return;
     if (!user) {
       setAuthModalOpen(true);
       return;
     }
-    setTrackOrderNumber(pendingOrder);
-    setOrdersViewOpen(true);
-    setPendingOrder(null);
+    // Guarded by a ref rather than by clearing pendingOrder first: clearing it
+    // re-runs this effect, whose cleanup would then cancel the very fetch it
+    // had just started, and the order would never open.
+    const wanted = pendingOrder;
+    if (handledOrderRef.current === wanted) return;
+    handledOrderRef.current = wanted;
+    api.orders
+      .get(wanted)
+      .then(({ order, items }) => {
+        setPendingOrder(null);
+        // Only one that is still waiting to be paid for and has never been
+        // given an address. Anything else — already paid, already confirmed,
+        // or an ordinary order — belongs in the orders list as before.
+        const unconfirmedCustom =
+          Boolean(order.created_by_admin) &&
+          order.status === "awaiting_payment" &&
+          order.payment_status !== "paid" &&
+          !order.shipping_line1;
+        if (unconfirmedCustom) {
+          setCustomCheckout({
+            orderNumber: order.order_number,
+            note: order.custom_note,
+            items: items.map((it, i) => ({
+              id: -1 - i, // never sent anywhere; only React needs it
+              product_name: it.product_name,
+              product_price: it.product_price,
+              product_image: it.product_image ?? null,
+              quantity: it.quantity,
+            })),
+          });
+          setCheckoutOpen(true);
+          return;
+        }
+        setTrackOrderNumber(wanted);
+        setOrdersViewOpen(true);
+      })
+      .catch(() => {
+        // Someone else's order, or one that no longer exists — the orders list
+        // will say so rather than this dropping them somewhere silently.
+        setPendingOrder(null);
+        setTrackOrderNumber(wanted);
+        setOrdersViewOpen(true);
+      });
   }, [ready, user, pendingOrder]);
   const [cartPanelOpen, setCartPanelOpen] = useState(false);
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(false);
@@ -7524,12 +7635,19 @@ export default function App() {
     )}
     <CheckoutPage
       open={checkoutOpen}
-      onOpenChange={setCheckoutOpen}
-      items={cartItems}
+      onOpenChange={(v) => {
+        setCheckoutOpen(v);
+        if (!v) setCustomCheckout(null);
+      }}
+      items={customCheckout ? customCheckout.items : cartItems}
       currency={currency}
       prefilledName={user?.name || ""}
       prefilledPhone={user?.phone || ""}
-      onPlaced={handleOrderPlaced}
+      onPlaced={(n) => {
+        setCustomCheckout(null);
+        handleOrderPlaced(n);
+      }}
+      customOrder={customCheckout ? { orderNumber: customCheckout.orderNumber, note: customCheckout.note } : null}
     />
     <OrdersView
       open={ordersViewOpen}
