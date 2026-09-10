@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   adminApi,
   AdminApiError,
+  mediaUrl,
   type AdminOrder,
   type AdminOrderDetail,
 } from "../adminApi";
@@ -411,15 +412,31 @@ function OrderDetailModal({
               </div>
 
               <div className="mt-4 space-y-2">
-                {detail.items.map((it) => (
+                {/* The photo, not just the name. A custom order is a piece
+                    that exists nowhere in the catalogue, so its line reads
+                    "Pigeon × 2" and nothing else — the shop had no way to see
+                    what it had agreed to make. Keyed by index as well as name
+                    because two lines can carry the same name. */}
+                {detail.items.map((it, i) => (
                   <div
-                    key={it.product_name}
-                    className="flex justify-between text-sm"
+                    key={`${it.product_name}-${i}`}
+                    className="flex items-center justify-between gap-3 text-sm"
                   >
-                    <span>
-                      {it.product_name} × {it.quantity}
-                    </span>
-                    <span>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {it.product_image ? (
+                        <img
+                          src={mediaUrl(it.product_image)}
+                          alt=""
+                          className="h-12 w-10 shrink-0 rounded-sm border border-border object-contain"
+                        />
+                      ) : (
+                        <div className="h-12 w-10 shrink-0 rounded-sm border border-dashed border-border" />
+                      )}
+                      <span className="min-w-0 break-words">
+                        {it.product_name} × {it.quantity}
+                      </span>
+                    </div>
+                    <span className="shrink-0">
                       ₹
                       {(it.product_price * it.quantity).toLocaleString("en-IN")}
                     </span>
