@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { adminApi, AdminApiError } from "../adminApi";
+import { adminApi, AdminApiError, IMAGE_CAPS } from "../adminApi";
 
 // A custom order built from an email address alone.
 //
@@ -13,7 +13,7 @@ import { adminApi, AdminApiError } from "../adminApi";
 // photo on Instagram. Here the address is enough: the order is created and
 // emailed, and the account catches up on its own when they sign in to pay.
 
-type LineItem = { productName: string; productPrice: string; quantity: string };
+type LineItem = { productName: string; productPrice: string; quantity: string; image?: string };
 const emptyItem: LineItem = { productName: "", productPrice: "", quantity: "1" };
 
 type Sent = { orderNumber: string; email: string; total: number; delivered: boolean; reason?: string; isNew: boolean };
@@ -31,6 +31,32 @@ export default function CustomOrderSection({
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<Sent | null>(null);
+  // A bespoke piece is not in the catalogue, so there is no product photo to
+  // find by name — the only picture of it is the one the shop took. Without
+  // this the customer got their quote as a row of prices and no piece.
+  const [uploadingRow, setUploadingRow] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pickingFor = useRef<number | null>(null);
+
+  const pickImage = (i: number) => {
+    pickingFor.current = i;
+    fileInputRef.current?.click();
+  };
+
+  const onFileChosen = async (file: File) => {
+    const i = pickingFor.current;
+    if (i == null) return;
+    setUploadingRow(i);
+    try {
+      const { url } = await adminApi.products.upload(file, IMAGE_CAPS.product);
+      updateItem(i, { image: url });
+    } catch (err) {
+      onError(err instanceof AdminApiError ? err.message : "Couldn't upload that photo");
+    } finally {
+      setUploadingRow(null);
+      pickingFor.current = null;
+    }
+  };
 
   const total = items.reduce((sum, it) => sum + (Number(it.productPrice) || 0) * (Number(it.quantity) || 0), 0);
 
@@ -51,6 +77,7 @@ export default function CustomOrderSection({
         productName: it.productName.trim(),
         productPrice: Number(it.productPrice),
         quantity: Number(it.quantity) || 1,
+        image: it.image,
       }))
       .filter((it) => it.productName && it.productPrice > 0);
     if (cleaned.length === 0) {
@@ -137,6 +164,21 @@ export default function CustomOrderSection({
           <Label className="text-xs">Items</Label>
           {items.map((it, i) => (
             <div key={i} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => pickImage(i)}
+                disabled={uploadingRow !== null}
+                title={it.image ? "Change photo" : "Add a photo"}
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm border border-dashed border-border text-[10px] text-foreground/50 hover:bg-olive-50 disabled:opacity-40"
+              >
+                {uploadingRow === i ? (
+                  "…"
+                ) : it.image ? (
+                  <img src={it.image} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  "+ Photo"
+                )}
+              </button>
               <Input
                 placeholder="Item name"
                 value={it.productName}
@@ -169,13 +211,39 @@ export default function CustomOrderSection({
               </button>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => setItems((prev) => [...prev, { ...emptyItem }])}
-            className="rounded-sm border border-dashed border-border px-3 py-1.5 text-xs text-foreground/50 hover:bg-olive-50"
-          >
-            + Add item
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setItems((prev) => [...prev, { ...emptyItem }])}
+              className="rounded-sm border border-dashed border-border px-3 py-1.5 text-xs text-foreground/50 hover:bg-olive-50"
+            >
+              + Add item
+            </button>
+            {items.some((it) => it.image) && (
+              <button
+                type="button"
+                onClick={() => setItems((prev) => prev.map((it) => ({ ...it, image: undefined })))}
+                className="text-xs text-foreground/45 hover:underline"
+              >
+                Remove all photos
+              </button>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed text-foreground/45">
+            The photo shows in their email, on the checkout page and on the invoice. Leave it empty for a piece that is
+            already in your catalogue — its own photo is used.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void onFileChosen(file);
+              e.target.value = "";
+            }}
+          />
         </div>
 
         <div className="mt-4 space-y-1">

@@ -380,7 +380,7 @@ export const adminApi = {
     create: (data: {
       email: string;
       name?: string;
-      items: { productName: string; productPrice: number; quantity?: number }[];
+      items: { productName: string; productPrice: number; quantity?: number; image?: string }[];
       note?: string;
     }) =>
       request<{
