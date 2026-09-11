@@ -1,21 +1,12 @@
 // Thin fetch wrapper for the Beauty of Beads backend.
 //
-// API_BASE is picked up at build time from VITE_API_BASE (see .env.example in the
-// backend folder / README) — defaults to localhost:4000 for local dev. When this
-// site is deployed for real (e.g. on Hostinger), set VITE_API_BASE to the deployed
-// backend's URL before building.
-//
-// IMPORTANT: when this page is published as a claude.ai Artifact (strict CSP), fetch
-// calls to any external host — including this backend — are blocked by the sandbox.
-// Backend-dependent features (login, cart sync, orders) only work when the built
-// HTML is opened directly / served from a real host that can reach the backend.
+// API_BASE is read at build time from VITE_API_BASE, falling back to the live API
+// on the shop's own domain. The fallback is what production actually uses; the
+// variable exists so a local build can be pointed at a different backend.
 
-// Vite (`npm run build` / `npm run dev`) exposes build-time env vars via the runtime
-// object `import.meta.env`. The Parcel build used for the single-file artifact
-// (bundle-artifact.sh) does NOT populate `import.meta.env`, and — verified directly —
-// does not statically inline custom `process.env.SOME_VAR` references in this project's
-// setup either, so an env var can't reliably reach the artifact build at all. Guarded
-// so a Vite build can still override via VITE_API_BASE / VITE_GOOGLE_CLIENT_ID if set.
+// Vite exposes build-time env vars on `import.meta.env`. The access is guarded
+// because not every bundler this project has been built with populates it, and an
+// unguarded read throws rather than returning undefined.
 import { compressImage } from "@/lib/compressImage";
 
 function readViteEnv(key: "VITE_API_BASE" | "VITE_GOOGLE_CLIENT_ID"): string {
@@ -26,10 +17,9 @@ const API_BASE = readViteEnv("VITE_API_BASE") || "https://api.beautyofbeadsbykhu
 
 // Google Cloud OAuth Client ID (Web application) for "Sign in with Google". Client IDs
 // aren't secret — they're meant to be embedded in client-side code (unlike a client
-// secret) — so hardcoding it here is the normal, safe approach, and it's the only
-// approach that reliably survives the Parcel artifact build (see note above). Empty
-// until it's set — the UI shows a friendly "being set up" message instead of a broken
-// button when this is blank.
+// secret) — so hardcoding it here is the normal, safe approach, and it survives any
+// build regardless of how that build handles env vars. Empty until it's set — the UI
+// shows a friendly "being set up" message instead of a broken button when blank.
 const GOOGLE_CLIENT_ID_HARDCODED = "958754486244-3ji2ug716o2vgpl3g27v6v5ipk07trbe.apps.googleusercontent.com";
 const GOOGLE_CLIENT_ID = readViteEnv("VITE_GOOGLE_CLIENT_ID") || GOOGLE_CLIENT_ID_HARDCODED;
 export { GOOGLE_CLIENT_ID };
