@@ -1,32 +1,155 @@
-# React + TypeScript + Vite
+# Beauty of Beads
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Storefront and back office for a handmade hair-accessory and jewellery label.
+Live, taking real orders and real money.
 
-Currently, two official plugins are available:
+**[beautyofbeadsbykhushi.com](https://beautyofbeadsbykhushi.com)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+A single-page storefront over a serverless API on Cloudflare's edge: 411
+products across 21 categories, cart and checkout, Razorpay payments verified
+server-side, a GST tax invoice generated for every order, and transactional
+email on each change of state — all of it run by the shop owner from an admin
+panel built alongside it.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## What it does
 
-## Expanding the Oxlint configuration
+### Storefront
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+- Catalogue of 411 products across 21 categories, with per-category ordering,
+  variant options (colour, size, set contents) and priced choices that replace
+  the product's price while selected
+- Cart, wishlist and a full checkout: address, delivery speed, promo codes,
+  and a live total that recalculates delivery and GST as the address changes
+- Razorpay checkout — UPI, cards, net banking, wallets
+- Google sign-in, order history and live order tracking
+- Every product has its own shareable link; the phone's native share sheet
+  gets the real URL
+- Complaints with photo attachments, and reviews that only a customer who
+  actually received the piece can leave
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+### Admin panel
+
+A second entry point (`admin.html`) behind its own session, with twelve
+sections — overview and revenue, products and media, a homepage/website
+editor, per-category product ordering, a "best products" view (what sells,
+what's trending this week, what sits in carts and never converts), orders,
+customers, custom orders, reviews, promo codes, complaints, and admin
+accounts.
+
+Two things worth calling out:
+
+- **Custom orders.** The shop prices a bespoke piece for any email address —
+  no account needed — and the link in that email opens checkout with the order
+  already in it. The account materialises when the customer signs in to pay.
+- **Revenue is only what Razorpay confirmed.** An order that was placed but
+  never paid for never reaches the revenue figure.
+
+---
+
+## Tech stack
+
+| | |
+|---|---|
+| **Frontend** | React 19 · TypeScript · Vite · Tailwind CSS · shadcn/ui over Radix primitives |
+| **API** | Cloudflare Workers · Hono · Zod |
+| **Data** | Turso (libSQL) at the edge · Cloudflare R2 for media |
+| **Payments** | Razorpay — server-decided amounts, HMAC-verified, webhook-backed |
+| **Email** | Resend (HTTP API) — order confirmations, invoices, status updates, review requests |
+| **Auth** | Google OAuth · JWT sessions · bcrypt for admin passwords |
+
+> This repository holds the **frontend** — the storefront and the admin panel,
+> which build as two separate entry points from one codebase. The API is a
+> Cloudflare Worker deployed separately.
+
+---
+
+## Engineering notes
+
+The parts that took the most thought:
+
+**Payments cannot be trusted to the browser.** The amount charged is read from
+the database by the Worker, never sent from the client — a client that could
+name its own amount could pay ₹1 for a ₹5,000 order. The browser's success
+callback is verified by HMAC signature bound to the Razorpay order that was
+opened for that specific order, so a signature captured elsewhere cannot be
+replayed. A webhook is the real source of truth: if the customer's connection
+drops between paying and reporting back, the webhook is the only thing that
+records the money, and every payment attempt is remembered so a late capture
+still finds its order.
+
+**GST invoicing, done properly.** HSN 7117 at 3%, split CGST/SGST within the
+state of supply and IGST outside it, exports zero-rated, freight taxed at the
+goods' rate as a composite supply. Invoice numbers run consecutively per
+Indian financial year, assigned in a single statement so two payments landing
+together can never share one. The PDF is generated by hand — base-14 Helvetica,
+WinAnsi encoding — with no PDF library, so it costs the Worker nothing.
+
+**Speed, measured rather than assumed.** The catalogue is served as a trimmed
+"card" shape so the homepage doesn't pull long-form copy for hundreds of
+products it won't render, product photos are served from a 540px derivative
+(~29KB instead of ~250KB), the 340KB country/region dataset is loaded only when
+an address form opens, and responses are cached at the edge with a hand-written
+stale-while-revalidate layer. First contentful paint went from 960ms to 448ms;
+a repeat visit's DOMContentLoaded from 1327ms to 161ms.
+
+**Things that only show up in production.** Closing the payment window used to
+leave a ghost order behind, so one purchase could appear three times in a
+customer's history — checkout now rewrites the pending order instead of adding
+to it. Paying for a custom order used to empty a basket it never came from.
+Cloudflare ignores `Vary: Origin`, so CORS headers had to be stripped on the
+way in and out of the shared edge cache to stop one origin's cached response
+being served to another.
+
+---
+
+## Repository layout
+
+```
+index.html            storefront entry
+admin.html            admin entry — same codebase, separate bundle
+src/
+  App.tsx             storefront: catalogue, cart, checkout, orders, reviews
+  lib/
+    api.ts            typed fetch wrapper for the Worker API
+    geo.ts            countries, regions, postal rules, dialling codes
+    compressImage.ts  client-side image compression before upload
+  components/store/   auth, address fields, GST invoice, order confirmation
+  admin/
+    AdminApp.tsx      admin shell, session handling, navigation
+    adminApi.ts       typed admin API client
+    sections/         one file per admin section
+  context/            auth state
+  hooks/              viewport, scroll-lock and toast helpers
+public/
+  _headers            cache-control for fingerprinted assets
+  sitemap.xml         search-engine sitemap
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+## Running locally
+
+```bash
+pnpm install
+pnpm dev
+```
+
+The storefront runs at `localhost:5173`, the admin at `localhost:5173/admin.html`.
+Both talk to the live API by default. To point them at a different backend,
+set `VITE_API_BASE` before building — see `.env.production.example`.
+
+```bash
+pnpm build     # builds both entry points
+```
+
+Deployment notes are in [README-DEPLOY.md](README-DEPLOY.md).
+
+---
+
+## Author
+
+**Vyas Mittal** — [vyas.mittal.12@gmail.com](mailto:vyas.mittal.12@gmail.com) · [github.com/VYASMITTAL07](https://github.com/VYASMITTAL07)
+
+Built for Beauty of Beads by Khushi.
