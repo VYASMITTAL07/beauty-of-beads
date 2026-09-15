@@ -84,6 +84,37 @@ export async function compressImage(file: File, maxDimension: number = DEFAULT_M
   }
 }
 
+// The width of the copy every product card is drawn from. A card renders about
+// 170px wide on a phone and 270px on a laptop, so 540 covers a 2x screen.
+export const CARD_WIDTH = 540;
+
+/**
+ * The card-sized WebP copy of an image, or null when one can't be made (not a
+ * raster image, or no canvas). Uploaded beside the original as
+ * `<name>.card.webp`; without it a product card falls back to the full photo.
+ */
+export async function makeCardCopy(file: File): Promise<File | null> {
+  if (!file.type.startsWith("image/")) return null;
+  if (file.type === "image/svg+xml" || file.type === "image/gif") return null;
+  if (!canUseCanvas()) return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, CARD_WIDTH / bitmap.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await encode(canvas, "image/webp");
+    if (!blob || blob.type !== "image/webp") return null;
+    return new File([blob], "card.webp", { type: "image/webp", lastModified: Date.now() });
+  } catch {
+    return null;
+  }
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${Math.round(bytes / 1024)} KB`;

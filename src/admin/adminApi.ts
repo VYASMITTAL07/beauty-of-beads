@@ -2,7 +2,7 @@
 // the /api/admin/* routes, which use a separate admin_session cookie (see
 // beauty-of-beads-worker/src/lib/auth.js) so being logged in as a customer
 // on the same browser never grants admin access and vice versa.
-import { compressImage, IMAGE_CAPS } from "@/lib/compressImage";
+import { compressImage, makeCardCopy, IMAGE_CAPS } from "@/lib/compressImage";
 export { IMAGE_CAPS };
 
 function readViteEnv(key: "VITE_API_BASE"): string {
@@ -351,7 +351,24 @@ export const adminApi = {
       const optimised = await compressImage(file, maxDimension);
       const form = new FormData();
       form.append("file", optimised);
-      return request<{ url: string; key: string }>("/api/admin/products/upload", { method: "POST", body: form });
+      const uploaded = await request<{ url: string; key: string }>("/api/admin/products/upload", { method: "POST", body: form });
+      // The small copy product cards are drawn from. Without it a card pulls
+      // the full photo; 115 products had none. Best effort — a failure here
+      // must never fail the upload itself, since the card still falls back.
+      if (uploaded.key?.startsWith("images/")) {
+        try {
+          const card = await makeCardCopy(optimised);
+          if (card) {
+            const cardForm = new FormData();
+            cardForm.append("file", card);
+            cardForm.append("cardFor", uploaded.key);
+            await request<{ key: string }>("/api/admin/products/upload", { method: "POST", body: cardForm });
+          }
+        } catch {
+          // The card falls back to the full image.
+        }
+      }
+      return uploaded;
     },
   },
   orders: {
