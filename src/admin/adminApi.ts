@@ -343,6 +343,27 @@ export const adminApi = {
     create: (data: Partial<AdminProduct>) => request<{ product: AdminProduct }>("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<AdminProduct>) => request<{ product: AdminProduct }>(`/api/admin/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: number, hard?: boolean) => request<{ ok: true }>(`/api/admin/products/${id}${hard ? "?hard=1" : ""}`, { method: "DELETE" }),
+    // Photos with no card-sized copy, and the repair for one. A photo that
+    // reaches the bucket without passing through a browser — imported from the
+    // old site, or copied in by migrate-images — never gets a copy made, and
+    // its card falls back to the full-size original. The Worker finds them;
+    // the copy itself has to be made here, where there is a canvas.
+    missingCardCopies: () =>
+      request<{ checked: number; missing: { id: number; name: string; key: string }[] }>(
+        "/api/admin/products/missing-card-copies"
+      ),
+    makeCardCopyFor: async (key: string) => {
+      const res = await fetch(`${API_BASE}/media/${key}`);
+      if (!res.ok) throw new AdminApiError("Couldn't read that photo from storage", res.status);
+      const blob = await res.blob();
+      const original = new File([blob], key.split("/").pop() || "photo", { type: blob.type || "image/jpeg" });
+      const card = await makeCardCopy(original);
+      if (!card) throw new AdminApiError("Couldn't make a copy of that photo", 422);
+      const form = new FormData();
+      form.append("file", card);
+      form.append("cardFor", key);
+      return request<{ key: string }>("/api/admin/products/upload", { method: "POST", body: form });
+    },
     // Every admin image upload goes through here — product photos, category
     // covers, hero and banner images — so compression is applied once, at the
     // single point they all share. Videos and small files pass through

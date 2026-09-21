@@ -77,6 +77,56 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [importingVariants, setImportingVariants] = useState<{ page: number; totalPages: number; updated: number } | null>(null);
   const [showingAll, setShowingAll] = useState(false);
+  // Photos with no card-sized copy. One is made in the browser as part of an
+  // upload, so anything that reached the bucket another way — imported from the
+  // old site, or copied across by "Copy images to this site" — has none, and
+  // its card pulls the full-size photo instead. This finds them and makes them.
+  const [cardScan, setCardScan] = useState<{ checked: number; missing: { id: number; name: string; key: string }[] } | null>(null);
+  const [scanningCards, setScanningCards] = useState(false);
+  const [fixingCards, setFixingCards] = useState<{ done: number; total: number } | null>(null);
+
+  const scanCardCopies = async () => {
+    setScanningCards(true);
+    try {
+      const r = await adminApi.products.missingCardCopies();
+      setCardScan(r);
+      if (r.missing.length === 0) onSuccess(`All ${r.checked} product photos already have a small copy`);
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't check the photos");
+    } finally {
+      setScanningCards(false);
+    }
+  };
+
+  const makeCardCopies = async () => {
+    const list = cardScan?.missing ?? [];
+    if (list.length === 0) return;
+    setFixingCards({ done: 0, total: list.length });
+    let done = 0;
+    const failed: string[] = [];
+    // Three at a time: each one downloads a photo, re-encodes it and uploads
+    // the copy, and doing that one after another for a few hundred takes long
+    // enough that the tab looks stuck.
+    const queue = [...list];
+    const worker = async () => {
+      for (;;) {
+        const item = queue.shift();
+        if (!item) return;
+        try {
+          await adminApi.products.makeCardCopyFor(item.key);
+        } catch {
+          failed.push(item.name);
+        }
+        done += 1;
+        setFixingCards({ done, total: list.length });
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    setFixingCards(null);
+    if (failed.length) onError(`${failed.length} couldn't be done — try again: ${failed.slice(0, 3).join(", ")}${failed.length > 3 ? "…" : ""}`);
+    else onSuccess(`Made ${list.length} small ${list.length === 1 ? "copy" : "copies"}`);
+    await scanCardCopies();
+  };
 
   useEffect(() => {
     if (!products) return;
@@ -397,6 +447,40 @@ export default function ProductsSection({ onError, onSuccess }: { onError: (m: s
           </Button>
         </div>
       )}
+
+      <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
+        <p className="font-serif text-base text-olive-600">Small copies for product photos</p>
+        <p className="mt-1 text-sm leading-relaxed text-foreground/65">
+          Every product card is drawn from a small copy of its photo, about 40KB instead of 200–400KB. A photo you
+          upload here gets one automatically, but one imported from the old site does not — and without it the card
+          pulls the full-size photo, which is what makes the shop feel slow. This finds those and makes the copies.
+        </p>
+
+        {cardScan && (
+          <p className="mt-2 text-sm text-foreground/75">
+            {cardScan.missing.length === 0
+              ? `Checked ${cardScan.checked} photos — every one has a small copy.`
+              : `${cardScan.missing.length} of ${cardScan.checked} photos have no small copy.`}
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={scanCardCopies} disabled={scanningCards || !!fixingCards} variant="outline">
+            {scanningCards ? "Checking…" : cardScan ? "Check again" : "Check the photos"}
+          </Button>
+          {cardScan && cardScan.missing.length > 0 && (
+            <Button onClick={makeCardCopies} disabled={!!fixingCards} className="bg-olive-600 hover:bg-black">
+              {fixingCards
+                ? `Making ${fixingCards.done} of ${fixingCards.total}…`
+                : `Make ${cardScan.missing.length} ${cardScan.missing.length === 1 ? "copy" : "copies"}`}
+            </Button>
+          )}
+        </div>
+
+        {fixingCards && (
+          <p className="mt-2 text-xs text-foreground/55">Keep this tab open until it finishes.</p>
+        )}
+      </div>
 
       {products && products.length === 0 && (
         <div className="mt-5 rounded-md border border-olive-300 bg-olive-50/60 p-4 sm:p-5">
