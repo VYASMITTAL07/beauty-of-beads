@@ -5599,10 +5599,11 @@ export default function App() {
       ? homepage.featuredReviews.map((r) => ({ name: r.reviewer_name, rating: r.rating, text: r.comment }))
       : REVIEWS;
 
-  const [productListView, setProductListView] = useState<{ title: string; products: Product[] } | null>(null);
+  const [productListView, setProductListView] = useState<{ title: string; products: Product[]; category?: string } | null>(null);
   const openCategoryView = (categoryName: string) => {
     setProductListView({
       title: categoryName,
+      category: categoryName,
       products: allProducts.filter((p) => p.category.toLowerCase() === categoryName.toLowerCase()),
     });
   };
@@ -5711,13 +5712,25 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onPop = () => {
-      const slug = new URLSearchParams(window.location.search).get("product");
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get("product");
       if (!slug) setSelectedProduct(null);
       else openProductBySlug(slug);
+      const category = params.get("category");
+      if (category) {
+        const categoryName = allProducts.find((product) => product.category.toLowerCase() === category.toLowerCase())?.category ?? category;
+        setProductListView({
+          title: categoryName,
+          category: categoryName,
+          products: allProducts.filter((product) => product.category.toLowerCase() === categoryName.toLowerCase()),
+        });
+      } else {
+        setProductListView((current) => current?.category ? null : current);
+      }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [openProductBySlug]);
+  }, [allProducts, openProductBySlug]);
   const [cartItems, setCartItems] = useState<CartItemDto[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItemDto[]>([]);
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -5780,6 +5793,55 @@ export default function App() {
     ? liveCategories.map((c) => c.name)
     : COLLECTION_GROUPS.flatMap((g) => g.items);
   const categoryMenu = buildCategoryMenu(menuCategories);
+  const [initialCategory] = useState(() => new URLSearchParams(window.location.search).get("category"));
+  const initialCategoryApplied = useRef(false);
+  useEffect(() => {
+    if (initialCategoryApplied.current) return;
+    if (!initialCategory) {
+      initialCategoryApplied.current = true;
+      return;
+    }
+    const categoryName = menuCategories.find((category) => category.toLowerCase() === initialCategory.toLowerCase())
+      ?? allProducts.find((product) => product.category.toLowerCase() === initialCategory.toLowerCase())?.category;
+    if (!categoryName) return;
+    initialCategoryApplied.current = true;
+    setProductListView({
+      title: categoryName,
+      category: categoryName,
+      products: allProducts.filter((product) => product.category.toLowerCase() === categoryName.toLowerCase()),
+    });
+  }, [allProducts, initialCategory, menuCategories]);
+
+  // Keep category links in sync with the in-page view while preserving the
+  // existing ?product= links and any other query parameters.
+  const categoryUrlSyncReady = useRef(false);
+  useEffect(() => {
+    if (!categoryUrlSyncReady.current) {
+      categoryUrlSyncReady.current = true;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const shown = params.get("category");
+    const wanted = productListView?.category;
+    if (wanted) {
+      if (shown === wanted) return;
+      params.set("category", wanted);
+    } else if (shown) {
+      params.delete("category");
+    } else {
+      return;
+    }
+    const qs = params.toString();
+    window.history.pushState({ category: wanted }, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }, [productListView?.category]);
+
+  useEffect(() => {
+    setProductListView((current) => {
+      if (!current?.category) return current;
+      const category = current.category.toLowerCase();
+      return { ...current, products: allProducts.filter((product) => product.category.toLowerCase() === category) };
+    });
+  }, [allProducts]);
   const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const hoveredCategory = activeCategory ?? menuCategories[0] ?? "";
