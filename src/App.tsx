@@ -4242,6 +4242,130 @@ function videoPoster(src: string): string | undefined {
   return mediaUrl(src.replace(/\.(mp4|webm|mov|m4v)(\?.*)?$/i, ".poster.webp"));
 }
 
+function ProductGalleryVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(false);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    video.muted = false;
+    void video.play().catch(() => {
+      // Mobile browsers block audible autoplay. Keep the clip playing silently;
+      // tapping the video itself enables sound without exposing player chrome.
+      video.muted = true;
+      setMuted(true);
+      void video.play().catch(() => {});
+    });
+  }, [src]);
+  return (
+    <video
+      ref={ref}
+      src={mediaUrl(src)}
+      autoPlay
+      loop
+      playsInline
+      muted={muted}
+      controls={false}
+      disablePictureInPicture
+      onClick={(e) => {
+        e.stopPropagation();
+        const video = ref.current;
+        if (!video) return;
+        video.muted = !video.muted;
+        setMuted(video.muted);
+        if (video.paused) void video.play().catch(() => {});
+      }}
+      className="h-full w-full object-contain"
+    />
+  );
+}
+
+function ZoomableProductPhoto({
+  src,
+  alt,
+  onTap,
+  onSwipe,
+  onError,
+}: {
+  src: string;
+  alt: string;
+  onTap?: () => void;
+  onSwipe?: (direction: -1 | 1) => void;
+  onError?: () => void;
+}) {
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchStart = useRef<{ distance: number; scale: number } | null>(null);
+  const lastTap = useRef(0);
+  const start = useRef<{ x: number; y: number } | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    start.current = { x: e.clientX, y: e.clientY };
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinchStart.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), scale };
+    }
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    const prev = pointers.current.get(e.pointerId)!;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size >= 2 && pinchStart.current) {
+      const [a, b] = [...pointers.current.values()];
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      setScale(Math.max(1, Math.min(4, pinchStart.current.scale * distance / pinchStart.current.distance)));
+    } else if (scale > 1) {
+      setOffset((o) => ({ x: o.x + e.clientX - prev.x, y: o.y + e.clientY - prev.y }));
+    }
+  };
+  const onPointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
+    const origin = start.current;
+    const dx = origin ? e.clientX - origin.x : 0;
+    const dy = origin ? e.clientY - origin.y : 0;
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinchStart.current = null;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) && scale <= 1) {
+      onSwipe?.(dx > 0 ? -1 : 1);
+    } else if (Math.hypot(dx, dy) < 12) {
+      const now = Date.now();
+      if (now - lastTap.current < 320) {
+        const next = scale > 1 ? 1 : 2.5;
+        setScale(next);
+        setOffset({ x: 0, y: 0 });
+      } else if (scale === 1) onTap?.();
+      lastTap.current = now;
+    }
+    start.current = null;
+  };
+
+  useEffect(() => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+    pointers.current.clear();
+  }, [src]);
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={onError}
+      draggable={false}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={(e) => { pointers.current.delete(e.pointerId); pinchStart.current = null; }}
+      onWheel={(e) => {
+        if (e.ctrlKey || e.metaKey) setScale((s) => Math.max(1, Math.min(4, s + (e.deltaY < 0 ? 0.25 : -0.25))));
+      }}
+      className="h-full w-full select-none object-contain"
+      style={{ touchAction: "none", transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition: pointers.current.size ? "none" : "transform 100ms ease-out" }}
+    />
+  );
+}
+
 // One reel in the strip. The clips run to several megabytes each and the strip
 // scrolls horizontally, so a reel attaches its source only once it is close to
 // view and pauses again when it leaves — otherwise a dozen of them download and
@@ -4805,39 +4929,9 @@ function ProductDetailView({
   const productMedia = [...liveImages, ...(product.videos || [])];
   const gallery: (number | string)[] = productMedia.length > 0 ? productMedia : [0, 90, 180, 270];
   const [shareCopied, setShareCopied] = useState(false);
-  const [dragStartX, setDragStartX] = useState<number | null>(null);
-  const [isZoomed, setIsZoomed] = useState(false);
   const [galleryFullscreen, setGalleryFullscreen] = useState(false);
-  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const goToImage = (dir: 1 | -1) => {
     setActiveImage((prev) => (prev + dir + gallery.length) % gallery.length);
-  };
-  const handleGalleryPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDragStartX(e.clientX);
-    setIsZoomed(false);
-  };
-  const handleGalleryPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (dragStartX !== null) return;
-    if (e.pointerType !== "mouse") return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setZoomPos({
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
-    });
-  };
-  const handleGalleryPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    if (dragStartX === null) return;
-    const delta = e.clientX - dragStartX;
-    const SWIPE_THRESHOLD = 40;
-    if (delta > SWIPE_THRESHOLD) goToImage(-1);
-    else if (delta < -SWIPE_THRESHOLD) goToImage(1);
-    else if (e.pointerType !== "mouse" && hasRealImages && !isVideoUrl(String(gallery[activeImage]))) setGalleryFullscreen(true);
-    setDragStartX(null);
   };
   // One selection per option group, defaulting to the first choice so the page
   // always shows a real price rather than asking before it will say anything.
@@ -4941,47 +5035,17 @@ function ProductDetailView({
               // cropped so a whole piece is always visible. At the median it
               // fills the frame edge to edge; a taller or squarer photo sits on
               // the light ground instead of losing its ends.
-              className={`relative aspect-[3/4] w-full touch-pan-y select-none overflow-hidden rounded-sm ${
-                dragStartX !== null ? "cursor-grabbing" : "cursor-zoom-in"
-              }`}
-              onPointerDown={(e) => {
-                if (e.pointerType !== "mouse" && !isVideoUrl(String(gallery[activeImage]))) {
-                  if ((e.target as HTMLElement).closest("button")) return;
-                  setDragStartX(e.clientX);
-                  return;
-                }
-                handleGalleryPointerDown(e);
-              }}
-              onPointerMove={handleGalleryPointerMove}
-              onPointerUp={handleGalleryPointerUp}
-              onPointerEnter={(e) => {
-                if (e.pointerType === "mouse") setIsZoomed(true);
-              }}
-              onPointerLeave={() => {
-                setDragStartX(null);
-                setIsZoomed(false);
-              }}
+              className="relative aspect-[3/4] w-full select-none overflow-hidden rounded-sm"
             >
-              <div
-                className="h-full w-full transition-transform duration-150 ease-out"
-                style={{
-                  transform: isZoomed ? "scale(1.9)" : "scale(1)",
-                  transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
-                }}
-              >
+              <div className="h-full w-full">
                 {isVideoUrl(String(gallery[activeImage])) ? (
-                  <video
-                    key={String(gallery[activeImage])}
-                    src={mediaUrl(String(gallery[activeImage]))}
-                    autoPlay muted loop playsInline controls
-                    className="h-full w-full object-contain"
-                  />
+                  <ProductGalleryVideo key={String(gallery[activeImage])} src={String(gallery[activeImage])} />
                 ) : hasRealImages ? (
-                  <img
+                  <ZoomableProductPhoto
                     src={mediaUrl(gallery[activeImage] as string)}
                     alt={product.name}
-                    className="h-full w-full object-contain"
-                    draggable={false}
+                    onTap={() => setGalleryFullscreen(true)}
+                    onSwipe={goToImage}
                     onError={() => {
                       const dead = gallery[activeImage] as string;
                       setBrokenImages((prev) => new Set(prev).add(dead));
@@ -5028,7 +5092,7 @@ function ProductDetailView({
               </button>
             </div>
             {galleryFullscreen && hasRealImages && !isVideoUrl(String(gallery[activeImage])) && (
-              <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 p-3 sm:p-8" onClick={() => setGalleryFullscreen(false)}>
+              <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 p-3 sm:p-8" onClick={(e) => { if (e.target === e.currentTarget) setGalleryFullscreen(false); }}>
                 <button type="button" aria-label="Close full screen image" onClick={() => setGalleryFullscreen(false)} className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-black">
                   <X className="h-6 w-6" />
                 </button>
@@ -5036,7 +5100,11 @@ function ProductDetailView({
                   <button type="button" aria-label="Previous image" onClick={(e) => { e.stopPropagation(); goToImage(-1); }} className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black sm:left-6"><ChevronLeft className="h-6 w-6" /></button>
                   <button type="button" aria-label="Next image" onClick={(e) => { e.stopPropagation(); goToImage(1); }} className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black sm:right-6"><ChevronRight className="h-6 w-6" /></button>
                 </>}
-                <img src={mediaUrl(String(gallery[activeImage]))} alt={product.name} onClick={(e) => e.stopPropagation()} className="max-h-full max-w-full select-none object-contain" style={{ touchAction: "pinch-zoom" }} draggable={false} />
+                <ZoomableProductPhoto
+                  src={mediaUrl(String(gallery[activeImage]))}
+                  alt={product.name}
+                  onSwipe={goToImage}
+                />
               </div>
             )}
             <div className="mt-4 grid grid-cols-4 gap-3">
