@@ -4286,12 +4286,14 @@ function ZoomableProductPhoto({
   onTap,
   onSwipe,
   onError,
+  onZoomChange,
 }: {
   src: string;
   alt: string;
   onTap?: () => void;
   onSwipe?: (direction: -1 | 1) => void;
   onError?: () => void;
+  onZoomChange?: (zoomed: boolean) => void;
 }) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -4346,6 +4348,7 @@ function ZoomableProductPhoto({
     setOffset({ x: 0, y: 0 });
     pointers.current.clear();
   }, [src]);
+  useEffect(() => onZoomChange?.(scale > 1), [onZoomChange, scale]);
 
   return (
     <img
@@ -4930,6 +4933,8 @@ function ProductDetailView({
   const gallery: (number | string)[] = productMedia.length > 0 ? productMedia : [0, 90, 180, 270];
   const [shareCopied, setShareCopied] = useState(false);
   const [galleryFullscreen, setGalleryFullscreen] = useState(false);
+  const [galleryImageZoomed, setGalleryImageZoomed] = useState(false);
+  useEffect(() => setGalleryImageZoomed(false), [activeImage, product.slug]);
   const goToImage = (dir: 1 | -1) => {
     setActiveImage((prev) => (prev + dir + gallery.length) % gallery.length);
   };
@@ -5046,6 +5051,7 @@ function ProductDetailView({
                     alt={product.name}
                     onTap={() => setGalleryFullscreen(true)}
                     onSwipe={goToImage}
+                    onZoomChange={setGalleryImageZoomed}
                     onError={() => {
                       const dead = gallery[activeImage] as string;
                       setBrokenImages((prev) => new Set(prev).add(dead));
@@ -5061,14 +5067,14 @@ function ProductDetailView({
                   {product.tag}
                 </span>
               )}
-              <button
+              {!galleryFullscreen && !galleryImageZoomed && <button
                 onClick={() => toggleWishlist(product.name)}
                 aria-label="Wishlist"
                 className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110"
               >
                 <Heart className={`h-5 w-5 ${isWishlisted ? "fill-olive-500 text-olive-500" : "text-foreground/60"}`} />
-              </button>
-              <button
+              </button>}
+              {!galleryFullscreen && !galleryImageZoomed && <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -5078,7 +5084,7 @@ function ProductDetailView({
                 className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow-sm hover:bg-white"
               >
                 <ChevronLeft className="h-5 w-5" />
-              </button>
+              </button>}
               <button
                 type="button"
                 onClick={(e) => {
@@ -5096,10 +5102,6 @@ function ProductDetailView({
                 <button type="button" aria-label="Close full screen image" onClick={() => setGalleryFullscreen(false)} className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-black">
                   <X className="h-6 w-6" />
                 </button>
-                {liveImages.length > 1 && <>
-                  <button type="button" aria-label="Previous image" onClick={(e) => { e.stopPropagation(); goToImage(-1); }} className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black sm:left-6"><ChevronLeft className="h-6 w-6" /></button>
-                  <button type="button" aria-label="Next image" onClick={(e) => { e.stopPropagation(); goToImage(1); }} className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black sm:right-6"><ChevronRight className="h-6 w-6" /></button>
-                </>}
                 <ZoomableProductPhoto
                   src={mediaUrl(String(gallery[activeImage]))}
                   alt={product.name}
