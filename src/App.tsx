@@ -5255,14 +5255,9 @@ function ProductDetailView({
           </div>
         </div>
 
-        {liveReviews && (
+        {liveReviews && liveReviews.count > 0 && (
           <div className="mt-16 border-t border-border pt-10">
             <h3 className="mb-6 text-center font-serif text-xl uppercase tracking-wide text-olive-600 md:text-2xl">Customer Reviews</h3>
-            {liveReviews.count === 0 ? (
-              <p className="mx-auto max-w-sm text-center text-sm text-foreground/60">
-                No reviews yet — once your delivered order arrives, you can be the first to review this product from My Orders.
-              </p>
-            ) : (
               <div className="mx-auto max-w-2xl">
                 <div className="mb-8 flex items-center justify-center gap-3">
                   <div className="flex items-center gap-0.5">
@@ -5296,7 +5291,6 @@ function ProductDetailView({
                   ))}
                 </div>
               </div>
-            )}
           </div>
         )}
 
