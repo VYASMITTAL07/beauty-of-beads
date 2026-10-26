@@ -4802,10 +4802,12 @@ function ProductDetailView({
   }, [product.slug]);
   const liveImages = (product.images || []).filter((u) => !brokenImages.has(u));
   const hasRealImages = liveImages.length > 0;
-  const gallery: (number | string)[] = hasRealImages ? liveImages : [0, 90, 180, 270];
+  const productMedia = [...liveImages, ...(product.videos || [])];
+  const gallery: (number | string)[] = productMedia.length > 0 ? productMedia : [0, 90, 180, 270];
   const [shareCopied, setShareCopied] = useState(false);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [galleryFullscreen, setGalleryFullscreen] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const goToImage = (dir: 1 | -1) => {
     setActiveImage((prev) => (prev + dir + gallery.length) % gallery.length);
@@ -4834,6 +4836,7 @@ function ProductDetailView({
     const SWIPE_THRESHOLD = 40;
     if (delta > SWIPE_THRESHOLD) goToImage(-1);
     else if (delta < -SWIPE_THRESHOLD) goToImage(1);
+    else if (e.pointerType !== "mouse" && hasRealImages && !isVideoUrl(String(gallery[activeImage]))) setGalleryFullscreen(true);
     setDragStartX(null);
   };
   // One selection per option group, defaulting to the first choice so the page
@@ -4941,7 +4944,14 @@ function ProductDetailView({
               className={`relative aspect-[3/4] w-full touch-pan-y select-none overflow-hidden rounded-sm ${
                 dragStartX !== null ? "cursor-grabbing" : "cursor-zoom-in"
               }`}
-              onPointerDown={handleGalleryPointerDown}
+              onPointerDown={(e) => {
+                if (e.pointerType !== "mouse" && !isVideoUrl(String(gallery[activeImage]))) {
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  setDragStartX(e.clientX);
+                  return;
+                }
+                handleGalleryPointerDown(e);
+              }}
               onPointerMove={handleGalleryPointerMove}
               onPointerUp={handleGalleryPointerUp}
               onPointerEnter={(e) => {
@@ -4959,7 +4969,14 @@ function ProductDetailView({
                   transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
                 }}
               >
-                {hasRealImages ? (
+                {isVideoUrl(String(gallery[activeImage])) ? (
+                  <video
+                    key={String(gallery[activeImage])}
+                    src={mediaUrl(String(gallery[activeImage]))}
+                    autoPlay muted loop playsInline controls
+                    className="h-full w-full object-contain"
+                  />
+                ) : hasRealImages ? (
                   <img
                     src={mediaUrl(gallery[activeImage] as string)}
                     alt={product.name}
@@ -5010,6 +5027,18 @@ function ProductDetailView({
                 <ChevronRight className="h-5 w-5" />
               </button>
             </div>
+            {galleryFullscreen && hasRealImages && !isVideoUrl(String(gallery[activeImage])) && (
+              <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 p-3 sm:p-8" onClick={() => setGalleryFullscreen(false)}>
+                <button type="button" aria-label="Close full screen image" onClick={() => setGalleryFullscreen(false)} className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-black">
+                  <X className="h-6 w-6" />
+                </button>
+                {liveImages.length > 1 && <>
+                  <button type="button" aria-label="Previous image" onClick={(e) => { e.stopPropagation(); goToImage(-1); }} className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black sm:left-6"><ChevronLeft className="h-6 w-6" /></button>
+                  <button type="button" aria-label="Next image" onClick={(e) => { e.stopPropagation(); goToImage(1); }} className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black sm:right-6"><ChevronRight className="h-6 w-6" /></button>
+                </>}
+                <img src={mediaUrl(String(gallery[activeImage]))} alt={product.name} onClick={(e) => e.stopPropagation()} className="max-h-full max-w-full select-none object-contain" style={{ touchAction: "pinch-zoom" }} draggable={false} />
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-4 gap-3">
               {gallery.map((deg, i) => (
                 <button
@@ -5020,7 +5049,12 @@ function ProductDetailView({
                     activeImage === i ? "ring-2 ring-olive-600 ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"
                   }`}
                 >
-                  {hasRealImages ? (
+                  {isVideoUrl(String(deg)) ? (
+                    <div className="relative h-full w-full bg-black">
+                      <video src={mediaUrl(String(deg))} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                      <span className="absolute inset-0 grid place-items-center text-white">▶</span>
+                    </div>
+                  ) : hasRealImages ? (
                     <img src={cardImage(deg as string)} alt="" className="h-full w-full object-contain" draggable={false} onError={(e) => { const el = e.currentTarget; const full = mediaUrl(deg as string); if (el.src !== full) el.src = full; }} />
                   ) : (
                     <BeadStrand colors={product.colors} bg={product.bg} size={20} rotateDeg={deg as number} />
@@ -5257,26 +5291,6 @@ function ProductDetailView({
             </div>
 
             <p className="mt-5 max-w-md text-sm leading-relaxed text-foreground/75">{description}</p>
-
-            {/* Product videos — kept out of the photo gallery, shown alongside the description instead */}
-            {product.videos && product.videos.length > 0 && (
-              <div className="mt-4 max-w-md">
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  {product.videos.length > 1 ? "Videos" : "Video"}
-                </span>
-                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {product.videos.map((v, i) => (
-                    <video
-                      key={i}
-                      src={v}
-                      controls
-                      playsInline
-                      className="aspect-[9/16] w-full rounded-sm bg-black object-cover shadow-sm"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Accordion: description / care / shipping */}
             <div className="mt-2 divide-y divide-border">
