@@ -6,6 +6,7 @@ import { CountryStateFields } from "@/components/store/CountryStateFields";
 import { Invoice } from "@/components/store/Invoice";
 import { OrderConfirmed } from "@/components/store/OrderConfirmed";
 import { DEFAULT_COUNTRY, dialCodeForCountry, isValidPostalCode, postalLabel, postalPlaceholder } from "@/lib/geo";
+import { trackMetaEvent } from "@/lib/metaPixel";
 // Imported as files rather than an inline data: URI — as base64 this single
 // logo was ~426KB of the JavaScript bundle, parsed on every page load.
 // logo-mark.png is the full-size master and is deliberately NOT imported:
@@ -2128,6 +2129,7 @@ async function payWithRazorpay({
   onPaid,
   onFail,
   onDismiss,
+  contents,
 }: {
   orderNumber: string;
   name: string;
@@ -2136,11 +2138,17 @@ async function payWithRazorpay({
   onPaid: (orderNumber: string) => void;
   onFail: (message: string) => void;
   onDismiss: (orderNumber: string) => void;
+  contents?: { id: string; quantity: number; item_price: number }[];
 }) {
   const pay = await api.orders.startPayment(orderNumber);
   await loadRazorpay();
   const Razorpay = window.Razorpay;
   if (!Razorpay) throw new Error("Couldn't reach the payment provider.");
+  const currencyDigits = new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: pay.currency,
+  }).resolvedOptions().maximumFractionDigits ?? 2;
+  const paymentValue = Number((pay.amount / 10 ** currencyDigits).toFixed(currencyDigits));
 
   const checkout = new Razorpay({
     key: pay.keyId,
@@ -2161,6 +2169,17 @@ async function payWithRazorpay({
           razorpaySignature: result.razorpay_signature,
           method,
         });
+        trackMetaEvent(
+          "Purchase",
+          {
+            value: paymentValue,
+            currency: pay.currency,
+            ...(contents?.length
+              ? { content_ids: contents.map((item) => item.id), content_type: "product", contents }
+              : {}),
+          },
+          pay.orderNumber,
+        );
         onPaid(pay.orderNumber);
       } catch (err) {
         // The money may well have left — the webhook records it either way, so
@@ -2174,6 +2193,7 @@ async function payWithRazorpay({
     },
     modal: { ondismiss: () => onDismiss(pay.orderNumber) },
   });
+  trackMetaEvent("AddPaymentInfo", { value: paymentValue, currency: pay.currency });
   checkout.open();
 }
 
@@ -2266,6 +2286,20 @@ function CheckoutPage({
   const tax = taxFor(country, state, taxable);
   const total = round2(taxable + tax.amount);
 
+  useEffect(() => {
+    if (!open) return;
+    trackMetaEvent("InitiateCheckout", {
+      content_ids: items.map((item) => item.product_name),
+      content_type: "product",
+      contents: items.map((item) => ({ id: item.product_name, quantity: item.quantity, item_price: round2(item.product_price * currency.rate) })),
+      num_items: items.reduce((count, item) => count + item.quantity, 0),
+      value: round2(total * currency.rate),
+      currency: currency.code,
+    });
+  // Fire once when the checkout page opens, not when its cart recalculates.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const applyPromo = async () => {
     const code = promoInput.trim();
     if (!code || promoChecking) return;
@@ -2335,6 +2369,11 @@ function CheckoutPage({
           name,
           phone,
           method,
+          contents: items.map((item) => ({
+            id: item.product_name,
+            quantity: item.quantity,
+            item_price: round2(item.product_price * currency.rate),
+          })),
           onPaid: (n) => {
             setLoading(false);
             onPlaced(n);
@@ -2380,6 +2419,11 @@ function CheckoutPage({
         name,
         phone,
         method,
+        contents: items.map((item) => ({
+          id: item.product_name,
+          quantity: item.quantity,
+          item_price: round2(item.product_price * currency.rate),
+        })),
         onPaid: (n) => {
           setLoading(false);
           onPlaced(n);
@@ -4722,6 +4766,18 @@ function ProductDetailView({
 
   const isWishlisted = wishlist.has(product.name);
   const { currency } = useCurrency();
+  useEffect(() => {
+    trackMetaEvent("ViewContent", {
+      content_ids: [product.name],
+      content_name: product.name,
+      content_type: "product",
+      contents: [{ id: product.name, quantity: 1, item_price: round2(product.price * currency.rate) }],
+      value: round2(product.price * currency.rate),
+      currency: currency.code,
+    });
+  // Changing currency doesn't represent another product view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.slug, product.name]);
   const related = (() => {
     const sameCategory = allProducts.filter((p) => p.category === product.category && p.name !== product.name);
     const others = allProducts.filter((p) => p.category !== product.category && p.name !== product.name);
@@ -5675,10 +5731,12 @@ export default function App() {
       if (shown === wanted) return; // arrived via Back/Forward; the URL is already right
       params.set("product", wanted);
       window.history.pushState({ product: wanted }, "", `${window.location.pathname}?${params.toString()}`);
+      trackMetaEvent("PageView");
     } else if (shown) {
       params.delete("product");
       const qs = params.toString();
       window.history.pushState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+      trackMetaEvent("PageView");
     }
   }, [selectedProduct?.slug]);
 
@@ -5706,6 +5764,7 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onPop = () => {
+      trackMetaEvent("PageView");
       const params = new URLSearchParams(window.location.search);
       const slug = params.get("product");
       if (!slug) setSelectedProduct(null);
@@ -5827,6 +5886,7 @@ export default function App() {
     }
     const qs = params.toString();
     window.history.pushState({ category: wanted }, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    trackMetaEvent("PageView");
   }, [productListView?.category]);
 
   useEffect(() => {
@@ -6158,6 +6218,14 @@ export default function App() {
     setAdded((prev) => new Set(prev).add(name));
     const product = allProducts.find((p) => p.name === name);
     if (!product) return;
+    trackMetaEvent("AddToCart", {
+      content_ids: [product.name],
+      content_name: product.name,
+      content_type: "product",
+      contents: [{ id: product.name, quantity: 1, item_price: round2(product.price * currency.rate) }],
+      value: round2(product.price * currency.rate),
+      currency: currency.code,
+    });
     // Note: images are populated on `product` for every product, from either the
     // live catalog or the placeholder fallback — pull the first one through here
     // and to the backend so the cart drawer and account cart both show a real
@@ -6183,6 +6251,14 @@ export default function App() {
   // this adds an explicit quantity and can be called again to add more.
   const addProductWithQuantity = (product: Product, quantity: number) => {
     setAdded((prev) => new Set(prev).add(product.name));
+    trackMetaEvent("AddToCart", {
+      content_ids: [product.name],
+      content_name: product.name,
+      content_type: "product",
+      contents: [{ id: product.name, quantity, item_price: round2(product.price * currency.rate) }],
+      value: round2(product.price * currency.rate * quantity),
+      currency: currency.code,
+    });
     const image = product.images?.[0] || null;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === product.name);
