@@ -4282,6 +4282,7 @@ function ProductGalleryVideo({ src }: { src: string }) {
 
 function ZoomableProductPhoto({
   src,
+  previewSrc,
   alt,
   onTap,
   onSwipe,
@@ -4289,6 +4290,7 @@ function ZoomableProductPhoto({
   onZoomChange,
 }: {
   src: string;
+  previewSrc?: string;
   alt: string;
   onTap?: () => void;
   onSwipe?: (direction: -1 | 1) => void;
@@ -4296,11 +4298,14 @@ function ZoomableProductPhoto({
   onZoomChange?: (zoomed: boolean) => void;
 }) {
   const [scale, setScale] = useState(1);
+  const [useOriginal, setUseOriginal] = useState(!previewSrc);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchStart = useRef<{ distance: number; scale: number } | null>(null);
   const lastTap = useRef(0);
   const start = useRef<{ x: number; y: number } | null>(null);
+  const displayedSrc = previewSrc && !useOriginal ? previewSrc : src;
+  const loadOriginal = () => setUseOriginal(true);
 
   const onPointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -4318,7 +4323,9 @@ function ZoomableProductPhoto({
     if (pointers.current.size >= 2 && pinchStart.current) {
       const [a, b] = [...pointers.current.values()];
       const distance = Math.hypot(a.x - b.x, a.y - b.y);
-      setScale(Math.max(1, Math.min(4, pinchStart.current.scale * distance / pinchStart.current.distance)));
+      const nextScale = Math.max(1, Math.min(4, pinchStart.current.scale * distance / pinchStart.current.distance));
+      setScale(nextScale);
+      if (nextScale > 1) loadOriginal();
     } else if (scale > 1) {
       setOffset((o) => ({ x: o.x + e.clientX - prev.x, y: o.y + e.clientY - prev.y }));
     }
@@ -4336,8 +4343,12 @@ function ZoomableProductPhoto({
       if (now - lastTap.current < 320) {
         const next = scale > 1 ? 1 : 2.5;
         setScale(next);
+        if (next > 1) loadOriginal();
         setOffset({ x: 0, y: 0 });
-      } else if (scale === 1) onTap?.();
+      } else if (scale === 1) {
+        loadOriginal();
+        onTap?.();
+      }
       lastTap.current = now;
     }
     start.current = null;
@@ -4345,23 +4356,33 @@ function ZoomableProductPhoto({
 
   useEffect(() => {
     setScale(1);
+    setUseOriginal(!previewSrc);
     setOffset({ x: 0, y: 0 });
     pointers.current.clear();
-  }, [src]);
+  }, [src, previewSrc]);
   useEffect(() => onZoomChange?.(scale > 1), [onZoomChange, scale]);
 
   return (
     <img
-      src={src}
+      src={displayedSrc}
       alt={alt}
-      onError={onError}
+      loading="eager"
+      decoding="async"
+      onError={() => {
+        if (displayedSrc !== src) setUseOriginal(true);
+        else onError?.();
+      }}
       draggable={false}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={(e) => { pointers.current.delete(e.pointerId); pinchStart.current = null; }}
       onWheel={(e) => {
-        if (e.ctrlKey || e.metaKey) setScale((s) => Math.max(1, Math.min(4, s + (e.deltaY < 0 ? 0.25 : -0.25))));
+        if (e.ctrlKey || e.metaKey) setScale((s) => {
+          const next = Math.max(1, Math.min(4, s + (e.deltaY < 0 ? 0.25 : -0.25)));
+          if (next > 1) loadOriginal();
+          return next;
+        });
       }}
       className="h-full w-full select-none object-contain"
       style={{ touchAction: "none", transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transition: pointers.current.size ? "none" : "transform 100ms ease-out" }}
@@ -5048,6 +5069,7 @@ function ProductDetailView({
                 ) : hasRealImages ? (
                   <ZoomableProductPhoto
                     src={mediaUrl(gallery[activeImage] as string)}
+                    previewSrc={cardImage(gallery[activeImage] as string)}
                     alt={product.name}
                     onTap={() => setGalleryFullscreen(true)}
                     onSwipe={goToImage}
@@ -5121,11 +5143,11 @@ function ProductDetailView({
                 >
                   {isVideoUrl(String(deg)) ? (
                     <div className="relative h-full w-full bg-black">
-                      <video src={mediaUrl(String(deg))} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                      <video src={mediaUrl(String(deg))} muted playsInline preload="none" poster={videoPoster(String(deg))} className="h-full w-full object-cover" />
                       <span className="absolute inset-0 grid place-items-center text-white">▶</span>
                     </div>
                   ) : hasRealImages ? (
-                    <img src={cardImage(deg as string)} alt="" className="h-full w-full object-contain" draggable={false} onError={(e) => { const el = e.currentTarget; const full = mediaUrl(deg as string); if (el.src !== full) el.src = full; }} />
+                    <img src={cardImage(deg as string)} alt="" loading="lazy" decoding="async" className="h-full w-full object-contain" draggable={false} onError={(e) => { const el = e.currentTarget; const full = mediaUrl(deg as string); if (el.src !== full) el.src = full; }} />
                   ) : (
                     <BeadStrand colors={product.colors} bg={product.bg} size={20} rotateDeg={deg as number} />
                   )}
