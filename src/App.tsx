@@ -5756,15 +5756,26 @@ export default function App() {
 
   // Opening one by slug alone — a shared link, or Back landing on a product
   // that was never in this session's catalogue.
-  const openProductBySlug = useCallback((slug: string) => {
+  const openProductBySlug = useCallback((rawSlug: string) => {
+    const slug = rawSlug.trim();
+    if (!slug) return;
+    // Safari and iOS in-app browsers can fail or delay the cross-origin detail
+    // request when opening a shared link. Open the locally loaded card first so
+    // the deep link still lands on the right product; enrich it from the API
+    // when that request succeeds.
+    const localProduct = allProducts.find((product) => product.slug?.toLowerCase() === slug.toLowerCase());
+    if (localProduct) setSelectedProduct(localProduct);
     api.products
       .get(slug)
-      .then(({ product: d }) => setSelectedProduct(fullDtoToProduct(d)))
+      .then(({ product: d }) => {
+        setSelectedProduct((current) =>
+          !current || current.slug?.toLowerCase() === slug.toLowerCase() ? fullDtoToProduct(d) : current
+        );
+      })
       .catch(() => {
-        // A link to a piece that has since been taken down: leave the shopper
-        // on the homepage rather than on an error.
+        // Keep the locally loaded card open when the detail API is unavailable.
       });
-  }, []);
+  }, [allProducts]);
 
   // The link someone was sent.
   useEffect(() => {
