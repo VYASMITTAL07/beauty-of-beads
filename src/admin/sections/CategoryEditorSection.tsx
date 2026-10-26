@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminApi, AdminApiError, type AdminCategory, type AdminProduct } from "../adminApi";
 
-// The order products appear in inside a category, set by typing positions
-// rather than nudging rows one step at a time — a category here holds up to
-// sixty pieces, and moving the last one to the front with arrows is sixty
-// clicks and sixty round trips.
-//
 // Categories are read live from the same table the storefront reads, so one
 // created or deleted elsewhere in the admin shows up here without anything
 // having to be kept in step by hand.
@@ -21,7 +17,7 @@ export default function CategoryEditorSection({
   const [categories, setCategories] = useState<AdminCategory[] | null>(null);
   const [products, setProducts] = useState<AdminProduct[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [positions, setPositions] = useState<Record<number, string>>({});
+  const [order, setOrder] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -46,18 +42,33 @@ export default function CategoryEditorSection({
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || b.id - a.id);
   }, [products, selected]);
 
+  const orderedProducts = useMemo(() => {
+    const ranks = new Map(order.map((id, index) => [id, index]));
+    return [...inCategory].sort((a, b) => (ranks.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (ranks.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+  }, [inCategory, order]);
+
   const countFor = (name: string) => {
     const want = name.trim().toLowerCase();
     return (products || []).filter((p) => (p.category || "").trim().toLowerCase() === want).length;
   };
 
   useEffect(() => {
-    const next: Record<number, string> = {};
-    inCategory.forEach((p, i) => {
-      next[p.id] = String(i + 1);
-    });
-    setPositions(next);
+    setOrder(inCategory.map((p) => p.id));
   }, [selected, products]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const moveProduct = (id: number, direction: -1 | 1) => {
+    setOrder((current) => {
+      const categoryIds = inCategory.map((p) => p.id);
+      const categoryIdSet = new Set(categoryIds);
+      const hasCurrentCategoryOrder = current.length === categoryIds.length && current.every((productId) => categoryIdSet.has(productId));
+      const next = hasCurrentCategoryOrder ? [...current] : categoryIds;
+      const index = next.indexOf(id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
 
   const orphaned = useMemo(() => {
     if (!products || !categories) return [];
@@ -67,17 +78,9 @@ export default function CategoryEditorSection({
 
   const save = async () => {
     if (!inCategory.length) return;
-    // Whatever numbers were typed decide the running order; they are then
-    // rewritten as 1..n so the next edit starts from something tidy and two
-    // products can never share a position.
-    const ranked = [...inCategory].sort((a, b) => {
-      const pa = Number(positions[a.id]);
-      const pb = Number(positions[b.id]);
-      return (Number.isFinite(pa) ? pa : 1e9) - (Number.isFinite(pb) ? pb : 1e9);
-    });
     setSaving(true);
     try {
-      await adminApi.products.reorder(ranked.map((p, i) => ({ id: p.id, sortOrder: i + 1 })));
+      await adminApi.products.reorder(orderedProducts.map((p, i) => ({ id: p.id, sortOrder: i + 1 })));
       onSuccess(`Order saved for ${selected}`);
       load();
     } catch (e) {
@@ -140,15 +143,34 @@ export default function CategoryEditorSection({
         </div>
 
         <div className="mt-4 divide-y divide-border rounded-sm border border-border">
-          {inCategory.map((p) => (
+          {orderedProducts.map((p, index) => (
             <div key={p.id} className="flex items-center gap-3 p-2.5">
-              <input
-                type="number"
-                min={1}
-                value={positions[p.id] ?? ""}
-                onChange={(e) => setPositions((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                className="w-16 shrink-0 rounded-sm border border-border bg-card px-2 py-1.5 text-center text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-olive-500/60"
-              />
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  aria-label={`Move ${p.name} up`}
+                  title="Move up"
+                  disabled={saving || index === 0}
+                  onClick={() => moveProduct(p.id, -1)}
+                >
+                  <ArrowUp />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  aria-label={`Move ${p.name} down`}
+                  title="Move down"
+                  disabled={saving || index === orderedProducts.length - 1}
+                  onClick={() => moveProduct(p.id, 1)}
+                >
+                  <ArrowDown />
+                </Button>
+              </div>
               {p.images?.[0] ? (
                 <img src={p.images[0]} alt="" className="h-12 w-10 shrink-0 rounded-sm object-contain" />
               ) : (
