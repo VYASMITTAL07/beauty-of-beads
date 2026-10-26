@@ -81,6 +81,32 @@ import {
   Wallet,
 } from "lucide-react";
 
+const DEEP_LINK_KEYS = ["product", "category"] as const;
+
+// Keep the normal query URL, and mirror the route in the fragment as a
+// fallback. Some iOS in-app browsers (including Safari-based browsers) drop
+// query parameters when they hand a copied/shared link to the web view; URL
+// fragments survive that handoff and are still readable by the SPA.
+function currentDeepLinkParams(): URLSearchParams {
+  const params = new URLSearchParams(window.location.search);
+  const fragment = new URLSearchParams(window.location.hash.replace(/^#\??/, ""));
+  for (const key of DEEP_LINK_KEYS) {
+    if (!params.has(key) && fragment.has(key)) params.set(key, fragment.get(key)!);
+  }
+  return params;
+}
+
+function deepLinkHref(params: URLSearchParams): string {
+  const query = params.toString();
+  const fallback = new URLSearchParams();
+  for (const key of DEEP_LINK_KEYS) {
+    const value = params.get(key);
+    if (value) fallback.set(key, value);
+  }
+  const fragment = fallback.toString();
+  return `${window.location.pathname}${query ? `?${query}` : ""}${fragment ? `#${fragment}` : ""}`;
+}
+
 // ---------- Decorative bead-strand graphic (stand-in for product photography) ----------
 function BeadStrand({
   colors,
@@ -5170,8 +5196,10 @@ function ProductDetailView({
                   own link, through the phone's share sheet where there is one. */}
               <button
                 onClick={async () => {
+                  const shareParams = currentDeepLinkParams();
+                  if (product.slug) shareParams.set("product", product.slug);
                   const url = product.slug
-                    ? `${window.location.origin}${window.location.pathname}?product=${encodeURIComponent(product.slug)}`
+                    ? `${window.location.origin}${deepLinkHref(shareParams)}`
                     : window.location.href;
                   if (navigator.share) {
                     try {
@@ -5830,18 +5858,17 @@ export default function App() {
       urlSyncReady.current = true;
       return;
     }
-    const params = new URLSearchParams(window.location.search);
+    const params = currentDeepLinkParams();
     const shown = params.get("product");
     const wanted = selectedProduct?.slug;
     if (wanted) {
       if (shown === wanted) return; // arrived via Back/Forward; the URL is already right
       params.set("product", wanted);
-      window.history.pushState({ product: wanted }, "", `${window.location.pathname}?${params.toString()}`);
+      window.history.pushState({ product: wanted }, "", deepLinkHref(params));
       trackMetaEvent("PageView");
     } else if (shown) {
       params.delete("product");
-      const qs = params.toString();
-      window.history.pushState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+      window.history.pushState({}, "", deepLinkHref(params));
       trackMetaEvent("PageView");
     }
   }, [selectedProduct?.slug]);
@@ -5872,7 +5899,7 @@ export default function App() {
   // The link someone was sent.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const slug = new URLSearchParams(window.location.search).get("product");
+    const slug = currentDeepLinkParams().get("product");
     if (slug) openProductBySlug(slug);
   }, [openProductBySlug]);
 
@@ -5882,7 +5909,7 @@ export default function App() {
     if (typeof window === "undefined") return;
     const onPop = () => {
       trackMetaEvent("PageView");
-      const params = new URLSearchParams(window.location.search);
+      const params = currentDeepLinkParams();
       const slug = params.get("product");
       if (!slug) setSelectedProduct(null);
       else openProductBySlug(slug);
@@ -5963,7 +5990,7 @@ export default function App() {
     ? liveCategories.map((c) => c.name)
     : COLLECTION_GROUPS.flatMap((g) => g.items);
   const categoryMenu = buildCategoryMenu(menuCategories);
-  const [initialCategory] = useState(() => new URLSearchParams(window.location.search).get("category"));
+  const [initialCategory] = useState(() => currentDeepLinkParams().get("category"));
   const initialCategoryApplied = useRef(false);
   useEffect(() => {
     if (initialCategoryApplied.current) return;
@@ -5990,7 +6017,7 @@ export default function App() {
       categoryUrlSyncReady.current = true;
       return;
     }
-    const params = new URLSearchParams(window.location.search);
+    const params = currentDeepLinkParams();
     const shown = params.get("category");
     const wanted = productListView?.category;
     if (wanted) {
@@ -6001,8 +6028,7 @@ export default function App() {
     } else {
       return;
     }
-    const qs = params.toString();
-    window.history.pushState({ category: wanted }, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    window.history.pushState({ category: wanted }, "", deepLinkHref(params));
     trackMetaEvent("PageView");
   }, [productListView?.category]);
 
