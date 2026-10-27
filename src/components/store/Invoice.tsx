@@ -237,6 +237,7 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
         </div>
 
         <div className="mt-8 border-t border-black/10 pt-4 text-[10px] leading-relaxed text-black/45">
+          <p className="mb-2 text-black/65">Your delivery charge is shown clearly above — no hidden delivery fees.</p>
           <p>This is a computer generated invoice and does not require a signature.</p>
           {order.payment_id && <p className="mt-0.5">Payment reference: {order.payment_id}</p>}
           {order.payment_status !== "paid" && (

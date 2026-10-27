@@ -156,6 +156,9 @@ export function OrderConfirmed({
                   <dt className="font-semibold text-foreground">Total paid</dt>
                   <dd className="font-serif text-xl">{inr(order.total_amount)}</dd>
                 </div>
+                <p className="pt-1 text-xs leading-relaxed text-olive-600">
+                  Your delivery charge is shown clearly above — no hidden delivery fees.
+                </p>
               </dl>
             </section>
 
