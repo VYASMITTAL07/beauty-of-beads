@@ -2106,10 +2106,14 @@ const NEARBY_COUNTRIES = new Set([
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const isIndia = (country: string) => country.trim().toLowerCase() === "india";
 
-function shippingFor(country: string, speed: "normal" | "urgent") {
+function shippingFor(country: string, speed: "normal" | "urgent", goods = 0) {
   if (isIndia(country)) {
     const choice = INDIA_DELIVERY.find((d) => d.id === speed) || INDIA_DELIVERY[0];
-    return { amount: choice.amount, label: choice.label, eta: choice.eta };
+    return {
+      amount: goods >= FREE_SHIPPING_ABOVE ? 0 : choice.amount,
+      label: choice.label,
+      eta: choice.eta,
+    };
   }
   if (NEARBY_COUNTRIES.has(country.trim().toLowerCase())) {
     return { amount: 2000, label: "International delivery", eta: "7-14 days" };
@@ -2312,7 +2316,7 @@ function CheckoutPage({
   const subtotal = items.reduce((sum, i) => sum + i.quantity * i.product_price, 0);
   const discount = promo?.discount ?? 0;
   const goods = Math.max(0, round2(subtotal - discount));
-  const ship = shippingFor(country, speed);
+  const ship = shippingFor(country, speed, goods);
   const taxable = round2(goods + ship.amount);
   const tax = taxFor(country, state, taxable);
   const total = round2(taxable + tax.amount);
@@ -3400,7 +3404,7 @@ function CustomOrderConfirmCard({
                   Number(order.tax_amount || 0)
               )
             );
-            const ship = shippingFor(country, speed);
+            const ship = shippingFor(country, speed, goods);
             const taxable = round2(goods + ship.amount);
             const tax = taxFor(country, state, taxable);
             const total = round2(taxable + tax.amount);
