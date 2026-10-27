@@ -15,6 +15,29 @@ function readViteEnv(key: "VITE_API_BASE" | "VITE_GOOGLE_CLIENT_ID"): string {
 
 const API_BASE = readViteEnv("VITE_API_BASE") || "https://api.beautyofbeadsbykhushi.com";
 
+const GUEST_ORDER_TOKEN_PREFIX = "bob-guest-order:";
+const guestOrderTokens = new Map<string, string>();
+function rememberGuestOrderToken(orderNumber: string, token: string | undefined) {
+  if (!token) return;
+  guestOrderTokens.set(orderNumber, token);
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(`${GUEST_ORDER_TOKEN_PREFIX}${orderNumber}`, token);
+  } catch {
+    // The emailed order link also carries the token if storage is unavailable.
+  }
+}
+function guestOrderToken(orderNumber: string) {
+  const inMemory = guestOrderTokens.get(orderNumber);
+  if (inMemory) return inMemory;
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(`${GUEST_ORDER_TOKEN_PREFIX}${orderNumber}`) || "";
+  } catch {
+    return "";
+  }
+}
+
 // Google Cloud OAuth Client ID (Web application) for "Sign in with Google". Client IDs
 // aren't secret — they're meant to be embedded in client-side code (unlike a client
 // secret) — so hardcoding it here is the normal, safe approach, and it survives any
@@ -148,21 +171,27 @@ export const api = {
     removeByName: (name: string) => request<{ ok: true }>(`/api/wishlist/by-name/${encodeURIComponent(name)}`, { method: "DELETE" }),
   },
   orders: {
+    rememberGuestToken: rememberGuestOrderToken,
+    hasGuestAccess: (orderNumber: string) => Boolean(guestOrderToken(orderNumber)),
     list: () => request<{ orders: OrderSummaryDto[] }>("/api/orders"),
     get: (orderNumber: string) =>
       request<{ order: OrderDto; items: OrderItemDto[]; history: OrderHistoryDto[]; stages: string[] }>(
-        `/api/orders/${encodeURIComponent(orderNumber)}`
+        `/api/orders/${encodeURIComponent(orderNumber)}${guestOrderToken(orderNumber) ? `?guestToken=${encodeURIComponent(guestOrderToken(orderNumber))}` : ""}`
       ),
     place: (data: {
       items: { productName: string; productPrice: number; quantity: number }[];
+      email: string;
       currencyCode?: string;
       promoCode?: string;
       deliverySpeed?: "normal" | "urgent";
       shipping: ShippingInput;
     }) =>
-      request<{ orderNumber: string; orderId: number; totalAmount: number; discountAmount: number; shippingAmount?: number; taxAmount?: number; paymentRequired?: boolean }>("/api/orders", {
+      request<{ orderNumber: string; orderId: number; guestToken?: string; totalAmount: number; discountAmount: number; shippingAmount?: number; taxAmount?: number; paymentRequired?: boolean }>("/api/orders", {
         method: "POST",
         body: JSON.stringify(data),
+      }).then((result) => {
+        rememberGuestOrderToken(result.orderNumber, result.guestToken);
+        return result;
       }),
     // Razorpay. The amount is decided by the Worker from the stored order, not
     // sent from here — the browser only ever names which order it is paying.
@@ -175,17 +204,18 @@ export const api = {
         orderNumber: string;
         name: string;
         phone: string;
-      }>("/api/payments/razorpay/order", { method: "POST", body: JSON.stringify({ orderNumber }) }),
+      }>("/api/payments/razorpay/order", { method: "POST", body: JSON.stringify({ orderNumber, guestToken: guestOrderToken(orderNumber) || undefined }) }),
     verifyPayment: (data: {
       orderNumber: string;
       razorpayOrderId: string;
       razorpayPaymentId: string;
       razorpaySignature: string;
       method?: string;
+      guestToken?: string;
     }) =>
       request<{ ok: true; orderNumber: string }>("/api/payments/razorpay/verify", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, guestToken: data.guestToken || guestOrderToken(data.orderNumber) || undefined }),
       }),
     previewPromo: (code: string, subtotal: number) =>
       request<{ valid: boolean; discountAmount?: number; error?: string }>("/api/orders/preview-promo", {

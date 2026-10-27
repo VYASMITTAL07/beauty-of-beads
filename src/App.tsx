@@ -70,6 +70,9 @@ import {
   Package,
   Phone,
   Mail,
+  Minus,
+  Plus,
+  Trash2,
   Check,
   AlertCircle,
   Clock,
@@ -2249,6 +2252,8 @@ function CheckoutPage({
   currency,
   prefilledName,
   prefilledPhone,
+  prefilledEmail,
+  onItemsChange,
   onPlaced,
   customOrder,
 }: {
@@ -2258,6 +2263,8 @@ function CheckoutPage({
   currency: CurrencyOption;
   prefilledName: string;
   prefilledPhone: string;
+  prefilledEmail: string;
+  onItemsChange: (items: CartItemDto[]) => void;
   onPlaced: (orderNumber: string) => void;
   /** Set when this is an order the shop priced and emailed, opened from the
    *  link in that email. The pieces and their prices are already decided, so
@@ -2266,6 +2273,7 @@ function CheckoutPage({
   customOrder?: { orderNumber: string; note?: string | null } | null;
 }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [line1, setLine1] = useState("");
   const [line2, setLine2] = useState("");
@@ -2291,13 +2299,14 @@ function CheckoutPage({
   useEffect(() => {
     if (open) {
       setName(prefilledName || "");
+      setEmail(prefilledEmail || "");
       setPhone(prefilledPhone || "");
       setError(null);
       setPromo(null);
       setPromoInput("");
       setPromoError(null);
     }
-  }, [open, prefilledName, prefilledPhone]);
+  }, [open, prefilledName, prefilledPhone, prefilledEmail]);
 
   // Keep the phone field simple; add the selected country's code only to the
   // order payload so customers can enter their local number as usual.
@@ -2358,10 +2367,23 @@ function CheckoutPage({
     }
   };
 
+  const changeQuantity = (item: CartItemDto, quantity: number) => {
+    const nextItems = quantity < 1
+      ? items.filter((current) => current.id !== item.id)
+      : items.map((current) => current.id === item.id ? { ...current, quantity: Math.min(50, quantity) } : current);
+    setPromo(null);
+    setPromoError(null);
+    onItemsChange(nextItems);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
     setError(null);
+    if (!customOrder && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Enter a valid email address for your order updates.");
+      return;
+    }
     let countryCode = dialCode;
     if (!countryCode) {
       try {
@@ -2432,6 +2454,7 @@ function CheckoutPage({
 
       const res = await api.orders.place({
         items: items.map((i) => ({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
+        email: email.trim().toLowerCase(),
         currencyCode: currency.code,
         promoCode: promo?.code,
         deliverySpeed: effectiveSpeed,
@@ -2534,6 +2557,13 @@ function CheckoutPage({
                   <label htmlFor="ship-name" className={labelClass}>Full name</label>
                   <input id="ship-name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
                 </div>
+                {!customOrder && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="ship-email" className={labelClass}>Email address</label>
+                    <input id="ship-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={fieldClass} />
+                    <p className="text-xs text-foreground/50">We’ll send your order confirmation and delivery updates here.</p>
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ship-phone" className={labelClass}>Phone number</label>
                   <input
@@ -2562,10 +2592,9 @@ function CheckoutPage({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="ship-line2" className={labelClass}>Address line 2</label>
+                  <label htmlFor="ship-line2" className={labelClass}>Address line 2 (optional)</label>
                   <input
                     id="ship-line2"
-                    required
                     value={line2}
                     onChange={(e) => setLine2(e.target.value)}
                     placeholder="Landmark, apartment"
@@ -2686,7 +2715,7 @@ function CheckoutPage({
 
             <ul className="mt-4 flex flex-col gap-3 border-b border-border pb-4">
               {items.map((i) => (
-                <li key={`${i.product_name}-${i.product_price}`} className="flex items-start gap-3 text-sm">
+                <li key={i.id} className="flex items-start gap-3 text-sm">
                   {i.product_image && (
                     <img
                       src={cardImage(i.product_image)}
@@ -2705,12 +2734,22 @@ function CheckoutPage({
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="block leading-snug text-foreground/85">{i.product_name}</span>
-                    <span className="text-xs text-foreground/50">Qty {i.quantity}</span>
+                    {!customOrder ? (
+                      <span className="mt-2 inline-flex items-center gap-2 rounded-sm border border-border px-1.5 py-1">
+                        <button type="button" aria-label={`Decrease ${i.product_name} quantity`} onClick={() => changeQuantity(i, i.quantity - 1)} className="flex h-7 w-7 items-center justify-center rounded-sm hover:bg-olive-50"><Minus className="h-3.5 w-3.5" /></button>
+                        <span className="min-w-5 text-center text-xs tabular-nums">{i.quantity}</span>
+                        <button type="button" aria-label={`Increase ${i.product_name} quantity`} disabled={i.quantity >= 50} onClick={() => changeQuantity(i, i.quantity + 1)} className="flex h-7 w-7 items-center justify-center rounded-sm hover:bg-olive-50 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
+                        <button type="button" aria-label={`Remove ${i.product_name}`} onClick={() => changeQuantity(i, 0)} className="ml-1 flex h-7 w-7 items-center justify-center rounded-sm text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </span>
+                    ) : <span className="text-xs text-foreground/50">Qty {i.quantity}</span>}
                   </span>
                   <span className="shrink-0 font-serif">{formatPrice(i.quantity * i.product_price, currency)}</span>
                 </li>
               ))}
             </ul>
+            {items.length === 0 && !customOrder && (
+              <p className="mt-4 border-b border-border pb-4 text-sm text-foreground/60">Your order is empty. Go back and add a product to continue.</p>
+            )}
 
             {/* A promo code cannot re-price an order the shop has already
                 quoted — the server ignores one on confirm, so offering the
@@ -3656,6 +3695,14 @@ function OrdersView({
     setLoading(true);
     setError(null);
     setSelected(null);
+    if (initialOrderNumber && api.orders.hasGuestAccess(initialOrderNumber)) {
+      setOrders([]);
+      api.orders.get(initialOrderNumber)
+        .then(setSelected)
+        .catch((e) => setError(e instanceof ApiError ? e.message : "Couldn't load that order."))
+        .finally(() => setLoading(false));
+      return;
+    }
     loadComplaints();
     api.orders
       .list()
@@ -5615,8 +5662,11 @@ export default function App() {
   const [pendingOrder, setPendingOrder] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const wanted = new URLSearchParams(window.location.search).get("order");
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get("order");
     if (!wanted) return;
+    const guestToken = params.get("guestToken");
+    if (guestToken) api.orders.rememberGuestToken(wanted, guestToken);
     setPendingOrder(wanted);
     // Take it out of the address bar so a refresh, or a shared link, does not
     // reopen it later.
@@ -5636,7 +5686,7 @@ export default function App() {
 
   useEffect(() => {
     if (!ready || !pendingOrder) return;
-    if (!user) {
+    if (!user && !api.orders.hasGuestAccess(pendingOrder)) {
       setAuthModalOpen(true);
       return;
     }
@@ -5688,6 +5738,7 @@ export default function App() {
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutItems, setCheckoutItems] = useState<CartItemDto[]>([]);
   const [confirmedOrder, setConfirmedOrder] = useState<string | null>(null);
   const [ordersViewOpen, setOrdersViewOpen] = useState(false);
   const [trackOrderNumber, setTrackOrderNumber] = useState<string | null>(null);
@@ -5701,6 +5752,7 @@ export default function App() {
   };
   const handleOrderPlaced = (orderNumber: string) => {
     setCartItems([]);
+    setCheckoutItems([]);
     setAdded(new Set());
     setCheckoutOpen(false);
     setConfirmedOrder(orderNumber);
@@ -6496,6 +6548,23 @@ export default function App() {
     });
     if (user && item.id > 0) {
       api.cart.remove(item.id).catch(() => {});
+    }
+  };
+
+  const updateCheckoutItems = (nextItems: CartItemDto[]) => {
+    const previousItems = checkoutItems;
+    setCheckoutItems(nextItems);
+    setCartItems((current) => current.flatMap((item) => {
+      const updated = nextItems.find((candidate) => candidate.id === item.id);
+      return updated ? [{ ...item, quantity: updated.quantity }] : [];
+    }));
+    if (user) {
+      for (const item of previousItems) {
+        if (item.id <= 0) continue;
+        const updated = nextItems.find((candidate) => candidate.id === item.id);
+        if (!updated) api.cart.remove(item.id).catch(() => {});
+        else if (updated.quantity !== item.quantity) api.cart.updateQuantity(item.id, updated.quantity).catch(() => {});
+      }
     }
   };
 
@@ -7949,11 +8018,7 @@ export default function App() {
       onUpdateQuantity={updateCartQuantity}
       onRemove={removeCartItem}
       onCheckout={() => {
-        if (!user) {
-          setCartPanelOpen(false);
-          openAuthModal();
-          return;
-        }
+        setCheckoutItems(cartItems.map((item) => ({ ...item })));
         setCartPanelOpen(false);
         setCheckoutOpen(true);
       }}
@@ -8005,10 +8070,12 @@ export default function App() {
         setCheckoutOpen(v);
         if (!v) setCustomCheckout(null);
       }}
-      items={customCheckout ? customCheckout.items : cartItems}
+      items={customCheckout ? customCheckout.items : checkoutItems}
       currency={currency}
       prefilledName={user?.name || ""}
       prefilledPhone={user?.phone || ""}
+      prefilledEmail={user?.email || ""}
+      onItemsChange={updateCheckoutItems}
       onPlaced={(n) => {
         setCustomCheckout(null);
         handleOrderPlaced(n);
@@ -8050,7 +8117,23 @@ export default function App() {
         onOpen={openProduct}
         onBack={() => setSelectedProduct(null)}
         onBuyNow={(p, qty) => {
-          addProductWithQuantity(p, qty);
+          const productImage = p.images?.[0] || null;
+          setCheckoutItems(() => {
+            const current = cartItems.map((item) => ({ ...item }));
+            const existing = current.find((item) => item.product_name.trim().toLowerCase() === p.name.trim().toLowerCase());
+            if (existing) {
+              // Buy Now purchases the selected quantity, while an existing
+              // cart quantity is preserved. It must not add both quantities.
+              return current.map((item) => item.id === existing.id ? { ...item, quantity: Math.max(item.quantity, qty) } : item);
+            }
+            return [...current, {
+              id: -Date.now(),
+              product_name: p.name,
+              product_price: p.price,
+              product_image: productImage,
+              quantity: qty,
+            }];
+          });
           setSelectedProduct(null);
           setCheckoutOpen(true);
         }}
