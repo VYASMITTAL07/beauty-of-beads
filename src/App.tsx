@@ -2122,9 +2122,9 @@ function shippingFor(country: string, speed: "normal" | "urgent", goods = 0) {
 }
 
 // Exports are zero-rated, so an order leaving India carries no GST line.
-function taxFor(country: string, state: string, taxable: number) {
+function taxFor(country: string, state: string, priceIncludingTax: number) {
   if (!isIndia(country)) return { label: "", amount: 0 };
-  const total = round2(taxable * GST_RATE);
+  const total = round2((priceIncludingTax * GST_RATE) / (1 + GST_RATE));
   if (state.trim().toLowerCase() === SUPPLIER_STATE) {
     const half = round2(total / 2);
     return { label: "CGST 1.5% + SGST 1.5%", amount: round2(half * 2) };
@@ -2319,9 +2319,9 @@ function CheckoutPage({
   const freeDomesticShipping = isIndia(country) && goods >= FREE_SHIPPING_ABOVE;
   const effectiveSpeed = freeDomesticShipping ? "normal" : speed;
   const ship = shippingFor(country, effectiveSpeed, goods);
-  const taxable = round2(goods + ship.amount);
-  const tax = taxFor(country, state, taxable);
-  const total = round2(taxable + tax.amount);
+  const customerTotal = round2(goods + ship.amount);
+  const tax = taxFor(country, state, customerTotal);
+  const total = customerTotal;
 
   useEffect(() => {
     if (!open) return;
@@ -2740,7 +2740,7 @@ function CheckoutPage({
 
             <dl className="flex flex-col gap-2 py-4 text-sm">
               <div className="flex justify-between">
-                <dt className="text-foreground/65">Subtotal</dt>
+                <dt className="text-foreground/65">{isIndia(country) ? "Subtotal (GST included)" : "Subtotal"}</dt>
                 <dd>{formatPrice(subtotal, currency)}</dd>
               </div>
               {discount > 0 && (
@@ -2754,10 +2754,9 @@ function CheckoutPage({
                 <dd>{formatPrice(ship.amount, currency)}</dd>
               </div>
               {tax.amount > 0 && (
-                <div className="flex justify-between">
-                  <dt className="text-foreground/65">{tax.label}</dt>
-                  <dd>{formatPrice(tax.amount, currency)}</dd>
-                </div>
+                <p className="text-xs leading-relaxed text-olive-600">
+                  You matter to us — no extra GST at checkout. Applicable GST is already included in our prices.
+                </p>
               )}
               {!isIndia(country) && country && (
                 <p className="text-xs text-foreground/45">No Indian GST on orders shipped abroad.</p>
@@ -3202,9 +3201,11 @@ function ResumePaymentCard({ order, onPaid }: { order: OrderDto; onPaid: () => v
 
 function CustomOrderConfirmCard({
   order,
+  items,
   onConfirmed,
 }: {
   order: OrderDto;
+  items: OrderItemDto[];
   onConfirmed: () => void;
 }) {
   const { user } = useAuth();
@@ -3227,11 +3228,7 @@ function CustomOrderConfirmCard({
   const labelClass = "text-sm font-medium text-foreground/80";
   const customOrderGoods = Math.max(
     0,
-    round2(
-      Number(order.total_amount || 0) -
-        Number(order.shipping_amount || 0) -
-        Number(order.tax_amount || 0)
-    )
+    round2(items.reduce((sum, item) => sum + item.product_price * item.quantity, 0) - Number(order.discount_amount || 0))
   );
   const freeDomesticShipping = isIndia(country) && customOrderGoods >= FREE_SHIPPING_ABOVE;
   const effectiveSpeed = freeDomesticShipping ? "normal" : speed;
@@ -3428,9 +3425,9 @@ function CustomOrderConfirmCard({
           {(() => {
             const goods = customOrderGoods;
             const ship = shippingFor(country, effectiveSpeed, goods);
-            const taxable = round2(goods + ship.amount);
-            const tax = taxFor(country, state, taxable);
-            const total = round2(taxable + tax.amount);
+            const customerTotal = round2(goods + ship.amount);
+            const tax = taxFor(country, state, customerTotal);
+            const total = customerTotal;
             const row = (label: string, value: string, strong = false) => (
               <div className={`flex justify-between ${strong ? "border-t border-olive-300/60 pt-2 font-semibold text-foreground" : "text-foreground/65"}`}>
                 <span>{label}</span>
@@ -3439,9 +3436,13 @@ function CustomOrderConfirmCard({
             );
             return (
               <div className="flex flex-col gap-1.5 rounded-sm border border-olive-300 bg-white/60 px-3.5 py-3 text-xs">
-                {row("Items", formatPrice(goods, currency))}
+                {row(isIndia(country) ? "Items (GST included)" : "Items", formatPrice(goods, currency))}
                 {row(ship.label, formatPrice(ship.amount, currency))}
-                {tax.amount > 0 && row(tax.label, formatPrice(tax.amount, currency))}
+                {tax.amount > 0 && (
+                  <p className="text-[11px] leading-relaxed text-olive-600">
+                    You matter to us — no extra GST at checkout. Applicable GST is already included in our prices.
+                  </p>
+                )}
                 {!isIndia(country) && country && (
                   <p className="text-[11px] text-foreground/45">No Indian GST on orders shipped abroad.</p>
                 )}
@@ -3762,6 +3763,11 @@ function OrdersView({
           const itemCount = selected.items.reduce((n, it) => n + it.quantity, 0);
           const subtotal = selected.items.reduce((sum, it) => sum + it.product_price * it.quantity, 0);
           const discount = selected.order.discount_amount || 0;
+          const storedShipping = Number(selected.order.shipping_amount || 0);
+          const storedTax = Number(selected.order.tax_amount || 0);
+          const pricesIncludeTax = storedTax > 0 && Math.abs(
+            Number(selected.order.total_amount || 0) - (Math.max(0, subtotal - discount) + storedShipping)
+          ) < 0.02;
           const handleInvoice = () => setInvoiceFor(selected);
 
           return (
@@ -3834,7 +3840,11 @@ function OrdersView({
               )}
 
               {selected.order.status === "awaiting_payment" && !selected.order.shipping_line1 ? (
-                <CustomOrderConfirmCard order={selected.order} onConfirmed={() => loadOrder(selected.order.order_number)} />
+                <CustomOrderConfirmCard
+                  order={selected.order}
+                  items={selected.items}
+                  onConfirmed={() => loadOrder(selected.order.order_number)}
+                />
               ) : selected.order.status === "awaiting_payment" ? (
                 <ResumePaymentCard order={selected.order} onPaid={() => loadOrder(selected.order.order_number)} />
               ) : (
@@ -3931,7 +3941,7 @@ function OrdersView({
 
                 <div className="flex flex-col gap-2 border-t border-olive-200/60 bg-olive-50/40 px-5 py-4 text-sm md:px-6">
                   <div className="flex items-center justify-between text-foreground/60">
-                    <span>Subtotal</span>
+                    <span>{pricesIncludeTax ? "Subtotal (GST included)" : "Subtotal"}</span>
                     <span>{formatPrice(subtotal, currency)}</span>
                   </div>
                   {discount > 0 && (
@@ -3954,11 +3964,16 @@ function OrdersView({
                       <span>{formatPrice(Number(selected.order.shipping_amount), currency)}</span>
                     </div>
                   )}
-                  {Number(selected.order.tax_amount || 0) > 0 && (
+                  {storedTax > 0 && !pricesIncludeTax && (
                     <div className="flex items-center justify-between text-foreground/60">
                       <span>{selected.order.tax_type === "cgst_sgst" ? "CGST 1.5% + SGST 1.5%" : "IGST 3%"}</span>
-                      <span>{formatPrice(Number(selected.order.tax_amount), currency)}</span>
+                      <span>{formatPrice(storedTax, currency)}</span>
                     </div>
+                  )}
+                  {pricesIncludeTax && (
+                    <p className="text-xs leading-relaxed text-olive-600">
+                      You matter to us — no extra GST at checkout. Applicable GST is already included in our prices.
+                    </p>
                   )}
                   <div className="flex items-center justify-between border-t border-olive-200/60 pt-2 font-semibold text-foreground">
                     {/* "Total paid" on an order nobody has paid for was telling
@@ -5295,7 +5310,7 @@ function ProductDetailView({
                 </>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">GST and delivery added at checkout</p>
+            <p className="mt-1 text-xs text-muted-foreground">GST is included in our prices. Delivery is calculated at checkout.</p>
 
             {/* Option groups — which piece of a set, and whether it's wanted in a
                 custom colour. A set is sold as one listing, so the choice of

@@ -63,7 +63,9 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
   const discount = Number(order.discount_amount || 0);
   const shipping = Number(order.shipping_amount || 0);
   const tax = Number(order.tax_amount || 0);
-  const taxable = Math.max(0, subtotal - discount) + shipping;
+  const gross = Math.max(0, subtotal - discount) + shipping;
+  const pricesIncludeTax = tax > 0 && Math.abs(Number(order.total_amount || 0) - gross) < 0.02;
+  const taxable = Math.max(0, gross - (pricesIncludeTax ? tax : 0));
   const half = Math.round((tax / 2) * 100) / 100;
   const intraState = order.tax_type === "cgst_sgst";
   const ratePct = ((Number(order.tax_rate) || 0) * 100).toFixed(0);
@@ -186,7 +188,7 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
         <div className="mt-5 flex justify-end">
           <dl className="w-full max-w-[300px] text-[11px]">
             <div className="flex justify-between py-1">
-              <dt className="text-black/60">Subtotal</dt>
+              <dt className="text-black/60">{pricesIncludeTax ? "Subtotal (GST included)" : "Subtotal"}</dt>
               <dd>{inr(subtotal)}</dd>
             </div>
             {discount > 0 && (
