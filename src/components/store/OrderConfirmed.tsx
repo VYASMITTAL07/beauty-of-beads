@@ -49,6 +49,9 @@ export function OrderConfirmed({
   const shipping = Number(order?.shipping_amount || 0);
   const tax = Number(order?.tax_amount || 0);
   const intraState = order?.tax_type === "cgst_sgst";
+  const pricesIncludeTax = Boolean(
+    order && tax > 0 && Math.abs(Number(order.total_amount || 0) - (Math.max(0, subtotal - discount) + shipping)) < 0.02
+  );
 
   const shipLabel =
     order?.shipping_method === "urgent"
@@ -125,7 +128,7 @@ export function OrderConfirmed({
 
               <dl className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-foreground/65">Subtotal</dt>
+                  <dt className="text-foreground/65">{pricesIncludeTax ? "Subtotal (GST included)" : "Subtotal"}</dt>
                   <dd>{inr(subtotal)}</dd>
                 </div>
                 {discount > 0 && (
@@ -138,11 +141,16 @@ export function OrderConfirmed({
                   <dt className="text-foreground/65">{shipLabel}</dt>
                   <dd>{inr(shipping)}</dd>
                 </div>
-                {tax > 0 && (
+                {tax > 0 && !pricesIncludeTax && (
                   <div className="flex justify-between">
                     <dt className="text-foreground/65">{intraState ? "CGST 1.5% + SGST 1.5%" : "IGST 3%"}</dt>
                     <dd>{inr(tax)}</dd>
                   </div>
+                )}
+                {pricesIncludeTax && (
+                  <p className="text-xs leading-relaxed text-olive-600">
+                    You matter to us — no extra GST at checkout. Applicable GST is already included in our prices.
+                  </p>
                 )}
                 <div className="mt-1 flex items-baseline justify-between border-t border-border pt-3">
                   <dt className="font-semibold text-foreground">Total paid</dt>
