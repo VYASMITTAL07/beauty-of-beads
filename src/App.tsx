@@ -2316,6 +2316,7 @@ function CheckoutPage({
   const subtotal = items.reduce((sum, i) => sum + i.quantity * i.product_price, 0);
   const discount = promo?.discount ?? 0;
   const goods = Math.max(0, round2(subtotal - discount));
+  const freeDomesticShipping = isIndia(country) && goods >= FREE_SHIPPING_ABOVE;
   const ship = shippingFor(country, speed, goods);
   const taxable = round2(goods + ship.amount);
   const tax = taxFor(country, state, taxable);
@@ -2595,6 +2596,9 @@ function CheckoutPage({
               {isIndia(country) ? (
                 <>
                   <p className="mt-1 text-sm text-foreground/60">How soon do you need it?</p>
+                  {freeDomesticShipping && (
+                    <p className="mt-2 text-sm text-olive-600">Shipping’s on us for orders ₹2,500 and above.</p>
+                  )}
                   <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                     {INDIA_DELIVERY.map((d) => (
                       <button
@@ -2608,7 +2612,9 @@ function CheckoutPage({
                       >
                         <span className="block text-sm font-semibold text-foreground">{d.label}</span>
                         <span className="block text-xs text-foreground/55">{d.eta}</span>
-                        <span className="mt-1.5 block font-serif text-sm text-olive-600">{formatPrice(d.amount, currency)}</span>
+                        <span className="mt-1.5 block font-serif text-sm text-olive-600">
+                          {freeDomesticShipping ? "Free" : formatPrice(d.amount, currency)}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -3212,6 +3218,15 @@ function CustomOrderConfirmCard({
   const fieldClass =
     "rounded-sm border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive-500";
   const labelClass = "text-sm font-medium text-foreground/80";
+  const customOrderGoods = Math.max(
+    0,
+    round2(
+      Number(order.total_amount || 0) -
+        Number(order.shipping_amount || 0) -
+        Number(order.tax_amount || 0)
+    )
+  );
+  const freeDomesticShipping = isIndia(country) && customOrderGoods >= FREE_SHIPPING_ABOVE;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3362,6 +3377,9 @@ function CustomOrderConfirmCard({
           {isIndia(country) ? (
             <div className="flex flex-col gap-1.5">
               <span className={labelClass}>Delivery</span>
+              {freeDomesticShipping && (
+                <p className="text-xs text-olive-600">Shipping’s on us for orders ₹2,500 and above.</p>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 {INDIA_DELIVERY.map((d) => (
                   <button
@@ -3375,7 +3393,7 @@ function CustomOrderConfirmCard({
                   >
                     <span className="block text-xs font-semibold text-foreground">{d.label}</span>
                     <span className="block text-[11px] text-foreground/55">
-                      {d.eta} &middot; ₹{d.amount}
+                      {d.eta} &middot; {freeDomesticShipping ? "Free" : `₹${d.amount}`}
                     </span>
                   </button>
                 ))}
@@ -3396,14 +3414,7 @@ function CustomOrderConfirmCard({
               previously added taken back off, so re-confirming after a
               cancelled payment cannot stack it twice. */}
           {(() => {
-            const goods = Math.max(
-              0,
-              round2(
-                Number(order.total_amount || 0) -
-                  Number(order.shipping_amount || 0) -
-                  Number(order.tax_amount || 0)
-              )
-            );
+            const goods = customOrderGoods;
             const ship = shippingFor(country, speed, goods);
             const taxable = round2(goods + ship.amount);
             const tax = taxFor(country, state, taxable);
