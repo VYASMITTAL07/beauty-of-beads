@@ -73,9 +73,8 @@ export function regionLabel(country: string): string {
 
 // International dialling codes, by ISO-3166 alpha-2.
 //
-// Checkout asked for a phone number "with country code" and left the customer
-// to know their own — plenty typed a bare local number, which the form then
-// rejected without explaining why. Picking a country now fills the code in.
+// Keep dialling codes outside the large country/region chunk; checkout applies
+// the selected country's code to a local number when it submits the order.
 //
 // Kept here rather than in the 340KB region dataset (which carries no dialling
 // codes) because this is a couple of KB and is needed the moment the form
