@@ -2753,6 +2753,9 @@ function CheckoutPage({
                 <dt className="text-foreground/65">{ship.label}</dt>
                 <dd>{formatPrice(ship.amount, currency)}</dd>
               </div>
+              <p className="text-xs leading-relaxed text-olive-600">
+                We want delivery to feel easy too — your delivery charge is shown clearly here, with no hidden fees.
+              </p>
               {tax.amount > 0 && (
                 <p className="text-xs leading-relaxed text-olive-600">
                   You matter to us — no extra GST at checkout. Applicable GST is already included in our prices.
@@ -5310,7 +5313,7 @@ function ProductDetailView({
                 </>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">GST is included in our prices. Delivery is calculated at checkout.</p>
+            <p className="mt-1 text-xs text-muted-foreground">GST is included in our prices. Delivery charges are shown clearly at checkout — no hidden fees.</p>
 
             {/* Option groups — which piece of a set, and whether it's wanted in a
                 custom colour. A set is sold as one listing, so the choice of
