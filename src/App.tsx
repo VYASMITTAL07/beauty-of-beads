@@ -5722,7 +5722,12 @@ export default function App() {
   // and start downloading it. Reading the previous payload out of
   // localStorage lets returning visitors start those image downloads in the
   // first frame instead, and the fresh copy replaces it a moment later.
-  const [homepage, setHomepage] = useState<HomepagePayload | null>(readCachedHomepage);
+  const [homepage, setHomepage] = useState<HomepagePayload | null>(() => {
+    // Paid ads land directly on one product. Skip homepage carousel data on
+    // that first render so the product detail request owns the critical path.
+    if (typeof window !== "undefined" && currentDeepLinkParams().has("product")) return null;
+    return readCachedHomepage();
+  });
   useEffect(() => {
     let cancelled = false;
     api.homepage
