@@ -2033,9 +2033,20 @@ function stageLabel(stage: string) {
 // right after the country code) — e.g. "+91 98765 43210" or "+919876543210".
 const PHONE_REGEX = /^\+[1-9]\d{0,3}[\s-]?\d{6,14}$/;
 const PHONE_PLACEHOLDER = "+91 98765 43210";
+const PHONE_LOCAL_PLACEHOLDER = "98765 43210";
 const PHONE_HELPER_TEXT = "Include your country code, e.g. +91 98765 43210.";
 function isValidPhone(phone: string) {
   return PHONE_REGEX.test(phone.trim());
+}
+
+function withCountryDialCode(phone: string, dialCode: string | null): string {
+  const trimmed = phone.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (trimmed.startsWith("+")) return `+${digits}`;
+  const code = dialCode?.replace(/\D/g, "");
+  if (!code) return trimmed;
+  const national = digits.startsWith(code) ? digits.slice(code.length) : digits;
+  return `+${code}${national}`;
 }
 
 function formatDateTime(iso: string) {
@@ -2284,20 +2295,14 @@ function CheckoutPage({
     }
   }, [open, prefilledName, prefilledPhone]);
 
-  // Asking for a number "with country code" and leaving the customer to know
-  // their own meant plenty typed a bare local number and were refused without
-  // being told why. Choosing a country fills the code in.
-  //
-  // It only ever writes into an empty box, or over a code this put there for a
-  // country since changed — a number already typed is never touched.
+  // Keep the phone field simple; add the selected country's code only to the
+  // order payload so customers can enter their local number as usual.
   const [dialCode, setDialCode] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     void dialCodeForCountry(country).then((code) => {
       if (cancelled) return;
       setDialCode(code);
-      if (!code) return;
-      setPhone((prev) => (prev.trim() === "" || /^\+\d{1,4}$/.test(prev.trim()) ? `+${code} ` : prev));
     });
     return () => {
       cancelled = true;
@@ -2351,14 +2356,17 @@ function CheckoutPage({
     e.preventDefault();
     if (items.length === 0) return;
     setError(null);
-    if (!isValidPhone(phone)) {
-      // Naming the customer's own code beats showing them India's when they
-      // are ordering from somewhere else.
-      setError(
-        dialCode
-          ? `Enter your phone number starting with +${dialCode}, the code for ${country}.`
-          : `Enter a valid phone number with country code, e.g. ${PHONE_PLACEHOLDER}.`
-      );
+    let countryCode = dialCode;
+    if (!countryCode) {
+      try {
+        countryCode = await dialCodeForCountry(country);
+      } catch {
+        countryCode = null;
+      }
+    }
+    const normalizedPhone = withCountryDialCode(phone, countryCode);
+    if (!countryCode || !isValidPhone(normalizedPhone)) {
+      setError("Enter a valid phone number.");
       return;
     }
     if (!isValidPostalCode(postalCode, country)) {
@@ -2376,7 +2384,7 @@ function CheckoutPage({
       if (customOrder) {
         const shipping: ShippingInput = {
           name,
-          phone,
+          phone: normalizedPhone,
           line1,
           line2: line2 || undefined,
           city,
@@ -2393,7 +2401,7 @@ function CheckoutPage({
         await payWithRazorpay({
           orderNumber: customOrder.orderNumber,
           name,
-          phone,
+          phone: normalizedPhone,
           method,
           contents: items.map((item) => ({
             id: item.product_name,
@@ -2423,7 +2431,7 @@ function CheckoutPage({
         deliverySpeed: speed,
         shipping: {
           name,
-          phone,
+          phone: normalizedPhone,
           line1,
           line2,
           city,
@@ -2443,7 +2451,7 @@ function CheckoutPage({
       await payWithRazorpay({
         orderNumber: res.orderNumber,
         name,
-        phone,
+        phone: normalizedPhone,
         method,
         contents: items.map((item) => ({
           id: item.product_name,
@@ -2525,20 +2533,16 @@ function CheckoutPage({
                   <input
                     id="ship-phone"
                     type="tel"
+                    inputMode="tel"
                     required
                     minLength={7}
                     maxLength={20}
-                    pattern={PHONE_REGEX.source}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder={dialCode ? `+${dialCode} ` : PHONE_PLACEHOLDER}
+                    placeholder={country.trim().toLowerCase() === "india" ? PHONE_LOCAL_PLACEHOLDER : "Phone number"}
                     className={fieldClass}
                   />
-                  <p className="text-xs text-foreground/50">
-                    {dialCode
-                      ? `+${dialCode} is filled in for ${country} — just add your number after it.`
-                      : PHONE_HELPER_TEXT}
-                  </p>
+                  <p className="text-xs text-foreground/50">Country code is added automatically from your selected country.</p>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ship-line1" className={labelClass}>Address line 1</label>
