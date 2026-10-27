@@ -4251,9 +4251,17 @@ function zoomScale(fit: string): number | null {
 //
 // A product uploaded after those copies were generated won't have one, so the
 // card falls back to the full image on error rather than showing nothing.
+const LOCAL_CARD_PREVIEWS: Record<string, string> = {
+  "35269342-04f2-4a25-bafe-27eb338bed02.jpg": "/product-previews/radient-hair-pins-1.webp",
+  "f91f68ce-538c-4bee-886d-a1611cf71e50.jpg": "/product-previews/radient-hair-pins-2.webp",
+  "b9586f30-1c96-4792-b843-5603e234b1ae.jpg": "/product-previews/radient-hair-pins-3.webp",
+};
+
 function cardImage(url: string): string {
   const abs = mediaUrl(url);
   if (!abs || !abs.includes("/media/images/")) return abs;
+  const filename = abs.split(/[/?]/).pop() || "";
+  if (LOCAL_CARD_PREVIEWS[filename]) return LOCAL_CARD_PREVIEWS[filename];
   return abs.replace(/\.(jpe?g|png|webp)(\?.*)?$/i, ".card.webp");
 }
 
@@ -4822,14 +4830,6 @@ function SpotlightCard({
   );
 }
 
-// Deterministic pseudo-review-count so the same product always shows the same number
-// (rather than a fresh random number on every render) — seeded from the product name.
-function reviewCountFor(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return 24 + (h % 165);
-}
-
 const PRODUCT_DESCRIPTIONS: Record<string, string> = {
   "Hair Accessories":
     "Beaded entirely by hand using premium glass and acrylic beads, this piece is designed to sit comfortably through a full day of wear. Small variations in bead placement are part of the handcrafted charm — no two pieces are ever perfectly identical.",
@@ -4964,7 +4964,9 @@ function ProductDetailView({
     if (!el) return;
     el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
   };
-  const reviewCount = reviewCountFor(product.name);
+  const verifiedRating = liveReviews?.count
+    ? liveReviews.average ?? liveReviews.reviews.reduce((sum, review) => sum + review.rating, 0) / liveReviews.reviews.length
+    : null;
   // Photos that turn out not to be there. A few products still point at images
   // that have since been deleted from the old site, and the browser draws its
   // own broken-image box for those — in the gallery and again in the
@@ -5236,18 +5238,20 @@ function ProductDetailView({
               Handcrafted Finish
             </div>
 
-            <div className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <span className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-3.5 w-3.5 ${i < Math.round(product.rating) ? "fill-gold-400 text-gold-400" : "text-border"}`}
-                  />
-                ))}
-              </span>
-              <span className="font-medium text-foreground">{product.rating}</span>
-              <span className="text-foreground/50">· {reviewCount} reviews</span>
-            </div>
+            {liveReviews && liveReviews.count > 0 && verifiedRating !== null && (
+              <div className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-3.5 w-3.5 ${i < Math.round(verifiedRating) ? "fill-gold-400 text-gold-400" : "text-border"}`}
+                    />
+                  ))}
+                </span>
+                <span className="font-medium text-foreground">{verifiedRating.toFixed(1)}</span>
+                <span className="text-foreground/50">· {liveReviews.count} verified reviews</span>
+              </div>
+            )}
 
             <div className="mt-4 flex items-baseline gap-3">
               <span className="font-serif text-3xl text-foreground">{formatPrice(unitPrice, currency)}</span>
