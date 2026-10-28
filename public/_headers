@@ -1,3 +1,11 @@
+# Baseline browser protections for the storefront and admin panel.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), geolocation=(), microphone=()
+  Strict-Transport-Security: max-age=31536000
+
 # Vite fingerprints these filenames, so a given URL's bytes can never change —
 # a new build produces a new name. They were being served
 # `max-age=0, must-revalidate`, which made every repeat visit revalidate the
