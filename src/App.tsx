@@ -2282,6 +2282,7 @@ function CheckoutPage({
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]["id"]>("upi");
+  const [paymentOption, setPaymentOption] = useState<"full" | "partial_cod">("full");
   const [speed, setSpeed] = useState<(typeof INDIA_DELIVERY)[number]["id"]>("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2301,6 +2302,7 @@ function CheckoutPage({
       setName(prefilledName || "");
       setEmail(prefilledEmail || "");
       setPhone(prefilledPhone || "");
+      setPaymentOption("full");
       setError(null);
       setPromo(null);
       setPromoInput("");
@@ -2331,6 +2333,12 @@ function CheckoutPage({
   const customerTotal = round2(goods + ship.amount);
   const tax = taxFor(country, state, customerTotal);
   const total = customerTotal;
+  const partialCodAvailable = !customOrder && PAYMENTS_ENABLED && isIndia(country) && total > 250;
+  const amountDueAtDelivery = round2(Math.max(0, total - 250));
+
+  useEffect(() => {
+    if (!partialCodAvailable) setPaymentOption("full");
+  }, [partialCodAvailable]);
 
   useEffect(() => {
     if (!open) return;
@@ -2455,6 +2463,7 @@ function CheckoutPage({
       const res = await api.orders.place({
         items: items.map((i) => ({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
         email: email.trim().toLowerCase(),
+        paymentOption,
         currencyCode: currency.code,
         promoCode: promo?.code,
         deliverySpeed: effectiveSpeed,
@@ -2469,6 +2478,12 @@ function CheckoutPage({
           country,
         },
       });
+
+      if (paymentOption === "partial_cod" && !res.paymentRequired) {
+        setLoading(false);
+        setError("Partial COD needs online payment to confirm your order. Please choose full online payment or try again later.");
+        return;
+      }
 
       // Without a gateway the order is placed outright, exactly as before.
       if (!res.paymentRequired) {
@@ -2674,8 +2689,32 @@ function CheckoutPage({
 
             {PAYMENTS_ENABLED && (
               <section className={cardClass}>
-                <h2 className={headingClass}>Payment method</h2>
-                <p className="mt-1 text-sm text-foreground/60">Pick how you would like to pay, then confirm on the next screen.</p>
+                <h2 className={headingClass}>Payment option</h2>
+                <p className="mt-1 text-sm text-foreground/60">Choose full online payment or pay a ₹250 advance and the balance on delivery.</p>
+                <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentOption("full")}
+                    aria-pressed={paymentOption === "full"}
+                    className={`rounded-sm border px-4 py-3.5 text-left transition-colors ${paymentOption === "full" ? "border-olive-600 bg-olive-50" : "border-border hover:border-olive-300"}`}
+                  >
+                    <span className="block text-sm font-semibold text-foreground">Pay in full online</span>
+                    <span className="mt-1 block text-xs text-foreground/55">Pay {formatPrice(total, currency)} securely now</span>
+                  </button>
+                  {partialCodAvailable && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentOption("partial_cod")}
+                      aria-pressed={paymentOption === "partial_cod"}
+                      className={`rounded-sm border px-4 py-3.5 text-left transition-colors ${paymentOption === "partial_cod" ? "border-olive-600 bg-olive-50" : "border-border hover:border-olive-300"}`}
+                    >
+                      <span className="block text-sm font-semibold text-foreground">Partial COD</span>
+                      <span className="mt-1 block text-xs text-foreground/55">Pay ₹250 now; {formatPrice(amountDueAtDelivery, currency)} at delivery</span>
+                    </button>
+                  )}
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-foreground/55">A ₹250 online advance confirms your order. We don’t offer full cash on delivery.</p>
+                <h3 className="mt-6 text-xs font-semibold uppercase tracking-wide text-foreground/60">Online payment method</h3>
                 <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                   {PAYMENT_METHODS.map(({ id, label, hint, Icon }) => (
                     <button
@@ -2807,6 +2846,18 @@ function CheckoutPage({
                 <dt className="font-semibold text-foreground">Total</dt>
                 <dd className="font-serif text-xl">{formatPrice(total, currency)}</dd>
               </div>
+              {paymentOption === "partial_cod" && partialCodAvailable && (
+                <>
+                  <div className="mt-1 flex justify-between border-t border-border pt-3 font-medium text-olive-700">
+                    <dt>Pay now to confirm</dt>
+                    <dd>₹250</dd>
+                  </div>
+                  <div className="flex justify-between text-foreground/65">
+                    <dt>Balance at delivery</dt>
+                    <dd>{formatPrice(amountDueAtDelivery, currency)}</dd>
+                  </div>
+                </>
+              )}
             </dl>
 
             {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
@@ -2816,7 +2867,7 @@ function CheckoutPage({
               disabled={loading || items.length === 0}
               className="w-full rounded-sm border border-olive-600 bg-white py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {loading ? "Placing Order…" : PAYMENTS_ENABLED ? `Pay ${formatPrice(total, currency)}` : "Place Order"}
+              {loading ? "Placing Order…" : PAYMENTS_ENABLED ? `Pay ${paymentOption === "partial_cod" ? "₹250 advance" : formatPrice(total, currency)}` : "Place Order"}
             </button>
 
             <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-foreground/50">
@@ -4026,11 +4077,21 @@ function OrdersView({
                     </p>
                   )}
                   <div className="flex items-center justify-between border-t border-olive-200/60 pt-2 font-semibold text-foreground">
-                    {/* "Total paid" on an order nobody has paid for was telling
-                        the customer their money had gone. */}
-                    <span>{selected.order.payment_status === "paid" ? "Total paid" : "Amount due"}</span>
+                    <span>{selected.order.payment_status === "partially_paid" ? "Order total" : selected.order.payment_status === "paid" ? "Total paid" : "Amount due"}</span>
                     <span className="font-serif text-base">{formatPrice(selected.order.total_amount, currency)}</span>
                   </div>
+                  {selected.order.payment_status === "partially_paid" && (
+                    <>
+                      <div className="flex items-center justify-between text-foreground/65">
+                        <span>Paid online</span>
+                        <span>{formatPrice(Number(selected.order.amount_paid ?? 250), currency)}</span>
+                      </div>
+                      <div className="flex items-center justify-between font-medium text-olive-700">
+                        <span>Balance at delivery</span>
+                        <span>{formatPrice(Math.max(0, selected.order.total_amount - Number(selected.order.amount_paid ?? 250)), currency)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -4829,6 +4890,9 @@ function ProductCard({
             <span className="font-serif text-base">{formatPrice(p.price, currency)}</span>
           </div>
         )}
+        <p className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-olive-700 sm:text-[11px]">
+          <Truck className="h-3 w-3 shrink-0" /> Partial COD in India · ₹250 advance
+        </p>
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-2 w-full rounded-sm py-1.5 text-xs font-medium transition-colors ${
@@ -4913,6 +4977,9 @@ function SpotlightCard({
         <div className="mt-0 sm:mt-1.5">
           <span className="font-serif text-sm text-foreground sm:text-base">{formatPrice(p.price, currency)}</span>
         </div>
+        <p className="mt-1 flex items-center gap-1 text-[9px] font-medium text-olive-700 sm:text-[10px]">
+          <Truck className="h-3 w-3 shrink-0" /> Partial COD in India · ₹250 advance
+        </p>
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-1.5 w-full rounded-sm py-1.5 text-xs font-medium transition-colors sm:mt-3 sm:py-2 sm:text-sm ${
@@ -5361,6 +5428,9 @@ function ProductDetailView({
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">GST is included in our prices. Delivery charges are shown clearly at checkout — no hidden fees.</p>
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-sm border border-olive-200 bg-olive-50 px-2.5 py-1.5 text-xs font-medium text-olive-700">
+              <Truck className="h-3.5 w-3.5" /> Partial COD in India · ₹250 advance, balance on delivery
+            </p>
 
             {/* Option groups — which piece of a set, and whether it's wanted in a
                 custom colour. A set is sold as one listing, so the choice of
