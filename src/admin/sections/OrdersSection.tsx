@@ -21,6 +21,7 @@ const STAGES = [
 // an order can be delivered and refunded, or placed and never paid for.
 const PAYMENT_LABEL: Record<string, string> = {
   paid: "Paid",
+  partially_paid: "Partial COD · advance paid",
   unpaid: "Unpaid",
   failed: "Payment failed",
   refunded: "Refunded",
@@ -29,9 +30,17 @@ const PAYMENT_LABEL: Record<string, string> = {
 function paymentText(o: {
   payment_status?: string | null;
   payment_method?: string | null;
+  payment_option?: "full" | "partial_cod" | null;
+  amount_paid?: number | null;
+  total_amount?: number;
 }) {
   const status = o.payment_status || "unpaid";
   const label = PAYMENT_LABEL[status] || status;
+  if (status === "partially_paid") {
+    const received = Math.max(0, Number(o.amount_paid ?? 250));
+    const due = Math.max(0, Number(o.total_amount || 0) - received);
+    return `${label} · ₹${received.toLocaleString("en-IN")} received · ₹${due.toLocaleString("en-IN")} due at delivery`;
+  }
   return o.payment_method && status === "paid"
     ? `${label} · ${o.payment_method}`
     : label;
@@ -459,6 +468,12 @@ function OrderDetailModal({
                   </button>
                 </div>
               </div>
+              {detail.order.payment_status === "partially_paid" && (
+                <div className="mt-2 rounded-sm border border-olive-200 bg-olive-50 p-3 text-xs text-olive-800">
+                  <p>Partial COD · ₹{Number(detail.order.amount_paid ?? 250).toLocaleString("en-IN")} advance received</p>
+                  <p className="mt-1 font-semibold">₹{Math.max(0, detail.order.total_amount - Number(detail.order.amount_paid ?? 250)).toLocaleString("en-IN")} to be collected at delivery</p>
+                </div>
+              )}
               {detail.order.promo_code && (
                 <p className="mt-1 text-xs text-foreground/50">
                   Promo {detail.order.promo_code} applied — ₹

@@ -181,6 +181,7 @@ export const api = {
     place: (data: {
       items: { productName: string; productPrice: number; quantity: number }[];
       email: string;
+      paymentOption?: "full" | "partial_cod";
       currencyCode?: string;
       promoCode?: string;
       deliverySpeed?: "normal" | "urgent";
@@ -347,6 +348,8 @@ export type OrderDto = OrderSummaryDto & {
   tax_rate?: number | null;
   invoice_number?: string | null;
   payment_status?: string | null;
+  payment_option?: "full" | "partial_cod" | null;
+  amount_paid?: number | null;
   payment_method?: string | null;
   payment_id?: string | null;
   paid_at?: string | null;
