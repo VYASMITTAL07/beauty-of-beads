@@ -5548,7 +5548,7 @@ function ProductDetailView({
             </div>
 
             {/* Trust badges */}
-            <div className="mt-7 grid grid-cols-2 gap-y-5 border-y border-border py-6 text-center sm:grid-cols-4 sm:gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-y-5 border-y border-border py-6 text-center sm:grid-cols-5 sm:gap-3">
               <div className="flex flex-col items-center gap-1.5">
                 <Truck className="h-5 w-5 text-foreground/60" />
                 <p className="text-[10.5px] leading-tight text-foreground/60">Free shipping above {FREE_SHIPPING_ABOVE_TEXT}</p>
@@ -5564,6 +5564,11 @@ function ProductDetailView({
               <div className="flex flex-col items-center gap-1.5">
                 <Globe className="h-5 w-5 text-foreground/60" />
                 <p className="text-[10.5px] leading-tight text-foreground/60">Shipping worldwide</p>
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <Wallet className="h-5 w-5 text-foreground/60" />
+                <p className="text-[10.5px] leading-tight text-foreground/60">Partial COD available</p>
+                <p className="text-[10.5px] leading-tight text-foreground/60">₹250 advance · India orders above ₹250</p>
               </div>
             </div>
 
