@@ -2152,10 +2152,19 @@ function loadRazorpay(): Promise<void> {
     const el = document.createElement("script");
     el.src = "https://checkout.razorpay.com/v1/checkout.js";
     el.async = true;
-    el.onload = () => resolve();
-    el.onerror = () => {
+    const timer = window.setTimeout(() => {
       razorpayScript = null;
-      reject(new Error("Couldn't reach the payment provider."));
+      el.remove();
+      reject(new Error("Razorpay is taking too long to load. Please check your connection and try again."));
+    }, 15_000);
+    el.onload = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    el.onerror = () => {
+      window.clearTimeout(timer);
+      razorpayScript = null;
+      reject(new Error("Couldn't load Razorpay. Please check your connection and try again."));
     };
     document.head.appendChild(el);
   });
@@ -2184,8 +2193,7 @@ async function payWithRazorpay({
   onDismiss: (orderNumber: string) => void;
   contents?: { id: string; quantity: number; item_price: number }[];
 }) {
-  const pay = await api.orders.startPayment(orderNumber);
-  await loadRazorpay();
+  const [pay] = await Promise.all([api.orders.startPayment(orderNumber), loadRazorpay()]);
   const Razorpay = window.Razorpay;
   if (!Razorpay) throw new Error("Couldn't reach the payment provider.");
   const currencyDigits = new Intl.NumberFormat("en", {
@@ -2517,7 +2525,7 @@ function CheckoutPage({
       });
       return;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't place your order. Please check your connection and try again.");
+      setError(err instanceof Error ? err.message : "Couldn't start payment. Please try again.");
       setLoading(false);
     }
   };
@@ -6114,6 +6122,7 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, [allProducts, openProductBySlug]);
   const [cartItems, setCartItems] = useState<CartItemDto[]>([]);
+  const cartMutationVersionRef = useRef(0);
   const [wishlistItems, setWishlistItems] = useState<WishlistItemDto[]>([]);
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
   const wishlist = new Set(wishlistItems.map((i) => i.product_name));
@@ -6138,7 +6147,7 @@ export default function App() {
           ]);
         }
         const [cart, wl] = await Promise.all([api.cart.list(), api.wishlist.list()]);
-        setCartItems(cart.items);
+        if (cartMutationVersionRef.current === 0) setCartItems(cart.items);
         setWishlistItems(wl.items);
       };
       sync().catch(() => {
@@ -6559,6 +6568,7 @@ export default function App() {
     // and to the backend so the cart drawer and account cart both show a real
     // product photo instead of the old blank-icon placeholder.
     const image = product.images?.[0] || null;
+    const mutationVersion = ++cartMutationVersionRef.current;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === name);
       if (existing) {
@@ -6569,7 +6579,9 @@ export default function App() {
     if (user) {
       api.cart
         .add({ productName: name, productPrice: product.price, productImage: image || undefined })
-        .then((r) => setCartItems(r.items))
+        .then((r) => {
+          if (cartMutationVersionRef.current === mutationVersion) setCartItems(r.items);
+        })
         .catch(() => {});
     }
   };
@@ -6588,6 +6600,7 @@ export default function App() {
       currency: currency.code,
     });
     const image = product.images?.[0] || null;
+    const mutationVersion = ++cartMutationVersionRef.current;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === product.name);
       if (existing) {
@@ -6598,7 +6611,9 @@ export default function App() {
     if (user) {
       api.cart
         .add({ productName: product.name, productPrice: product.price, quantity, productImage: image || undefined })
-        .then((r) => setCartItems(r.items))
+        .then((r) => {
+          if (cartMutationVersionRef.current === mutationVersion) setCartItems(r.items);
+        })
         .catch(() => {});
     }
   };
@@ -8093,9 +8108,11 @@ export default function App() {
       onUpdateQuantity={updateCartQuantity}
       onRemove={removeCartItem}
       onCheckout={() => {
-        setCheckoutItems(cartItems.map((item) => ({ ...item })));
-        setCartPanelOpen(false);
+        const itemsForCheckout = cartItems.map((item) => ({ ...item }));
+        if (!itemsForCheckout.length) return;
+        setCheckoutItems(itemsForCheckout);
         setCheckoutOpen(true);
+        requestAnimationFrame(() => setCartPanelOpen(false));
       }}
       allProducts={allProducts}
       onOpenProduct={openProduct}
