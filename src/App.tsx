@@ -70,6 +70,9 @@ import {
   Package,
   Phone,
   Mail,
+  Minus,
+  Plus,
+  Trash2,
   Check,
   AlertCircle,
   Clock,
@@ -2149,10 +2152,19 @@ function loadRazorpay(): Promise<void> {
     const el = document.createElement("script");
     el.src = "https://checkout.razorpay.com/v1/checkout.js";
     el.async = true;
-    el.onload = () => resolve();
-    el.onerror = () => {
+    const timer = window.setTimeout(() => {
       razorpayScript = null;
-      reject(new Error("Couldn't reach the payment provider."));
+      el.remove();
+      reject(new Error("Razorpay is taking too long to load. Please check your connection and try again."));
+    }, 15_000);
+    el.onload = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    el.onerror = () => {
+      window.clearTimeout(timer);
+      razorpayScript = null;
+      reject(new Error("Couldn't load Razorpay. Please check your connection and try again."));
     };
     document.head.appendChild(el);
   });
@@ -2181,8 +2193,7 @@ async function payWithRazorpay({
   onDismiss: (orderNumber: string) => void;
   contents?: { id: string; quantity: number; item_price: number }[];
 }) {
-  const pay = await api.orders.startPayment(orderNumber);
-  await loadRazorpay();
+  const [pay] = await Promise.all([api.orders.startPayment(orderNumber), loadRazorpay()]);
   const Razorpay = window.Razorpay;
   if (!Razorpay) throw new Error("Couldn't reach the payment provider.");
   const currencyDigits = new Intl.NumberFormat("en", {
@@ -2249,6 +2260,8 @@ function CheckoutPage({
   currency,
   prefilledName,
   prefilledPhone,
+  prefilledEmail,
+  onItemsChange,
   onPlaced,
   customOrder,
 }: {
@@ -2258,6 +2271,8 @@ function CheckoutPage({
   currency: CurrencyOption;
   prefilledName: string;
   prefilledPhone: string;
+  prefilledEmail: string;
+  onItemsChange: (items: CartItemDto[]) => void;
   onPlaced: (orderNumber: string) => void;
   /** Set when this is an order the shop priced and emailed, opened from the
    *  link in that email. The pieces and their prices are already decided, so
@@ -2266,6 +2281,7 @@ function CheckoutPage({
   customOrder?: { orderNumber: string; note?: string | null } | null;
 }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [line1, setLine1] = useState("");
   const [line2, setLine2] = useState("");
@@ -2274,6 +2290,7 @@ function CheckoutPage({
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]["id"]>("upi");
+  const [paymentOption, setPaymentOption] = useState<"full" | "partial_cod">("full");
   const [speed, setSpeed] = useState<(typeof INDIA_DELIVERY)[number]["id"]>("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2291,13 +2308,15 @@ function CheckoutPage({
   useEffect(() => {
     if (open) {
       setName(prefilledName || "");
+      setEmail(prefilledEmail || "");
       setPhone(prefilledPhone || "");
+      setPaymentOption("full");
       setError(null);
       setPromo(null);
       setPromoInput("");
       setPromoError(null);
     }
-  }, [open, prefilledName, prefilledPhone]);
+  }, [open, prefilledName, prefilledPhone, prefilledEmail]);
 
   // Keep the phone field simple; add the selected country's code only to the
   // order payload so customers can enter their local number as usual.
@@ -2322,6 +2341,12 @@ function CheckoutPage({
   const customerTotal = round2(goods + ship.amount);
   const tax = taxFor(country, state, customerTotal);
   const total = customerTotal;
+  const partialCodAvailable = !customOrder && PAYMENTS_ENABLED && isIndia(country) && total > 250;
+  const amountDueAtDelivery = round2(Math.max(0, total - 250));
+
+  useEffect(() => {
+    if (!partialCodAvailable) setPaymentOption("full");
+  }, [partialCodAvailable]);
 
   useEffect(() => {
     if (!open) return;
@@ -2358,10 +2383,23 @@ function CheckoutPage({
     }
   };
 
+  const changeQuantity = (item: CartItemDto, quantity: number) => {
+    const nextItems = quantity < 1
+      ? items.filter((current) => current.id !== item.id)
+      : items.map((current) => current.id === item.id ? { ...current, quantity: Math.min(50, quantity) } : current);
+    setPromo(null);
+    setPromoError(null);
+    onItemsChange(nextItems);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
     setError(null);
+    if (!customOrder && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Enter a valid email address for your order updates.");
+      return;
+    }
     let countryCode = dialCode;
     if (!countryCode) {
       try {
@@ -2432,6 +2470,8 @@ function CheckoutPage({
 
       const res = await api.orders.place({
         items: items.map((i) => ({ productName: i.product_name, productPrice: i.product_price, quantity: i.quantity })),
+        email: email.trim().toLowerCase(),
+        paymentOption,
         currencyCode: currency.code,
         promoCode: promo?.code,
         deliverySpeed: effectiveSpeed,
@@ -2446,6 +2486,12 @@ function CheckoutPage({
           country,
         },
       });
+
+      if (paymentOption === "partial_cod" && !res.paymentRequired) {
+        setLoading(false);
+        setError("Partial COD needs online payment to confirm your order. Please choose full online payment or try again later.");
+        return;
+      }
 
       // Without a gateway the order is placed outright, exactly as before.
       if (!res.paymentRequired) {
@@ -2479,7 +2525,7 @@ function CheckoutPage({
       });
       return;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't place your order. Please check your connection and try again.");
+      setError(err instanceof Error ? err.message : "Couldn't start payment. Please try again.");
       setLoading(false);
     }
   };
@@ -2534,6 +2580,13 @@ function CheckoutPage({
                   <label htmlFor="ship-name" className={labelClass}>Full name</label>
                   <input id="ship-name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
                 </div>
+                {!customOrder && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="ship-email" className={labelClass}>Email address</label>
+                    <input id="ship-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={fieldClass} />
+                    <p className="text-xs text-foreground/50">We’ll send your order confirmation and delivery updates here.</p>
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="ship-phone" className={labelClass}>Phone number</label>
                   <input
@@ -2562,10 +2615,9 @@ function CheckoutPage({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="ship-line2" className={labelClass}>Address line 2</label>
+                  <label htmlFor="ship-line2" className={labelClass}>Address line 2 (optional)</label>
                   <input
                     id="ship-line2"
-                    required
                     value={line2}
                     onChange={(e) => setLine2(e.target.value)}
                     placeholder="Landmark, apartment"
@@ -2645,8 +2697,32 @@ function CheckoutPage({
 
             {PAYMENTS_ENABLED && (
               <section className={cardClass}>
-                <h2 className={headingClass}>Payment method</h2>
-                <p className="mt-1 text-sm text-foreground/60">Pick how you would like to pay, then confirm on the next screen.</p>
+                <h2 className={headingClass}>Payment option</h2>
+                <p className="mt-1 text-sm text-foreground/60">Choose full online payment or pay a ₹250 advance and the balance on delivery.</p>
+                <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentOption("full")}
+                    aria-pressed={paymentOption === "full"}
+                    className={`rounded-sm border px-4 py-3.5 text-left transition-colors ${paymentOption === "full" ? "border-olive-600 bg-olive-50" : "border-border hover:border-olive-300"}`}
+                  >
+                    <span className="block text-sm font-semibold text-foreground">Pay in full online</span>
+                    <span className="mt-1 block text-xs text-foreground/55">Pay {formatPrice(total, currency)} securely now</span>
+                  </button>
+                  {partialCodAvailable && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentOption("partial_cod")}
+                      aria-pressed={paymentOption === "partial_cod"}
+                      className={`rounded-sm border px-4 py-3.5 text-left transition-colors ${paymentOption === "partial_cod" ? "border-olive-600 bg-olive-50" : "border-border hover:border-olive-300"}`}
+                    >
+                      <span className="block text-sm font-semibold text-foreground">Partial COD</span>
+                      <span className="mt-1 block text-xs text-foreground/55">Pay ₹250 now; {formatPrice(amountDueAtDelivery, currency)} at delivery</span>
+                    </button>
+                  )}
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-foreground/55">A ₹250 online advance confirms your order. We don’t offer full cash on delivery.</p>
+                <h3 className="mt-6 text-xs font-semibold uppercase tracking-wide text-foreground/60">Online payment method</h3>
                 <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                   {PAYMENT_METHODS.map(({ id, label, hint, Icon }) => (
                     <button
@@ -2686,7 +2762,7 @@ function CheckoutPage({
 
             <ul className="mt-4 flex flex-col gap-3 border-b border-border pb-4">
               {items.map((i) => (
-                <li key={`${i.product_name}-${i.product_price}`} className="flex items-start gap-3 text-sm">
+                <li key={i.id} className="flex items-start gap-3 text-sm">
                   {i.product_image && (
                     <img
                       src={cardImage(i.product_image)}
@@ -2705,12 +2781,22 @@ function CheckoutPage({
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="block leading-snug text-foreground/85">{i.product_name}</span>
-                    <span className="text-xs text-foreground/50">Qty {i.quantity}</span>
+                    {!customOrder ? (
+                      <span className="mt-2 inline-flex items-center gap-2 rounded-sm border border-border px-1.5 py-1">
+                        <button type="button" aria-label={`Decrease ${i.product_name} quantity`} onClick={() => changeQuantity(i, i.quantity - 1)} className="flex h-7 w-7 items-center justify-center rounded-sm hover:bg-olive-50"><Minus className="h-3.5 w-3.5" /></button>
+                        <span className="min-w-5 text-center text-xs tabular-nums">{i.quantity}</span>
+                        <button type="button" aria-label={`Increase ${i.product_name} quantity`} disabled={i.quantity >= 50} onClick={() => changeQuantity(i, i.quantity + 1)} className="flex h-7 w-7 items-center justify-center rounded-sm hover:bg-olive-50 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
+                        <button type="button" aria-label={`Remove ${i.product_name}`} onClick={() => changeQuantity(i, 0)} className="ml-1 flex h-7 w-7 items-center justify-center rounded-sm text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </span>
+                    ) : <span className="text-xs text-foreground/50">Qty {i.quantity}</span>}
                   </span>
                   <span className="shrink-0 font-serif">{formatPrice(i.quantity * i.product_price, currency)}</span>
                 </li>
               ))}
             </ul>
+            {items.length === 0 && !customOrder && (
+              <p className="mt-4 border-b border-border pb-4 text-sm text-foreground/60">Your order is empty. Go back and add a product to continue.</p>
+            )}
 
             {/* A promo code cannot re-price an order the shop has already
                 quoted — the server ignores one on confirm, so offering the
@@ -2768,6 +2854,18 @@ function CheckoutPage({
                 <dt className="font-semibold text-foreground">Total</dt>
                 <dd className="font-serif text-xl">{formatPrice(total, currency)}</dd>
               </div>
+              {paymentOption === "partial_cod" && partialCodAvailable && (
+                <>
+                  <div className="mt-1 flex justify-between border-t border-border pt-3 font-medium text-olive-700">
+                    <dt>Pay now to confirm</dt>
+                    <dd>₹250</dd>
+                  </div>
+                  <div className="flex justify-between text-foreground/65">
+                    <dt>Balance at delivery</dt>
+                    <dd>{formatPrice(amountDueAtDelivery, currency)}</dd>
+                  </div>
+                </>
+              )}
             </dl>
 
             {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
@@ -2777,7 +2875,7 @@ function CheckoutPage({
               disabled={loading || items.length === 0}
               className="w-full rounded-sm border border-olive-600 bg-white py-3 text-xs font-semibold uppercase tracking-[0.14em] text-olive-600 transition-colors hover:bg-olive-600 hover:text-olive-50 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {loading ? "Placing Order…" : PAYMENTS_ENABLED ? `Pay ${formatPrice(total, currency)}` : "Place Order"}
+              {loading ? "Placing Order…" : PAYMENTS_ENABLED ? `Pay ${paymentOption === "partial_cod" ? "₹250 advance" : formatPrice(total, currency)}` : "Place Order"}
             </button>
 
             <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-foreground/50">
@@ -3656,6 +3754,14 @@ function OrdersView({
     setLoading(true);
     setError(null);
     setSelected(null);
+    if (initialOrderNumber && api.orders.hasGuestAccess(initialOrderNumber)) {
+      setOrders([]);
+      api.orders.get(initialOrderNumber)
+        .then(setSelected)
+        .catch((e) => setError(e instanceof ApiError ? e.message : "Couldn't load that order."))
+        .finally(() => setLoading(false));
+      return;
+    }
     loadComplaints();
     api.orders
       .list()
@@ -3979,11 +4085,21 @@ function OrdersView({
                     </p>
                   )}
                   <div className="flex items-center justify-between border-t border-olive-200/60 pt-2 font-semibold text-foreground">
-                    {/* "Total paid" on an order nobody has paid for was telling
-                        the customer their money had gone. */}
-                    <span>{selected.order.payment_status === "paid" ? "Total paid" : "Amount due"}</span>
+                    <span>{selected.order.payment_status === "partially_paid" ? "Order total" : selected.order.payment_status === "paid" ? "Total paid" : "Amount due"}</span>
                     <span className="font-serif text-base">{formatPrice(selected.order.total_amount, currency)}</span>
                   </div>
+                  {selected.order.payment_status === "partially_paid" && (
+                    <>
+                      <div className="flex items-center justify-between text-foreground/65">
+                        <span>Paid online</span>
+                        <span>{formatPrice(Number(selected.order.amount_paid ?? 250), currency)}</span>
+                      </div>
+                      <div className="flex items-center justify-between font-medium text-olive-700">
+                        <span>Balance at delivery</span>
+                        <span>{formatPrice(Math.max(0, selected.order.total_amount - Number(selected.order.amount_paid ?? 250)), currency)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -4782,6 +4898,9 @@ function ProductCard({
             <span className="font-serif text-base">{formatPrice(p.price, currency)}</span>
           </div>
         )}
+        <p className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-olive-700 sm:text-[11px]">
+          <Truck className="h-3 w-3 shrink-0" /> Partial COD in India · ₹250 advance
+        </p>
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-2 w-full rounded-sm py-1.5 text-xs font-medium transition-colors ${
@@ -4866,6 +4985,9 @@ function SpotlightCard({
         <div className="mt-0 sm:mt-1.5">
           <span className="font-serif text-sm text-foreground sm:text-base">{formatPrice(p.price, currency)}</span>
         </div>
+        <p className="mt-1 flex items-center gap-1 text-[9px] font-medium text-olive-700 sm:text-[10px]">
+          <Truck className="h-3 w-3 shrink-0" /> Partial COD in India · ₹250 advance
+        </p>
         <button
           onClick={() => addToBag(p.name)}
           className={`mt-1.5 w-full rounded-sm py-1.5 text-xs font-medium transition-colors sm:mt-3 sm:py-2 sm:text-sm ${
@@ -5314,6 +5436,9 @@ function ProductDetailView({
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">GST is included in our prices. Delivery charges are shown clearly at checkout — no hidden fees.</p>
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-sm border border-olive-200 bg-olive-50 px-2.5 py-1.5 text-xs font-medium text-olive-700">
+              <Truck className="h-3.5 w-3.5" /> Partial COD in India · ₹250 advance, balance on delivery
+            </p>
 
             {/* Option groups — which piece of a set, and whether it's wanted in a
                 custom colour. A set is sold as one listing, so the choice of
@@ -5431,7 +5556,7 @@ function ProductDetailView({
             </div>
 
             {/* Trust badges */}
-            <div className="mt-7 grid grid-cols-2 gap-y-5 border-y border-border py-6 text-center sm:grid-cols-4 sm:gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-y-5 border-y border-border py-6 text-center sm:grid-cols-5 sm:gap-3">
               <div className="flex flex-col items-center gap-1.5">
                 <Truck className="h-5 w-5 text-foreground/60" />
                 <p className="text-[10.5px] leading-tight text-foreground/60">Free shipping above {FREE_SHIPPING_ABOVE_TEXT}</p>
@@ -5447,6 +5572,11 @@ function ProductDetailView({
               <div className="flex flex-col items-center gap-1.5">
                 <Globe className="h-5 w-5 text-foreground/60" />
                 <p className="text-[10.5px] leading-tight text-foreground/60">Shipping worldwide</p>
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <Wallet className="h-5 w-5 text-foreground/60" />
+                <p className="text-[10.5px] leading-tight text-foreground/60">Partial COD available</p>
+                <p className="text-[10.5px] leading-tight text-foreground/60">₹250 advance · India orders above ₹250</p>
               </div>
             </div>
 
@@ -5615,8 +5745,11 @@ export default function App() {
   const [pendingOrder, setPendingOrder] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const wanted = new URLSearchParams(window.location.search).get("order");
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get("order");
     if (!wanted) return;
+    const guestToken = params.get("guestToken");
+    if (guestToken) api.orders.rememberGuestToken(wanted, guestToken);
     setPendingOrder(wanted);
     // Take it out of the address bar so a refresh, or a shared link, does not
     // reopen it later.
@@ -5636,7 +5769,7 @@ export default function App() {
 
   useEffect(() => {
     if (!ready || !pendingOrder) return;
-    if (!user) {
+    if (!user && !api.orders.hasGuestAccess(pendingOrder)) {
       setAuthModalOpen(true);
       return;
     }
@@ -5688,6 +5821,7 @@ export default function App() {
   const [wishlistPanelOpen, setWishlistPanelOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutItems, setCheckoutItems] = useState<CartItemDto[]>([]);
   const [confirmedOrder, setConfirmedOrder] = useState<string | null>(null);
   const [ordersViewOpen, setOrdersViewOpen] = useState(false);
   const [trackOrderNumber, setTrackOrderNumber] = useState<string | null>(null);
@@ -5701,6 +5835,7 @@ export default function App() {
   };
   const handleOrderPlaced = (orderNumber: string) => {
     setCartItems([]);
+    setCheckoutItems([]);
     setAdded(new Set());
     setCheckoutOpen(false);
     setConfirmedOrder(orderNumber);
@@ -5987,6 +6122,7 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, [allProducts, openProductBySlug]);
   const [cartItems, setCartItems] = useState<CartItemDto[]>([]);
+  const cartMutationVersionRef = useRef(0);
   const [wishlistItems, setWishlistItems] = useState<WishlistItemDto[]>([]);
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
   const wishlist = new Set(wishlistItems.map((i) => i.product_name));
@@ -6011,7 +6147,7 @@ export default function App() {
           ]);
         }
         const [cart, wl] = await Promise.all([api.cart.list(), api.wishlist.list()]);
-        setCartItems(cart.items);
+        if (cartMutationVersionRef.current === 0) setCartItems(cart.items);
         setWishlistItems(wl.items);
       };
       sync().catch(() => {
@@ -6432,6 +6568,7 @@ export default function App() {
     // and to the backend so the cart drawer and account cart both show a real
     // product photo instead of the old blank-icon placeholder.
     const image = product.images?.[0] || null;
+    const mutationVersion = ++cartMutationVersionRef.current;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === name);
       if (existing) {
@@ -6442,7 +6579,9 @@ export default function App() {
     if (user) {
       api.cart
         .add({ productName: name, productPrice: product.price, productImage: image || undefined })
-        .then((r) => setCartItems(r.items))
+        .then((r) => {
+          if (cartMutationVersionRef.current === mutationVersion) setCartItems(r.items);
+        })
         .catch(() => {});
     }
   };
@@ -6461,6 +6600,7 @@ export default function App() {
       currency: currency.code,
     });
     const image = product.images?.[0] || null;
+    const mutationVersion = ++cartMutationVersionRef.current;
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product_name === product.name);
       if (existing) {
@@ -6471,7 +6611,9 @@ export default function App() {
     if (user) {
       api.cart
         .add({ productName: product.name, productPrice: product.price, quantity, productImage: image || undefined })
-        .then((r) => setCartItems(r.items))
+        .then((r) => {
+          if (cartMutationVersionRef.current === mutationVersion) setCartItems(r.items);
+        })
         .catch(() => {});
     }
   };
@@ -6496,6 +6638,23 @@ export default function App() {
     });
     if (user && item.id > 0) {
       api.cart.remove(item.id).catch(() => {});
+    }
+  };
+
+  const updateCheckoutItems = (nextItems: CartItemDto[]) => {
+    const previousItems = checkoutItems;
+    setCheckoutItems(nextItems);
+    setCartItems((current) => current.flatMap((item) => {
+      const updated = nextItems.find((candidate) => candidate.id === item.id);
+      return updated ? [{ ...item, quantity: updated.quantity }] : [];
+    }));
+    if (user) {
+      for (const item of previousItems) {
+        if (item.id <= 0) continue;
+        const updated = nextItems.find((candidate) => candidate.id === item.id);
+        if (!updated) api.cart.remove(item.id).catch(() => {});
+        else if (updated.quantity !== item.quantity) api.cart.updateQuantity(item.id, updated.quantity).catch(() => {});
+      }
     }
   };
 
@@ -7949,13 +8108,11 @@ export default function App() {
       onUpdateQuantity={updateCartQuantity}
       onRemove={removeCartItem}
       onCheckout={() => {
-        if (!user) {
-          setCartPanelOpen(false);
-          openAuthModal();
-          return;
-        }
-        setCartPanelOpen(false);
+        const itemsForCheckout = cartItems.map((item) => ({ ...item }));
+        if (!itemsForCheckout.length) return;
+        setCheckoutItems(itemsForCheckout);
         setCheckoutOpen(true);
+        requestAnimationFrame(() => setCartPanelOpen(false));
       }}
       allProducts={allProducts}
       onOpenProduct={openProduct}
@@ -8005,10 +8162,12 @@ export default function App() {
         setCheckoutOpen(v);
         if (!v) setCustomCheckout(null);
       }}
-      items={customCheckout ? customCheckout.items : cartItems}
+      items={customCheckout ? customCheckout.items : checkoutItems}
       currency={currency}
       prefilledName={user?.name || ""}
       prefilledPhone={user?.phone || ""}
+      prefilledEmail={user?.email || ""}
+      onItemsChange={updateCheckoutItems}
       onPlaced={(n) => {
         setCustomCheckout(null);
         handleOrderPlaced(n);
@@ -8050,7 +8209,23 @@ export default function App() {
         onOpen={openProduct}
         onBack={() => setSelectedProduct(null)}
         onBuyNow={(p, qty) => {
-          addProductWithQuantity(p, qty);
+          const productImage = p.images?.[0] || null;
+          setCheckoutItems(() => {
+            const current = cartItems.map((item) => ({ ...item }));
+            const existing = current.find((item) => item.product_name.trim().toLowerCase() === p.name.trim().toLowerCase());
+            if (existing) {
+              // Buy Now purchases the selected quantity, while an existing
+              // cart quantity is preserved. It must not add both quantities.
+              return current.map((item) => item.id === existing.id ? { ...item, quantity: Math.max(item.quantity, qty) } : item);
+            }
+            return [...current, {
+              id: -Date.now(),
+              product_name: p.name,
+              product_price: p.price,
+              product_image: productImage,
+              quantity: qty,
+            }];
+          });
           setSelectedProduct(null);
           setCheckoutOpen(true);
         }}

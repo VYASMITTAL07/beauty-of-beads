@@ -48,6 +48,11 @@ export function OrderConfirmed({
   const discount = Number(order?.discount_amount || 0);
   const shipping = Number(order?.shipping_amount || 0);
   const tax = Number(order?.tax_amount || 0);
+  const isPartialCod = order?.payment_option === "partial_cod" || order?.payment_status === "partially_paid";
+  const amountPaid = order?.payment_status === "partially_paid"
+    ? Math.max(0, Number(order.amount_paid ?? 250))
+    : order?.payment_status === "paid" ? Number(order.total_amount || 0) : 0;
+  const balanceDue = Math.max(0, Number(order?.total_amount || 0) - amountPaid);
   const intraState = order?.tax_type === "cgst_sgst";
   const pricesIncludeTax = Boolean(
     order && tax > 0 && Math.abs(Number(order.total_amount || 0) - (Math.max(0, subtotal - discount) + shipping)) < 0.02
@@ -153,9 +158,21 @@ export function OrderConfirmed({
                   </p>
                 )}
                 <div className="mt-1 flex items-baseline justify-between border-t border-border pt-3">
-                  <dt className="font-semibold text-foreground">Total paid</dt>
+                  <dt className="font-semibold text-foreground">{isPartialCod ? "Order total" : "Total paid"}</dt>
                   <dd className="font-serif text-xl">{inr(order.total_amount)}</dd>
                 </div>
+                {isPartialCod && (
+                  <>
+                    <div className="flex justify-between pt-2">
+                      <dt className="text-foreground/65">Paid online</dt>
+                      <dd>{inr(amountPaid)}</dd>
+                    </div>
+                    <div className="flex justify-between font-medium text-olive-700">
+                      <dt>To be paid at delivery</dt>
+                      <dd>{inr(balanceDue)}</dd>
+                    </div>
+                  </>
+                )}
                 <p className="pt-1 text-xs leading-relaxed text-olive-600">
                   Your delivery charge is shown clearly above — no hidden delivery fees.
                 </p>
@@ -196,7 +213,7 @@ export function OrderConfirmed({
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-foreground/55">Status</dt>
-                    <dd>{order.payment_status === "paid" ? "Paid" : "Pending"}</dd>
+                    <dd>{order.payment_status === "paid" ? "Paid in full" : order.payment_status === "partially_paid" ? "Advance paid · balance due at delivery" : "Pending"}</dd>
                   </div>
                   {order.payment_id && (
                     <div className="flex justify-between gap-3">

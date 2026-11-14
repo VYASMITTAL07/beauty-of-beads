@@ -26,6 +26,8 @@ export type InvoiceOrder = {
   payment_method?: string | null;
   payment_id?: string | null;
   payment_status?: string | null;
+  payment_option?: "full" | "partial_cod" | null;
+  amount_paid?: number | null;
   total_amount: number;
   discount_amount?: number | null;
   promo_code?: string | null;
@@ -63,6 +65,11 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
   const discount = Number(order.discount_amount || 0);
   const shipping = Number(order.shipping_amount || 0);
   const tax = Number(order.tax_amount || 0);
+  const amountPaid = order.payment_status === "partially_paid"
+    ? Math.max(0, Number(order.amount_paid ?? 250))
+    : order.payment_status === "paid" ? Number(order.total_amount || 0) : 0;
+  const balanceDue = Math.max(0, Number(order.total_amount || 0) - amountPaid);
+  const partialCod = order.payment_option === "partial_cod" || order.payment_status === "partially_paid";
   const gross = Math.max(0, subtotal - discount) + shipping;
   const pricesIncludeTax = tax > 0 && Math.abs(Number(order.total_amount || 0) - gross) < 0.02;
   const taxable = Math.max(0, gross - (pricesIncludeTax ? tax : 0));
@@ -230,9 +237,21 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
               </div>
             )}
             <div className="mt-1 flex items-baseline justify-between border-t-2 border-black/70 pt-2 text-[13px] font-semibold">
-              <dt>Total</dt>
+              <dt>{partialCod ? "Order total" : "Total"}</dt>
               <dd>{inr(order.total_amount)}</dd>
             </div>
+            {partialCod && (
+              <>
+                <div className="flex justify-between py-1 font-medium text-black/75">
+                  <dt>Paid online</dt>
+                  <dd>{inr(amountPaid)}</dd>
+                </div>
+                <div className="flex justify-between py-1 font-semibold">
+                  <dt>Balance to be paid at delivery</dt>
+                  <dd>{inr(balanceDue)}</dd>
+                </div>
+              </>
+            )}
           </dl>
         </div>
 
@@ -240,7 +259,10 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
           <p className="mb-2 text-black/65">Your delivery charge is shown clearly above — no hidden delivery fees.</p>
           <p>This is a computer generated invoice and does not require a signature.</p>
           {order.payment_id && <p className="mt-0.5">Payment reference: {order.payment_id}</p>}
-          {order.payment_status !== "paid" && (
+          {order.payment_status === "partially_paid" && (
+            <p className="mt-0.5 font-semibold text-black/70">₹250 advance received. The balance shown above is payable to the delivery partner when your order arrives.</p>
+          )}
+          {order.payment_status !== "paid" && order.payment_status !== "partially_paid" && (
             <p className="mt-0.5 font-semibold text-black/70">Payment not yet received for this order.</p>
           )}
         </div>
