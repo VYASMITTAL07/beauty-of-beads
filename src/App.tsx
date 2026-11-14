@@ -2539,7 +2539,7 @@ function CheckoutPage({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[95] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
+    <div className="fixed inset-0 z-[100] flex flex-col overflow-y-auto bg-background font-sans [contain:paint]">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-5 py-4 md:px-8">
         <button
           type="button"
@@ -8111,8 +8111,8 @@ export default function App() {
         const itemsForCheckout = cartItems.map((item) => ({ ...item }));
         if (!itemsForCheckout.length) return;
         setCheckoutItems(itemsForCheckout);
+        setCartPanelOpen(false);
         setCheckoutOpen(true);
-        requestAnimationFrame(() => setCartPanelOpen(false));
       }}
       allProducts={allProducts}
       onOpenProduct={openProduct}
