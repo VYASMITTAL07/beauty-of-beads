@@ -2808,7 +2808,7 @@ function CheckoutPage({
                   id="promo"
                   value={promoInput}
                   onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-                  placeholder="WELCOME10"
+                  placeholder="Enter coupon code"
                   className={fieldClass}
                 />
                 <button
@@ -2820,6 +2820,7 @@ function CheckoutPage({
                   {promoChecking ? "…" : "Apply"}
                 </button>
               </div>
+              <p className="mt-1.5 text-xs text-foreground/50">If you have a coupon, please use it here.</p>
               {promo && <p className="mt-2 text-xs text-olive-600">{promo.code} applied.</p>}
               {promoError && <p className="mt-2 text-xs text-destructive">{promoError}</p>}
             </div>
