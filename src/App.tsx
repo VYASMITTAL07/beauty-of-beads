@@ -2555,6 +2555,10 @@ function CheckoutPage({
         </span>
       </div>
 
+      <div className="border-b border-border bg-olive-600 px-4 py-2 text-center text-xs font-medium tracking-wide text-white">
+        Prepaid orders get faster delivery
+      </div>
+
       <form onSubmit={handleSubmit} className="mx-auto w-full max-w-5xl flex-1 px-5 py-6 md:px-8 md:py-10">
         <div className="grid items-start gap-6 md:grid-cols-[1.6fr_1fr] md:gap-8">
           <div className="flex flex-col gap-6">
