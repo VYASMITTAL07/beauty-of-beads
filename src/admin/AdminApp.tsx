@@ -26,6 +26,7 @@ const SECTIONS = [
   { key: "categoryEditor", label: "Category Editor" },
   { key: "bestProducts", label: "Best Products" },
   { key: "orders", label: "Orders" },
+  { key: "stillInCart", label: "Still in cart" },
   { key: "customers", label: "Customers" },
   { key: "customOrder", label: "Custom Order" },
   { key: "reviews", label: "Reviews" },
@@ -207,6 +208,7 @@ export default function AdminApp() {
         {section === "bestProducts" && <BestProductsSection onError={(m) => toast.error(m)} />}
         {section === "admins" && <AdminsSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "orders" && <OrdersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
+        {section === "stillInCart" && <OrdersSection mode="stillInCart" onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "customers" && <CustomersSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />}
         {section === "customOrder" && (
           <CustomOrderSection onError={(m) => toast.error(m)} onSuccess={(m) => toast.success(m)} />

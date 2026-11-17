@@ -58,22 +58,26 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 type View = "all" | "pending" | "completed";
+type PaymentFilter = "all" | "prepaid" | "partial_cod";
 
 export default function OrdersSection({
   onError,
   onSuccess,
+  mode = "orders",
 }: {
   onError: (m: string) => void;
   onSuccess: (m: string) => void;
+  mode?: "orders" | "stillInCart";
 }) {
   const [orders, setOrders] = useState<AdminOrder[] | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [view, setView] = useState<View>("all");
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
 
   const load = () => {
     adminApi.orders
-      .list(statusFilter || undefined)
+      .list(mode === "stillInCart" ? "awaiting_payment" : statusFilter || undefined)
       .then((r) => setOrders(r.orders))
       .catch((e) =>
         onError(
@@ -82,9 +86,15 @@ export default function OrdersSection({
       );
   };
 
-  useEffect(load, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [statusFilter, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = orders?.filter((o) => {
+    if (mode === "stillInCart") return o.status === "awaiting_payment";
+    // Payment is the event that turns an attempted checkout into a real order.
+    if (o.status === "awaiting_payment") return false;
+    const isPartialCod = o.payment_option === "partial_cod" || o.payment_status === "partially_paid";
+    if (paymentFilter === "partial_cod" && !isPartialCod) return false;
+    if (paymentFilter === "prepaid" && (o.payment_status !== "paid" || isPartialCod)) return false;
     if (view === "pending")
       return !["delivered", "cancelled"].includes(o.status);
     if (view === "completed") return o.status === "delivered";
@@ -95,10 +105,10 @@ export default function OrdersSection({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">
-          Orders
+          {mode === "stillInCart" ? "Still in cart" : "Orders"}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-sm border border-border bg-background p-0.5 text-sm">
+          {mode === "orders" && <div className="flex rounded-sm border border-border bg-background p-0.5 text-sm">
             {(["all", "pending", "completed"] as View[]).map((v) => (
               <button
                 key={v}
@@ -113,19 +123,34 @@ export default function OrdersSection({
                 {v}
               </button>
             ))}
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="">All statuses</option>
-            {["awaiting_payment", ...STAGES, "cancelled"].map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
+          </div>}
+          {mode === "orders" ? (
+            <>
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
+                aria-label="Filter orders by payment type"
+                className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="all">All payment types</option>
+                <option value="prepaid">Prepaid / fully paid</option>
+                <option value="partial_cod">Partial COD</option>
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                aria-label="Filter orders by status"
+                className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">All statuses</option>
+                {[...STAGES, "cancelled"].map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : <p className="text-xs text-foreground/50">Payment not completed yet</p>}
         </div>
       </div>
 
@@ -152,6 +177,7 @@ export default function OrdersSection({
             <p className="truncate text-xs text-foreground/50">
               {o.customer_email}
             </p>
+            <p className="mt-1 truncate text-xs text-foreground/60">{paymentText(o)}</p>
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className="text-foreground/50">
                 {new Date(o.created_at).toLocaleDateString("en-IN")}
@@ -220,7 +246,7 @@ export default function OrdersSection({
             ))}
             {visible && visible.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-foreground/50">
+                <td colSpan={7} className="p-6 text-center text-foreground/50">
                   No orders found.
                 </td>
               </tr>
