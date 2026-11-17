@@ -294,6 +294,7 @@ export type AdminAnalytics = {
   orderCount: number;
   paidOrderCount?: number;
   revenue: number;
+  monthlyRevenue: number;
   customerCount: number;
   byStatus: { status: string; count: number }[];
   topProducts: { productName: string; unitsSold: number; revenue: number }[];
