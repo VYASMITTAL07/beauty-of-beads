@@ -2555,7 +2555,7 @@ function CheckoutPage({
         </span>
       </div>
 
-      <div className="border-b border-border bg-olive-600 px-4 py-2 text-center text-xs font-medium tracking-wide text-white">
+      <div className="sticky top-[69px] z-10 border-b border-border bg-olive-600 px-4 py-2 text-center text-xs font-medium tracking-wide text-white">
         Prepaid orders get faster delivery
       </div>
 
