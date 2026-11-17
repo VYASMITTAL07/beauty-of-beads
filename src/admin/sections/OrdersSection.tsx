@@ -41,8 +41,9 @@ function paymentText(o: {
     const due = Math.max(0, Number(o.total_amount || 0) - received);
     return `${label} · ₹${received.toLocaleString("en-IN")} received · ₹${due.toLocaleString("en-IN")} due at delivery`;
   }
-  return o.payment_method && status === "paid"
-    ? `${label} · ${o.payment_method}`
+  const method = o.payment_method === "whatsapp_manual" ? "WhatsApp" : o.payment_method;
+  return method && status === "paid"
+    ? `${label} · ${method}`
     : label;
 }
 
@@ -285,6 +286,7 @@ function OrderDetailModal({
 }) {
   const [detail, setDetail] = useState<AdminOrderDetail | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [paymentReference, setPaymentReference] = useState("");
 
   const load = () => {
     adminApi.orders
@@ -366,6 +368,28 @@ function OrderDetailModal({
       onError(
         e instanceof AdminApiError ? e.message : "Couldn't resend emails",
       );
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const convertToPrepaid = async () => {
+    if (!detail) return;
+    const wasPartial = detail.order.payment_status === "partially_paid";
+    const remaining = Math.max(0, detail.order.total_amount - Number(detail.order.amount_paid ?? 250));
+    const prompt = wasPartial
+      ? `Confirm that you received the remaining ₹${remaining.toLocaleString("en-IN")} outside the website and convert ${detail.order.order_number} to fully prepaid? The customer will be emailed.`
+      : `Retry sending the prepaid confirmation and updated invoice for ${detail.order.order_number}?`;
+    if (!window.confirm(prompt)) return;
+    setUpdating(true);
+    try {
+      const result = await adminApi.orders.convertToPrepaid(orderId, paymentReference.trim() || undefined);
+      if (result.emailSent) onSuccess("Order converted to prepaid; the customer update and revised invoice were emailed.");
+      else onSuccess(`Order converted to prepaid. Customer email was not sent (${result.emailReason || "email delivery failed"}); try the action again to retry it.`);
+      load();
+      onChanged();
+    } catch (e) {
+      onError(e instanceof AdminApiError ? e.message : "Couldn't convert this order to prepaid");
     } finally {
       setUpdating(false);
     }
@@ -494,10 +518,30 @@ function OrderDetailModal({
                   </button>
                 </div>
               </div>
-              {detail.order.payment_status === "partially_paid" && (
+                {detail.order.payment_status === "partially_paid" && detail.order.payment_option === "partial_cod" && (
                 <div className="mt-2 rounded-sm border border-olive-200 bg-olive-50 p-3 text-xs text-olive-800">
                   <p>Partial COD · ₹{Number(detail.order.amount_paid ?? 250).toLocaleString("en-IN")} advance received</p>
                   <p className="mt-1 font-semibold">₹{Math.max(0, detail.order.total_amount - Number(detail.order.amount_paid ?? 250)).toLocaleString("en-IN")} to be collected at delivery</p>
+                  <label className="mt-3 block font-medium" htmlFor="manual-payment-reference">WhatsApp payment reference (optional)</label>
+                  <input
+                    id="manual-payment-reference"
+                    value={paymentReference}
+                    onChange={(event) => setPaymentReference(event.target.value)}
+                    maxLength={120}
+                    placeholder="UPI / bank reference"
+                    className="mt-1 w-full rounded-sm border border-olive-200 bg-background px-2 py-1.5 text-xs text-foreground"
+                  />
+                  <Button size="sm" disabled={updating} onClick={convertToPrepaid} className="mt-3 bg-olive-600 hover:bg-black">
+                    {updating ? "Updating…" : "Update to prepaid"}
+                  </Button>
+                </div>
+              )}
+              {detail.order.payment_status === "paid" && detail.order.payment_method === "whatsapp_manual" && !detail.prepaidEmailSent && (
+                <div className="mt-2 rounded-sm border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <p>Order is fully prepaid. The customer update email has not been sent.</p>
+                  <Button size="sm" disabled={updating} onClick={convertToPrepaid} className="mt-3 bg-olive-600 hover:bg-black">
+                    {updating ? "Sending…" : "Retry prepaid email"}
+                  </Button>
                 </div>
               )}
               {detail.order.promo_code && (
@@ -570,12 +614,13 @@ function OrderDetailModal({
                   {detail.history.map((h, i) => (
                     <div
                       key={i}
-                      className="flex justify-between text-xs text-foreground/60"
+                      className="flex flex-wrap justify-between gap-x-2 text-xs text-foreground/60"
                     >
                       <span>{STATUS_LABEL[h.status] || h.status}</span>
                       <span>
                         {new Date(h.created_at).toLocaleString("en-IN")}
                       </span>
+                      {h.note && <span className="basis-full text-foreground/50">{h.note}</span>}
                     </div>
                   ))}
                 </div>
