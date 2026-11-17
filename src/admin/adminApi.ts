@@ -295,6 +295,8 @@ export type AdminAnalytics = {
   paidOrderCount?: number;
   revenue: number;
   monthlyRevenue: number;
+  selectedRevenueMonth: string;
+  availableRevenueMonths: string[];
   customerCount: number;
   byStatus: { status: string; count: number }[];
   topProducts: { productName: string; unitsSold: number; revenue: number }[];
@@ -510,7 +512,7 @@ export const adminApi = {
     remove: (id: number) => request<{ ok: true }>(`/api/admin/admins/${id}`, { method: "DELETE" }),
   },
   analytics: {
-    get: () => request<AdminAnalytics>("/api/admin/analytics"),
+    get: (month?: string) => request<AdminAnalytics>(`/api/admin/analytics${month ? `?month=${encodeURIComponent(month)}` : ""}`),
     products: () => request<AdminProductStats>("/api/admin/analytics/products"),
   },
   complaints: {

@@ -14,14 +14,28 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function AnalyticsSection({ onError }: { onError: (m: string) => void }) {
   const [data, setData] = useState<AdminAnalytics | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(() => currentIndiaMonth());
+  const [loadingMonth, setLoadingMonth] = useState(true);
 
   useEffect(() => {
+    let current = true;
+    setLoadingMonth(true);
     adminApi.analytics
-      .get()
-      .then(setData)
-      .catch((e) => onError(e instanceof AdminApiError ? e.message : "Couldn't load analytics"));
+      .get(selectedMonth)
+      .then((result) => {
+        if (current) setData(result);
+      })
+      .catch((e) => {
+        if (current) onError(e instanceof AdminApiError ? e.message : "Couldn't load analytics");
+      })
+      .finally(() => {
+        if (current) setLoadingMonth(false);
+      });
+    return () => {
+      current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedMonth]);
 
   if (!data) return <p className="text-sm text-foreground/50">Loading…</p>;
 
@@ -44,11 +58,27 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
           }
           hint="Placed count excludes cancelled and awaiting-payment orders."
         />
-        <StatCard
-          label="Monthly revenue"
-          value={`₹${data.monthlyRevenue.toLocaleString("en-IN")}`}
-          hint="Payments received this calendar month (India)."
-        />
+        <div className="rounded-md border border-border bg-background p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[11px] uppercase leading-tight tracking-wide text-foreground/50">Monthly revenue</p>
+            <select
+              aria-label="Choose revenue month"
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              className="max-w-[58%] rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
+            >
+              {[...new Set([selectedMonth, ...data.availableRevenueMonths])]
+                .sort((a, b) => b.localeCompare(a))
+                .map((month) => (
+                  <option key={month} value={month}>{formatRevenueMonth(month)}</option>
+                ))}
+            </select>
+          </div>
+          <p className="mt-1 break-words font-serif text-xl text-olive-600 sm:text-2xl">
+            {loadingMonth ? "Loading…" : `₹${data.monthlyRevenue.toLocaleString("en-IN")}`}
+          </p>
+          <p className="mt-1 text-[10px] leading-relaxed text-foreground/50">Payments received in the selected India calendar month.</p>
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-2">
@@ -113,6 +143,23 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
       </div>
     </div>
   );
+}
+
+function currentIndiaMonth() {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  return `${parts.find((part) => part.type === "year")?.value}-${parts.find((part) => part.type === "month")?.value}`;
+}
+
+function formatRevenueMonth(month: string) {
+  return new Date(`${month}-01T00:00:00+05:30`).toLocaleDateString("en-IN", {
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
 }
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {

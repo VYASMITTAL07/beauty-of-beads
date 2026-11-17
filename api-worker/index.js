@@ -20891,22 +20891,32 @@ app23.use("*", async (c, next) => {
 });
 app23.get("/", async (c) => {
   const db = getDb(c.env);
+  const nowParts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit"
+  }).formatToParts(/* @__PURE__ */ new Date());
+  const currentMonth = `${nowParts.find((part) => part.type === "year")?.value}-${nowParts.find((part) => part.type === "month")?.value}`;
+  const requestedMonth = c.req.query("month") || currentMonth;
+  const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : currentMonth;
+  const selectedMonthStart = `${selectedMonth}-01 00:00:00`;
   const REVENUE_AMOUNT = `CASE
     WHEN payment_status = 'paid' THEN total_amount
     WHEN payment_status = 'partially_paid' THEN amount_paid
     ELSE 0
   END`;
-  const [totals, byStatus, topProducts, recent, customerCount] = await Promise.all([
-    db.execute(
-      `SELECT COUNT(*) AS order_count,
+  const [totals, byStatus, topProducts, recent, customerCount, availableRevenueMonths] = await Promise.all([
+    db.execute({
+      sql: `SELECT COUNT(*) AS order_count,
               COALESCE(SUM(${REVENUE_AMOUNT}), 0) AS revenue,
               COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END), 0) AS paid_count,
               COALESCE(SUM(CASE
-                WHEN COALESCE(paid_at, created_at) >= datetime('now', '+5 hours', '+30 minutes', 'start of month', '-5 hours', '-30 minutes')
-                 AND COALESCE(paid_at, created_at) < datetime('now', '+5 hours', '+30 minutes', 'start of month', '+1 month', '-5 hours', '-30 minutes')
+                WHEN COALESCE(paid_at, created_at) >= datetime(?, '-5 hours', '-30 minutes')
+                 AND COALESCE(paid_at, created_at) < datetime(?, '+1 month', '-5 hours', '-30 minutes')
                 THEN ${REVENUE_AMOUNT} ELSE 0 END), 0) AS monthly_revenue
-         FROM orders WHERE status NOT IN ('cancelled', 'awaiting_payment')`
-    ),
+         FROM orders WHERE status NOT IN ('cancelled', 'awaiting_payment')`,
+      args: [selectedMonthStart, selectedMonthStart]
+    }),
     db.execute(`SELECT status, COUNT(*) AS count FROM orders GROUP BY status`),
     db.execute(`
       SELECT oi.product_name, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.product_price) AS revenue
@@ -20919,13 +20929,23 @@ app23.get("/", async (c) => {
     db.execute(
       `SELECT order_number, total_amount, status, payment_status, created_at FROM orders ORDER BY created_at DESC LIMIT 10`
     ),
-    db.execute(`SELECT COUNT(*) AS count FROM users`)
+    db.execute(`SELECT COUNT(*) AS count FROM users`),
+    db.execute(`
+      SELECT strftime('%Y-%m', datetime(COALESCE(paid_at, created_at), '+5 hours', '+30 minutes')) AS month
+        FROM orders
+       WHERE status NOT IN ('cancelled', 'awaiting_payment')
+         AND payment_status IN ('paid', 'partially_paid')
+       GROUP BY month
+       ORDER BY month DESC
+    `)
   ]);
   return c.json({
     orderCount: Number(totals.rows[0].order_count),
     paidOrderCount: Number(totals.rows[0].paid_count),
     revenue: Number(totals.rows[0].revenue),
     monthlyRevenue: Number(totals.rows[0].monthly_revenue),
+    selectedRevenueMonth: selectedMonth,
+    availableRevenueMonths: availableRevenueMonths.rows.map((row) => row.month),
     customerCount: Number(customerCount.rows[0].count),
     byStatus: byStatus.rows.map((r) => ({ status: r.status, count: Number(r.count) })),
     topProducts: topProducts.rows.map((r) => ({ productName: r.product_name, unitsSold: Number(r.units_sold), revenue: Number(r.revenue) })),
