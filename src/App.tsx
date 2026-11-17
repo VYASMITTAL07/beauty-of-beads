@@ -5031,6 +5031,44 @@ const PRODUCT_DESCRIPTIONS: Record<string, string> = {
     "Hand-beaded and finished with a secure, comfortable fastening, this piece is designed for both daily wear and special occasions alike.",
 };
 
+const COLOUR_LABELS: Record<string, string> = {
+  "#4B5540": "Deep olive",
+  "#6B7658": "Olive green",
+  "#8E9A7C": "Sage green",
+  "#D3D8C2": "Pale sage",
+  "#D7DBC7": "Soft sage",
+  "#E4E6D9": "Sage",
+  "#E9EBDE": "Light sage",
+  "#833E20": "Deep brown",
+  "#6B4A2E": "Walnut brown",
+  "#3A2E22": "Espresso brown",
+  "#A34F2B": "Rust",
+  "#C1653A": "Terracotta",
+  "#C79A3E": "Antique gold",
+  "#DDBB6E": "Champagne gold",
+  "#DDA870": "Warm gold",
+  "#F1E4D3": "Soft champagne",
+  "#FAF3EA": "Ivory",
+  "#EAD3B8": "Warm beige",
+  "#EFDDC7": "Sand",
+  "#F1E1C4": "Light gold",
+  "#F3E2CC": "Peach",
+  "#F3E5C8": "Pale gold",
+  "#F5E6D6": "Blush beige",
+  "#F6E7D8": "Blush",
+  "#E2C6A5": "Beige",
+  "#E3C593": "Honey gold",
+  "#E4D3BE": "Oatmeal",
+  "#E7CE9C": "Sand gold",
+  "#E9CDAF": "Nude peach",
+  "#EFE3D2": "Warm ivory",
+};
+
+function colourOptionLabel(colour: string, index: number) {
+  if (!/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(colour)) return colour;
+  return COLOUR_LABELS[colour.toUpperCase()] || `Shade ${index + 1}`;
+}
+
 function ProductDetailView({
   product,
   wishlist,
@@ -5202,7 +5240,9 @@ function ProductDetailView({
   // goes with them, or a set would be charged at its cheapest piece.
   const chosenSuffix = [
     ...(product.variants || []).map((g) => selectedOptions[g.name]).filter(Boolean),
-    ...(selectedColor && product.colorOptions?.length ? [selectedColor] : []),
+    ...(selectedColor && product.colorOptions?.length
+      ? [colourOptionLabel(selectedColor, product.colorOptions.indexOf(selectedColor))]
+      : []),
   ];
   const cartProduct: Product = chosenSuffix.length
     ? { ...product, name: `${product.name} - ${chosenSuffix.join(", ")}`, price: unitPrice, mrp: unitMrp }
@@ -5472,28 +5512,38 @@ function ProductDetailView({
               </div>
             ))}
 
-            {/* Colour variants — plain text labels the admin entered; no colour swatch
-                data exists on the order, so this is tracked purely in local state. */}
+            {/* Colour variants can be entered as names or as hex colour values. */}
             {product.colorOptions && product.colorOptions.length > 0 && (
               <div className="mt-6">
                 <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  Colour{selectedColor ? `: ${selectedColor}` : ""}
+                  Colour{selectedColor
+                    ? `: ${colourOptionLabel(selectedColor, product.colorOptions.indexOf(selectedColor))}`
+                    : ""}
                 </span>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {product.colorOptions.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setSelectedColor(c)}
-                      className={`rounded-sm border px-3.5 py-1.5 text-xs font-medium uppercase tracking-wide transition-colors ${
-                        selectedColor === c
-                          ? "border-olive-600 bg-olive-600 text-olive-50"
-                          : "border-border text-foreground/70 hover:border-olive-400"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
+                  {product.colorOptions.map((c, index) => {
+                    const isHexColour = /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(c);
+                    const isSelected = selectedColor === c;
+                    const label = colourOptionLabel(c, index);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setSelectedColor(c)}
+                        aria-label={`Choose ${label}`}
+                        aria-pressed={isSelected}
+                        title={label}
+                        className={isHexColour
+                          ? `flex h-9 w-9 items-center justify-center rounded-full border transition-shadow ${isSelected ? "border-foreground ring-2 ring-foreground ring-offset-2" : "border-black/15 hover:ring-2 hover:ring-foreground/40 hover:ring-offset-1"}`
+                          : `rounded-sm border px-3.5 py-1.5 text-xs font-medium uppercase tracking-wide transition-colors ${isSelected ? "border-olive-600 bg-olive-600 text-olive-50" : "border-border text-foreground/70 hover:border-olive-400"}`}
+                      >
+                        {isHexColour
+                          ? isSelected ? <Check className="h-4 w-4" style={{ color: "#fff", filter: "drop-shadow(0 1px 2px rgba(0,0,0,.8))" }} /> : null
+                          : c}
+                        {isHexColour && <span className="sr-only">{label}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
