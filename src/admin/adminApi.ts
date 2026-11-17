@@ -123,6 +123,7 @@ export type AdminOrder = {
   amount_paid?: number | null;
   payment_method?: string | null;
   payment_id?: string | null;
+  manual_payment_reference?: string | null;
   paid_at?: string | null;
   shipping_amount?: number | null;
   shipping_method?: string | null;
@@ -149,6 +150,7 @@ export type AdminOrderDetail = {
   items: { product_name: string; product_price: number; quantity: number; product_image?: string | null }[];
   history: { status: string; note: string | null; created_at: string }[];
   stages: string[];
+  prepaidEmailSent?: boolean;
 };
 
 export type AdminCustomer = {
@@ -400,6 +402,11 @@ export const adminApi = {
     setStatus: (id: number, status: string, note?: string) =>
       request<{ ok: true; status: string }>(`/api/admin/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) }),
     resendDeliveryEmail: (id: number) => request<{ ok: true }>(`/api/admin/orders/${id}/resend-delivery-email`, { method: "POST" }),
+    convertToPrepaid: (id: number, paymentReference?: string) =>
+      request<{ ok: true; converted: boolean; emailSent: boolean; emailReason?: string }>(`/api/admin/orders/${id}/convert-to-prepaid`, {
+        method: "POST",
+        body: JSON.stringify({ paymentReference }),
+      }),
     // Only ever accepted for an order that never took money — the server
     // refuses anything paid, refunded or invoiced.
     remove: (id: number) => request<{ ok: true; orderNumber: string }>(`/api/admin/orders/${id}`, { method: "DELETE" }),

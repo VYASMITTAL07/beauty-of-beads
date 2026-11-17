@@ -25,6 +25,7 @@ export type InvoiceOrder = {
   paid_at?: string | null;
   payment_method?: string | null;
   payment_id?: string | null;
+  manual_payment_reference?: string | null;
   payment_status?: string | null;
   payment_option?: "full" | "partial_cod" | null;
   amount_paid?: number | null;
@@ -155,7 +156,13 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
             {order.payment_method && (
               <div className="flex justify-between gap-6">
                 <dt className="text-black/50">Payment</dt>
-                <dd className="uppercase">{order.payment_method}</dd>
+                <dd className="uppercase">{order.payment_method === "whatsapp_manual" ? "WhatsApp" : order.payment_method}</dd>
+              </div>
+            )}
+            {order.manual_payment_reference && (
+              <div className="flex justify-between gap-6">
+                <dt className="text-black/50">WhatsApp payment reference</dt>
+                <dd>{order.manual_payment_reference}</dd>
               </div>
             )}
             {/* Place of supply decides whether the tax splits into CGST + SGST
@@ -259,6 +266,7 @@ export function Invoice({ order, items, onClose }: { order: InvoiceOrder; items:
           <p className="mb-2 text-black/65">Your delivery charge is shown clearly above — no hidden delivery fees.</p>
           <p>This is a computer generated invoice and does not require a signature.</p>
           {order.payment_id && <p className="mt-0.5">Payment reference: {order.payment_id}</p>}
+          {order.manual_payment_reference && <p className="mt-0.5">WhatsApp payment reference: {order.manual_payment_reference}</p>}
           {order.payment_status === "partially_paid" && (
             <p className="mt-0.5 font-semibold text-black/70">₹250 advance received. The balance shown above is payable to the delivery partner when your order arrives.</p>
           )}
