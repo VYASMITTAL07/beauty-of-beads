@@ -20891,19 +20891,27 @@ app23.use("*", async (c, next) => {
 });
 app23.get("/", async (c) => {
   const db = getDb(c.env);
-  const PAID = "payment_status = 'paid'";
+  const REVENUE_AMOUNT = `CASE
+    WHEN payment_status = 'paid' THEN total_amount
+    WHEN payment_status = 'partially_paid' THEN amount_paid
+    ELSE 0
+  END`;
   const [totals, byStatus, topProducts, recent, customerCount] = await Promise.all([
     db.execute(
       `SELECT COUNT(*) AS order_count,
-              COALESCE(SUM(CASE WHEN ${PAID} THEN total_amount END), 0) AS revenue,
-              COALESCE(SUM(CASE WHEN ${PAID} THEN 1 ELSE 0 END), 0) AS paid_count
+              COALESCE(SUM(${REVENUE_AMOUNT}), 0) AS revenue,
+              COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END), 0) AS paid_count,
+              COALESCE(SUM(CASE
+                WHEN COALESCE(paid_at, created_at) >= datetime('now', '+5 hours', '+30 minutes', 'start of month', '-5 hours', '-30 minutes')
+                 AND COALESCE(paid_at, created_at) < datetime('now', '+5 hours', '+30 minutes', 'start of month', '+1 month', '-5 hours', '-30 minutes')
+                THEN ${REVENUE_AMOUNT} ELSE 0 END), 0) AS monthly_revenue
          FROM orders WHERE status NOT IN ('cancelled', 'awaiting_payment')`
     ),
     db.execute(`SELECT status, COUNT(*) AS count FROM orders GROUP BY status`),
     db.execute(`
       SELECT oi.product_name, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.product_price) AS revenue
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
-       WHERE o.${PAID}
+       WHERE o.status != 'cancelled' AND o.payment_status = 'paid'
        GROUP BY oi.product_name
        ORDER BY units_sold DESC
        LIMIT 10
@@ -20917,6 +20925,7 @@ app23.get("/", async (c) => {
     orderCount: Number(totals.rows[0].order_count),
     paidOrderCount: Number(totals.rows[0].paid_count),
     revenue: Number(totals.rows[0].revenue),
+    monthlyRevenue: Number(totals.rows[0].monthly_revenue),
     customerCount: Number(customerCount.rows[0].count),
     byStatus: byStatus.rows.map((r) => ({ status: r.status, count: Number(r.count) })),
     topProducts: topProducts.rows.map((r) => ({ productName: r.product_name, unitsSold: Number(r.units_sold), revenue: Number(r.revenue) })),

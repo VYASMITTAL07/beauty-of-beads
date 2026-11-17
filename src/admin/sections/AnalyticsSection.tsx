@@ -29,17 +29,26 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
     <div>
       <h1 className="font-serif text-xl text-olive-600 sm:text-2xl">Overview</h1>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <StatCard label="Revenue received" value={`₹${data.revenue.toLocaleString("en-IN")}`} />
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard
-          label="Orders"
+          label="Revenue received"
+          value={`₹${data.revenue.toLocaleString("en-IN")}`}
+          hint="Fully paid amounts + Partial COD advances; cancelled orders excluded."
+        />
+        <StatCard
+          label="Orders (fully paid / placed)"
           value={
             data.paidOrderCount === undefined
               ? String(data.orderCount)
-              : `${data.paidOrderCount} paid / ${data.orderCount}`
+              : `${data.paidOrderCount} / ${data.orderCount}`
           }
+          hint="Placed count excludes cancelled and awaiting-payment orders."
         />
-        <StatCard label="Customers" value={String(data.customerCount)} />
+        <StatCard
+          label="Monthly revenue"
+          value={`₹${data.monthlyRevenue.toLocaleString("en-IN")}`}
+          hint="Payments received this calendar month (India)."
+        />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-2">
@@ -106,11 +115,12 @@ export default function AnalyticsSection({ onError }: { onError: (m: string) => 
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-md border border-border bg-background p-4 sm:p-5">
       <p className="text-[11px] uppercase leading-tight tracking-wide text-foreground/50">{label}</p>
       <p className="mt-1 break-words font-serif text-xl text-olive-600 sm:text-2xl">{value}</p>
+      {hint && <p className="mt-1 text-[10px] leading-relaxed text-foreground/50">{hint}</p>}
     </div>
   );
 }
