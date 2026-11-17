@@ -5533,6 +5533,7 @@ function ProductDetailView({
                         aria-label={`Choose ${label}`}
                         aria-pressed={isSelected}
                         title={label}
+                        style={isHexColour ? { backgroundColor: c } : undefined}
                         className={isHexColour
                           ? `flex h-9 w-9 items-center justify-center rounded-full border transition-shadow ${isSelected ? "border-foreground ring-2 ring-foreground ring-offset-2" : "border-black/15 hover:ring-2 hover:ring-foreground/40 hover:ring-offset-1"}`
                           : `rounded-sm border px-3.5 py-1.5 text-xs font-medium uppercase tracking-wide transition-colors ${isSelected ? "border-olive-600 bg-olive-600 text-olive-50" : "border-border text-foreground/70 hover:border-olive-400"}`}
